@@ -1,19 +1,22 @@
-import { CheckCircle2, Circle, Grid3x3, LayoutList, Library as LibIcon, Plus, Search, Sparkles, Star, Sunrise, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Copy, Download, Hash, CheckCircle2, Circle, Grid3x3, LayoutList, Library as LibIcon, Plus, Search, Sparkles, Star, Sunrise, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ItemEditor from '../components/ItemEditor';
 import TemplatePicker from '../components/TemplatePicker';
+import { toast } from '../components/Toaster';
 import { CatBadge, Empty, HORIZON_META, PageHeader, PRIORITY_META, Progress, STATUS_META, TYPE_META } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
 import type { LifeItem } from '../lib/types';
-import { cx, fmtDate, pct, today } from '../lib/utils';
+import { csvEscape, cx, download, fmtDate, pct, today } from '../lib/utils';
 
 const PAGE = 100;
 type GroupBy = 'none' | 'category' | 'status' | 'priority' | 'horizon' | 'type';
 type SortBy = 'created' | 'priority' | 'due' | 'title';
 
 export default function Library() {
-  const { items, categories, updateItems, deleteItems, toggleItemDone, updateItem } = useStore();
+  const { items, categories, updateItems, deleteItems, restoreItems, duplicateItems, addTagToItems, removeTagFromItems, toggleItemDone, updateItem } = useStore();
+  const allTags = useMemo(() => [...new Set(items.flatMap((i) => i.tags))].sort(), [items]);
+  const [tag, setTag] = useState('all');
   const catMap = useCategoryMap();
   const [params] = useSearchParams();
   const [q, setQ] = useState(params.get('q') ?? '');
@@ -32,7 +35,18 @@ export default function Library() {
   const [inline, setInline] = useState('');
 
   useEffect(() => setQ(params.get('q') ?? ''), [params]);
-  useEffect(() => setLimit(PAGE), [q, cat, status, prio, horizon, starredOnly]);
+  useEffect(() => setLimit(PAGE), [q, cat, status, prio, horizon, starredOnly, tag]);
+  // keyboard: Esc clears selection, Ctrl/⌘+A selects all filtered
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const t = (e.target as HTMLElement)?.tagName;
+      if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+      if (e.key === 'Escape') setSel(new Set());
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); setSel(new Set(filteredRef.current.map((i) => i.id))); }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
 
   const filtered = useMemo(() => {
     const lq = q.toLowerCase();
@@ -42,7 +56,8 @@ export default function Library() {
       (status === 'all' || (status === 'open' ? i.status !== 'done' && i.status !== 'dropped' : i.status === status)) &&
       (prio === 'all' || i.priority === Number(prio)) &&
       (horizon === 'all' || i.horizon === horizon) &&
-      (!starredOnly || i.starred));
+      (!starredOnly || i.starred) &&
+      (tag === 'all' || i.tags.includes(tag)));
     r = [...r].sort((a, b) => {
       if (sortBy === 'priority') return a.priority - b.priority || Number(b.starred) - Number(a.starred);
       if (sortBy === 'due') return (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999');
@@ -50,9 +65,18 @@ export default function Library() {
       return b.createdAt.localeCompare(a.createdAt);
     });
     return r;
-  }, [items, q, cat, status, prio, horizon, starredOnly, sortBy]);
+  }, [items, q, cat, status, prio, horizon, starredOnly, sortBy, tag]);
 
+  const filteredRef = useRef(filtered);
+  filteredRef.current = filtered;
   const visible = filtered.slice(0, limit);
+  const filtersOn = q || cat !== 'all' || status !== 'open' || prio !== 'all' || horizon !== 'all' || starredOnly || tag !== 'all';
+  const clearFilters = () => { setQ(''); setCat('all'); setStatus('open'); setPrio('all'); setHorizon('all'); setStarredOnly(false); setTag('all'); };
+  const exportSelected = () => {
+    const rows = items.filter((i) => sel.has(i.id));
+    const head = ['title', 'category', 'status', 'priority', 'horizon', 'type', 'dueDate', 'tags', 'notes'];
+    download(`life-circle-selection-${today()}.csv`, [head.join(','), ...rows.map((i) => [i.title, catMap[i.categoryId]?.name, i.status, i.priority, i.horizon, i.type, i.dueDate, i.tags.join(';'), i.notes].map(csvEscape).join(','))].join('\n'), 'text/csv');
+  };
   const groups = useMemo(() => {
     if (groupBy === 'none') return [{ key: 'all', label: `All items`, color: '#6366f1', items: visible }];
     const m = new Map<string, LifeItem[]>();
@@ -132,6 +156,13 @@ export default function Library() {
         <select className="input !w-auto" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}>
           <option value="priority">Sort: Priority</option><option value="due">Sort: Due date</option><option value="created">Sort: Newest</option><option value="title">Sort: A–Z</option>
         </select>
+        {allTags.length > 0 && (
+          <select className="input !w-auto" value={tag} onChange={(e) => setTag(e.target.value)}>
+            <option value="all">Any tag</option>
+            {allTags.map((t) => <option key={t} value={t}>#{t}</option>)}
+          </select>
+        )}
+        {filtersOn && <button className="btn-ghost text-xs" onClick={clearFilters}><X size={14} /> Clear filters</button>}
         <button className={cx('btn-outline', starredOnly && '!border-amber-400 text-amber-500')} onClick={() => setStarredOnly(!starredOnly)}><Star size={15} /></button>
         <div className="flex rounded-xl border border-slate-200 p-0.5 dark:border-white/10">
           <button className={cx('rounded-lg p-1.5', view === 'list' && 'bg-slate-200 dark:bg-white/10')} onClick={() => setView('list')}><LayoutList size={16} /></button>
@@ -167,13 +198,23 @@ export default function Library() {
           <select className="rounded-lg bg-white/15 px-2 py-1 outline-none [&>option]:text-black" value="" onChange={(e) => { e.target.value && updateItems(ids, { horizon: e.target.value as any }); setSel(new Set()); }}>
             <option value="">Horizon…</option>{Object.entries(HORIZON_META).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          <button className="rounded-lg bg-rose-500 px-2.5 py-1 hover:bg-rose-400" onClick={() => { if (confirm(`Delete ${sel.size} items?`)) { deleteItems(ids); setSel(new Set()); } }}><Trash2 size={14} className="inline" /> Delete</button>
+          <button className="rounded-lg bg-white/15 px-2.5 py-1 hover:bg-white/25" onClick={() => { updateItems(ids, { starred: true }); setSel(new Set()); }}><Star size={14} className="inline" /> Star</button>
+          <button className="rounded-lg bg-white/15 px-2.5 py-1 hover:bg-white/25" onClick={() => { const t = prompt('Add tag to selected items:'); if (t) { addTagToItems(ids, t); toast(`Tagged ${ids.length} items #${t.replace(/^#/, '')}`); } }}><Hash size={14} className="inline" /> Add tag</button>
+          {allTags.length > 0 && (
+            <select className="rounded-lg bg-white/15 px-2 py-1 outline-none [&>option]:text-black" value="" onChange={(e) => { if (e.target.value) { removeTagFromItems(ids, e.target.value); toast(`Removed #${e.target.value}`); } }}>
+              <option value="">Remove tag…</option>{allTags.map((t) => <option key={t} value={t}>#{t}</option>)}
+            </select>
+          )}
+          <input type="date" title="Set due date" className="rounded-lg bg-white/15 px-2 py-0.5 outline-none [color-scheme:dark]" onChange={(e) => { updateItems(ids, { dueDate: e.target.value || undefined }); toast(`Due date set on ${ids.length} items`); }} />
+          <button className="rounded-lg bg-white/15 px-2.5 py-1 hover:bg-white/25" onClick={() => { duplicateItems(ids); toast(`Duplicated ${ids.length} items`); setSel(new Set()); }}><Copy size={14} className="inline" /> Duplicate</button>
+          <button className="rounded-lg bg-white/15 px-2.5 py-1 hover:bg-white/25" onClick={exportSelected}><Download size={14} className="inline" /> CSV</button>
+          <button className="rounded-lg bg-rose-500 px-2.5 py-1 hover:bg-rose-400" onClick={() => { const removed = deleteItems(ids); setSel(new Set()); toast(`Deleted ${removed.length} items`, { label: 'Undo', run: () => restoreItems(removed) }); }}><Trash2 size={14} className="inline" /> Delete</button>
           <button className="ml-auto rounded-lg p-1 hover:bg-white/20" onClick={() => setSel(new Set())}><X size={16} /></button>
         </div>
       )}
 
       {items.length === 0 ? (
-        <Empty icon={<LibIcon size={28} />} title="Your Life Library is empty" text="Start by browsing 400+ ready-made ideas, or paste your own list — hundreds at a time."
+        <Empty icon={<LibIcon size={28} />} title="Your Life Library is empty" text="Start by browsing 1,000+ ready-made ideas, or paste your own list — hundreds at a time."
           action={<div className="flex gap-2"><button className="btn-primary" onClick={() => setPicker(true)}><Sparkles size={16} /> Browse ideas</button>
             <button className="btn-outline" onClick={() => useStore.getState().loadDemo()}>Load demo data</button></div>} />
       ) : filtered.length === 0 ? (
@@ -195,7 +236,11 @@ export default function Library() {
                     <button onClick={() => toggleItemDone(i.id)} className={i.status === 'done' ? 'text-emerald-500' : 'muted hover:text-emerald-500'}>
                       {i.status === 'done' ? <CheckCircle2 size={19} /> : <Circle size={19} />}
                     </button>
-                    <button onClick={() => setEditing(i)} className={cx('min-w-0 flex-1 truncate text-left text-sm', i.status === 'done' && 'line-through muted')}>{i.title}</button>
+                    <button onClick={() => setEditing(i)} className={cx('min-w-0 flex-1 truncate text-left text-sm', i.status === 'done' && 'line-through muted')}>
+                      {i.title}
+                      {(i.checklist?.length ?? 0) > 0 && <span className="ml-2 text-xs muted">☑ {i.checklist!.filter((c) => c.done).length}/{i.checklist!.length}</span>}
+                      {i.tags.slice(0, 3).map((t) => <span key={t} className="ml-1.5 text-xs text-indigo-400">#{t}</span>)}
+                    </button>
                     <div className="hidden items-center gap-1.5 md:flex">
                       {groupBy !== 'category' && <CatBadge cat={catMap[i.categoryId]} />}
                       {i.todayDate === today() && <span className="chip bg-amber-500/15 text-amber-500">Today</span>}
