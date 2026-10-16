@@ -4,12 +4,15 @@ import { Empty, PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
 import type { JournalEntry } from '../lib/types';
 import { cx, fmtDate, today } from '../lib/utils';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 
 const MOODS = ['😞', '😕', '😐', '🙂', '😄'];
 const PROMPTS = ['What am I grateful for today?', 'What did I learn?', 'What would make tomorrow great?', 'What drained my energy?', 'A memory I want to keep…', 'Who made a difference today?'];
 
 export default function Journal() {
   const { journal, saveEntry, deleteEntry } = useStore();
+  const { user } = useAuth();
   const [sel, setSel] = useState<string | null>(journal[0]?.id ?? null);
   const [q, setQ] = useState('');
   const [draft, setDraft] = useState<Partial<JournalEntry> | null>(null);
@@ -19,6 +22,15 @@ export default function Journal() {
 
   const newEntry = (prompt?: string) => { setSel(null); setDraft({ date: today(), title: '', content: prompt ? prompt + '\n\n' : '', mood: 3, tags: [], visibility: 'private' }); };
   const save = () => { if (!draft) return; saveEntry(draft); setDraft(null); setTimeout(() => setSel(useStore.getState().journal.find((j) => j.id === draft.id)?.id ?? useStore.getState().journal[0]?.id), 0); };
+  const publish = async () => {
+    if (!current || !user || !supabase || current.visibility !== 'public') return;
+    if (!confirm('Publish this journal entry publicly? Anyone with the link may read it.')) return;
+    const slug = `${user.id.slice(0, 8)}-${current.id ?? crypto.randomUUID().slice(0, 8)}`;
+    const content = current.content ?? '';
+    const { error } = await supabase.from('public_journals').upsert({ slug, owner_id: user.id, title: current.title || 'Journal entry', excerpt: content.slice(0, 180), content, updated_at: new Date().toISOString() });
+    if (!error) { await navigator.clipboard?.writeText(`${window.location.origin}${window.location.pathname}#/public/journal/${slug}`); alert('Published. The public link was copied.'); }
+    else alert('Could not publish yet. Run the latest Supabase schema and check your connection.');
+  };
   const edit = (patch: Partial<JournalEntry>) => setDraft({ ...(current as JournalEntry), ...patch });
 
   return (
@@ -56,7 +68,7 @@ export default function Journal() {
               <input className="input mt-3" placeholder="Tags, comma separated" value={(current.tags ?? []).join(', ')} onChange={(e) => edit({ tags: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
               <input className="input mt-3" placeholder="Location or memory context (optional)" value={current.location ?? ''} onChange={(e) => edit({ location: e.target.value || undefined })} />
               {current.visibility === 'public' && <p className="mt-3 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">Public preview enabled. When cloud publishing is configured, this entry can appear on your public journal page. Do not include sensitive information.</p>}
-              {draft && <div className="mt-4 flex justify-end gap-2"><button className="btn-ghost" onClick={() => setDraft(null)}>Discard</button><button className="btn-primary" onClick={save}>Save entry</button></div>}
+              {draft && <div className="mt-4 flex flex-wrap justify-end gap-2"><button className="btn-ghost" onClick={() => setDraft(null)}>Discard</button>{current.visibility === 'public' && user && <button className="btn-outline" onClick={publish}><Globe2 size={15} /> Publish link</button>}<button className="btn-primary" onClick={save}>Save entry</button></div>}
             </div>
           ) : <div className="card grid place-items-center p-10 muted">Select an entry</div>}
         </div>
