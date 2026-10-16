@@ -24,9 +24,15 @@ export interface LifeItem {
   todayDate?: string; // set when pinned to Today
   starred: boolean;
   goalId?: string;
+  checklist?: ChecklistItem[];
+  url?: string;
+  progress?: number; // 0-100, manual progress
   createdAt: string;
+  updatedAt?: string;
   completedAt?: string;
 }
+
+export interface ChecklistItem { id: string; title: string; done: boolean }
 
 export interface Milestone { id: string; title: string; done: boolean; dueDate?: string }
 

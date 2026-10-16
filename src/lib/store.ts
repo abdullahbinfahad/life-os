@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Category, Goal, Habit, JournalEntry, LifeItem, Project, Settings, Task } from './types';
-import { DEFAULT_CATEGORIES } from './templates';
+import { DEFAULT_CATEGORIES } from './library';
 import { addDays, today, uid } from './utils';
 
 type NewItem = Partial<LifeItem> & { title: string };
@@ -19,7 +19,11 @@ interface State {
   addItems: (items: NewItem[]) => void;
   updateItem: (id: string, patch: Partial<LifeItem>) => void;
   updateItems: (ids: string[], patch: Partial<LifeItem>) => void;
-  deleteItems: (ids: string[]) => void;
+  deleteItems: (ids: string[]) => LifeItem[];
+  restoreItems: (items: LifeItem[]) => void;
+  duplicateItems: (ids: string[]) => void;
+  addTagToItems: (ids: string[], tag: string) => void;
+  removeTagFromItems: (ids: string[], tag: string) => void;
   toggleItemDone: (id: string) => void;
   // categories
   addCategory: (c: Omit<Category, 'id'>) => void;
@@ -84,13 +88,13 @@ export const useStore = create<State>()(
       ...initial,
 
       addItems: (items) => set((s) => ({ items: [...items.map(makeItem), ...s.items] })),
-      updateItem: (id, patch) => set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) })),
+      updateItem: (id, patch) => set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: now() } : i)) })),
       updateItems: (ids, patch) => {
         const set_ = new Set(ids);
         set((s) => ({
           items: s.items.map((i) => {
             if (!set_.has(i.id)) return i;
-            const next = { ...i, ...patch };
+            const next = { ...i, ...patch, updatedAt: now() };
             if (patch.status === 'done' && i.status !== 'done') next.completedAt = now();
             if (patch.status && patch.status !== 'done') next.completedAt = undefined;
             return next;
@@ -99,7 +103,42 @@ export const useStore = create<State>()(
       },
       deleteItems: (ids) => {
         const s_ = new Set(ids);
+        const removed = get().items.filter((i) => s_.has(i.id));
         set((s) => ({ items: s.items.filter((i) => !s_.has(i.id)) }));
+        return removed;
+      },
+      restoreItems: (restored) =>
+        set((s) => {
+          const have = new Set(s.items.map((i) => i.id));
+          return { items: [...restored.filter((i) => !have.has(i.id)), ...s.items] };
+        }),
+      duplicateItems: (ids) =>
+        set((s) => {
+          const s_ = new Set(ids);
+          const copies = s.items
+            .filter((i) => s_.has(i.id))
+            .map((i) => ({
+              ...i,
+              id: uid(),
+              title: i.title + ' (copy)',
+              status: i.status === 'done' ? ('someday' as const) : i.status,
+              completedAt: undefined,
+              checklist: i.checklist?.map((c) => ({ ...c, id: uid(), done: false })),
+              createdAt: now(),
+              updatedAt: undefined,
+            }));
+          return { items: [...copies, ...s.items] };
+        }),
+      addTagToItems: (ids, tag) => {
+        const t = tag.trim().replace(/^#/, '');
+        if (!t) return;
+        const s_ = new Set(ids);
+        set((s) => ({ items: s.items.map((i) => (s_.has(i.id) && !i.tags.includes(t) ? { ...i, tags: [...i.tags, t], updatedAt: now() } : i)) }));
+      },
+      removeTagFromItems: (ids, tag) => {
+        const t = tag.trim().replace(/^#/, '');
+        const s_ = new Set(ids);
+        set((s) => ({ items: s.items.map((i) => (s_.has(i.id) ? { ...i, tags: i.tags.filter((x) => x !== t), updatedAt: now() } : i)) }));
       },
       toggleItemDone: (id) =>
         set((s) => ({
@@ -281,10 +320,21 @@ export const useStore = create<State>()(
         s.addHabit({ title: 'Morning workout', categoryId: 'health', log: log(0.7) });
         s.addHabit({ title: 'Read 20 pages', categoryId: 'learning', log: log(0.8) });
         s.addHabit({ title: 'Meditate 10 min', categoryId: 'mind', log: log(0.5) });
-        s.saveEntry({ title: 'A good start', content: 'Set up my Life OS today. Feeling clear about what matters.', mood: 4, tags: ['reflection'] });
+        s.saveEntry({ title: 'A good start', content: 'Set up my Life Circle today. Feeling clear about what matters.', mood: 4, tags: ['reflection'] });
       },
     }),
-    { name: 'life-os-v1' },
+    {
+      name: 'life-os-v1',
+      version: 2,
+      // v2: add the new idea categories for people who already had data
+      migrate: (persisted: any, version) => {
+        if (persisted && version < 2) {
+          const have = new Set((persisted.categories ?? []).map((c: Category) => c.id));
+          persisted.categories = [...(persisted.categories ?? []), ...DEFAULT_CATEGORIES.filter((c) => !have.has(c.id))];
+        }
+        return persisted;
+      },
+    },
   ),
 );
 
