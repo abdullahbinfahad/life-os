@@ -1,10 +1,43 @@
-import { BarChart3, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X } from 'lucide-react';
+import { BarChart3, Cloud, CloudOff, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
 import { cx } from '../lib/utils';
 import QuickAdd from './QuickAdd';
 import CommandPalette from './CommandPalette';
+import { APP_NAME, Logo } from './Brand';
+import Toaster from './Toaster';
+import { auth, syncNow, useAuth } from '../lib/auth';
+import { cloudEnabled } from '../lib/supabase';
+
+function AccountBox() {
+  const { user, sync, guest, setGuest } = useAuth();
+  if (!cloudEnabled) return null;
+  if (!user)
+    return (
+      <button className="btn-outline mt-3 w-full" onClick={() => setGuest(false)}>
+        <LogIn size={15} /> {guest ? 'Sign in to sync & protect' : 'Sign in'}
+      </button>
+    );
+  const name = (user.user_metadata?.full_name as string) || user.email || user.phone || 'You';
+  const avatar = user.user_metadata?.avatar_url as string | undefined;
+  const label = { off: '', loading: 'Loading…', saving: 'Saving…', saved: 'Synced', error: 'Sync error — retry', offline: 'Offline — will sync' }[sync];
+  return (
+    <div className="mt-3 rounded-xl border border-slate-200 p-2.5 dark:border-white/10">
+      <div className="flex items-center gap-2">
+        {avatar ? <img src={avatar} alt="" className="h-8 w-8 rounded-full" referrerPolicy="no-referrer" />
+          : <span className="grid h-8 w-8 place-items-center rounded-full bg-indigo-500/15 text-sm font-semibold text-indigo-500">{name[0]?.toUpperCase()}</span>}
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">{name}</div>
+          <button onClick={() => syncNow()} className={cx('flex items-center gap-1 text-[11px]', sync === 'error' ? 'text-rose-500' : 'muted')}>
+            {sync === 'saving' || sync === 'loading' ? <RefreshCw size={11} className="animate-spin" /> : sync === 'error' || sync === 'offline' ? <CloudOff size={11} /> : <Cloud size={11} />} {label}
+          </button>
+        </div>
+        <button className="btn-ghost !p-1.5" title="Sign out" onClick={() => confirm('Sign out? Your data stays safe in your account.') && auth.signOut()}><LogOut size={15} /></button>
+      </div>
+    </div>
+  );
+}
 
 export const NAV = [
   { to: '/', label: 'Overview', desc: 'Your current life at a glance', icon: LayoutDashboard },
@@ -50,9 +83,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 px-3 pb-6 pt-2">
-        <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-lg font-black text-white shadow-lg shadow-indigo-500/30">◎</div>
+        <Logo size={34} />
         <div>
-          <div className="font-bold leading-tight">Life OS</div>
+          <div className="font-bold leading-tight">{APP_NAME}</div>
           <div className="text-[11px] leading-tight muted">A personal system for everything that matters</div>
         </div>
       </div>
@@ -73,6 +106,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <button className="btn-ghost mt-4 justify-start" onClick={() => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' })}>
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
       </button>
+      <AccountBox />
     </div>
   );
 
@@ -94,13 +128,14 @@ export default function Layout({ children }: { children: ReactNode }) {
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/70 px-4 py-3 backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/70 lg:hidden">
           <button className="btn-ghost !p-2" onClick={() => setMobile(true)}>{mobile ? <X size={18} /> : <Menu size={18} />}</button>
-          <span className="font-bold">Life OS</span>
+          <Logo size={24} /><span className="font-bold">{APP_NAME}</span>
           <button className="btn-ghost ml-auto !p-2" onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>
         <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</main>
       </div>
       <QuickAdd />
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
+      <Toaster />
     </div>
   );
 }
