@@ -24,6 +24,11 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run build
+        env:
+          # Set these in GitHub → Settings → Secrets and variables → Actions → Variables.
+          # Without them the app still works, in "this device only" mode.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/configure-pages@v5
         with:
           enablement: true
