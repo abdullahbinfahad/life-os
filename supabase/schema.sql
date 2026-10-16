@@ -39,3 +39,24 @@ as $$
 $$;
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- Optional public journal publishing. Only explicitly published entries are public;
+-- private Life Circle data remains protected by the life_data policies above.
+create table if not exists public.public_journals (
+  slug text primary key,
+  owner_id uuid not null references auth.users (id) on delete cascade,
+  title text not null default '',
+  excerpt text not null default '',
+  content text not null default '',
+  published_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.public_journals enable row level security;
+alter table public.public_journals force row level security;
+drop policy if exists "anyone can read public journals" on public.public_journals;
+drop policy if exists "owners manage public journals" on public.public_journals;
+create policy "anyone can read public journals" on public.public_journals for select using (true);
+create policy "owners manage public journals" on public.public_journals for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+revoke all on public.public_journals from anon;
+grant select on public.public_journals to anon, authenticated;
+grant insert, update, delete on public.public_journals to authenticated;

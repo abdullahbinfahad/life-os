@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Category, Goal, Habit, JournalEntry, LifeItem, Project, Settings, Task } from './types';
+import type { Album, AlbumMemory, Category, Goal, Habit, JournalEntry, LifeItem, Project, Settings, Task } from './types';
 import { DEFAULT_CATEGORIES } from './library';
 import { addDays, today, uid } from './utils';
 
@@ -13,6 +13,7 @@ interface State {
   projects: Project[];
   habits: Habit[];
   journal: JournalEntry[];
+  albums: Album[];
   settings: Settings;
 
   // items
@@ -48,6 +49,12 @@ interface State {
   // journal
   saveEntry: (e: Partial<JournalEntry> & { id?: string }) => void;
   deleteEntry: (id: string) => void;
+  addAlbum: (a: Partial<Album> & { title: string }) => string;
+  updateAlbum: (id: string, patch: Partial<Album>) => void;
+  deleteAlbum: (id: string) => void;
+  addMemory: (albumId: string, memory: Partial<AlbumMemory> & { title: string }) => void;
+  updateMemory: (albumId: string, memoryId: string, patch: Partial<AlbumMemory>) => void;
+  deleteMemory: (albumId: string, memoryId: string) => void;
   // settings / data
   updateSettings: (patch: Partial<Settings>) => void;
   importAll: (data: Partial<State>) => void;
@@ -79,6 +86,7 @@ const initial = {
   projects: [] as Project[],
   habits: [] as Habit[],
   journal: [] as JournalEntry[],
+  albums: [] as Album[],
   settings: { theme: 'dark', name: '', weekStartsMonday: true } as Settings,
 };
 
@@ -256,12 +264,23 @@ export const useStore = create<State>()(
             return { journal: s.journal.map((j) => (j.id === e.id ? { ...j, ...e } as JournalEntry : j)) };
           return {
             journal: [
-              { id: uid(), date: today(), title: '', content: '', mood: 3, tags: [], createdAt: now(), ...e } as JournalEntry,
+              { id: uid(), date: today(), title: '', content: '', mood: 3, tags: [], visibility: 'private', createdAt: now(), ...e } as JournalEntry,
               ...s.journal,
             ],
           };
         }),
       deleteEntry: (id) => set((s) => ({ journal: s.journal.filter((j) => j.id !== id) })),
+
+      addAlbum: (a) => {
+        const id = uid();
+        set((s) => ({ albums: [{ id, description: '', memories: [], createdAt: now(), ...a }, ...s.albums] }));
+        return id;
+      },
+      updateAlbum: (id, patch) => set((s) => ({ albums: s.albums.map((a) => (a.id === id ? { ...a, ...patch } : a)) })),
+      deleteAlbum: (id) => set((s) => ({ albums: s.albums.filter((a) => a.id !== id) })),
+      addMemory: (albumId, memory) => set((s) => ({ albums: s.albums.map((a) => a.id === albumId ? { ...a, memories: [{ id: uid(), note: '', tags: [], ...memory }, ...a.memories] } : a) })),
+      updateMemory: (albumId, memoryId, patch) => set((s) => ({ albums: s.albums.map((a) => a.id === albumId ? { ...a, memories: a.memories.map((m) => m.id === memoryId ? { ...m, ...patch } : m) } : a) })),
+      deleteMemory: (albumId, memoryId) => set((s) => ({ albums: s.albums.map((a) => a.id === albumId ? { ...a, memories: a.memories.filter((m) => m.id !== memoryId) } : a) })),
 
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       importAll: (data) =>
@@ -272,6 +291,7 @@ export const useStore = create<State>()(
           projects: data.projects ?? [],
           habits: data.habits ?? [],
           journal: data.journal ?? [],
+          albums: data.albums ?? [],
           settings: { ...initial.settings, ...(data.settings ?? {}) },
         })),
       resetAll: () => set(() => ({ ...initial })),

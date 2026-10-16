@@ -1,8 +1,9 @@
-import { CheckCircle2, Circle, Flame, Plus, Star, Sunrise, X } from 'lucide-react';
+import { CheckCircle2, Circle, Flame, Pencil, Plus, Star, Sunrise, X } from 'lucide-react';
 import { useState } from 'react';
 import { CatBadge, Empty, PageHeader, PRIORITY_META, Ring } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
 import { cx, pct, streak, today } from '../lib/utils';
+import ItemEditor from '../components/ItemEditor';
 
 export default function Today() {
   const { items, habits, projects, toggleItemDone, updateItem, addItems, toggleHabit, updateTask } = useStore();
@@ -10,6 +11,7 @@ export default function Today() {
   const t = today();
   const [text, setText] = useState('');
   const [suggest, setSuggest] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const todays = items.filter((i) => i.todayDate === t || (i.dueDate === t && i.status !== 'dropped')).sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done') || a.priority - b.priority);
   const overdue = items.filter((i) => i.dueDate && i.dueDate < t && i.status !== 'done' && i.status !== 'dropped' && i.todayDate !== t);
@@ -55,6 +57,7 @@ export default function Today() {
                     <span className="h-6 w-1 rounded-full" style={{ background: PRIORITY_META[i.priority].color }} />
                     <span className={cx('flex-1', i.status === 'done' && 'line-through muted')}>{i.title}</span>
                     <CatBadge cat={catMap[i.categoryId]} />
+                    <button title="Edit item" onClick={() => setEditing(i.id)} className="opacity-0 group-hover:opacity-100 muted hover:text-indigo-500"><Pencil size={15} /></button>
                     <button title="Remove from today" onClick={() => updateItem(i.id, { todayDate: undefined })} className="opacity-0 group-hover:opacity-100 muted"><X size={16} /></button>
                   </div>
                 ))}
@@ -110,6 +113,7 @@ export default function Today() {
           </div>
         </div>
       </div>
+      <ItemEditor item={items.find((i) => i.id === editing) ?? null} onClose={() => setEditing(null)} />
     </div>
   );
 }

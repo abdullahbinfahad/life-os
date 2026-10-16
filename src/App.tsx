@@ -2,6 +2,7 @@ import { Loader2 } from 'lucide-react';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import { Logo } from './components/Brand';
 import Layout from './components/Layout';
+import Albums from './pages/Albums';
 import { useAuth } from './lib/auth';
 import { cloudEnabled } from './lib/supabase';
 import AuthPage, { SetNewPassword } from './pages/Auth';
@@ -15,9 +16,12 @@ import Overview from './pages/Overview';
 import Projects from './pages/Projects';
 import Settings from './pages/Settings';
 import Today from './pages/Today';
+import PublicJournal from './pages/PublicJournal';
 
 export default function App() {
   const { ready, session, guest, recovery, sync } = useAuth();
+
+  if (window.location.hash.startsWith('#/public/journal/')) return <HashRouter><Routes><Route path="/public/journal/:slug" element={<PublicJournal />} /></Routes></HashRouter>;
 
   if (cloudEnabled) {
     if (!ready || (session && sync === 'loading'))
@@ -43,6 +47,7 @@ export default function App() {
           <Route path="/habits" element={<Habits />} />
           <Route path="/insights" element={<Insights />} />
           <Route path="/journal" element={<Journal />} />
+          <Route path="/albums" element={<Albums />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Overview />} />
         </Routes>

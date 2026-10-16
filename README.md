@@ -1,67 +1,55 @@
-# ◎ Life OS
+# Life Circle
 
-**A personal system for everything that matters.**
+**Your life, organized — goals, plans, journals, habits and memories in one calm workspace.**
 
-Life OS helps you capture, organize, prioritize and track *everything* you want to do in life — from 200 to 1,000+ goals, ideas and experiences — in a modern, fast, local-first web app.
+Live app: https://abdullahbinfahad.github.io/life-os/
 
-🔗 **Live app:** https://abdullahbinfahad.github.io/life-os/
+## What is included
 
----
+- Google, email/password and phone/password sign-in through Supabase Auth.
+- Row-level security: each signed-in account can read and write only its own private Life Circle data.
+- Local-first mode when Supabase variables are not configured.
+- 1,000+ life ideas and an expanded 100+ area taxonomy.
+- Goals, projects, dependency-aware tasks, habits, insights, calendar/timeline and Today planning.
+- Journal entries with tags, mood, location, cover-image fields and private/public visibility.
+- Public journal reader route: `#/public/journal/<slug>` when a row is published in `public_journals`.
+- Memory albums with a visual memory-tree foundation.
+- Profile fields: name, photo URL, birthday, location and bio.
+- JSON/CSV backup and restore.
+- Mobile-friendly frosted/liquid-glass interface with the full-person emoji logo.
 
-## ✨ Features
+## Security and credentials
 
-| Section | What it does |
-|---|---|
-| **Overview** | Your current life at a glance — stats, life-balance by category, upcoming deadlines, goals in motion |
-| **Today** | Immediate priorities, suggestions picked from your library, due project tasks, overdue items, today's habits, daily progress ring |
-| **Life Library** | All goals, ideas and experiences. Handles 1,000+ items with search, filters (status, priority, horizon, starred), grouping (category / status / priority / horizon / type), sorting, list & grid views, **bulk select & bulk edit**, and paste-many-lines add |
-| **Idea templates** | 400+ ready-made life ideas across 12 categories — tick the ones you want and add them in one click |
-| **Goals** | Outcomes with milestones, target dates, countdowns and progress rings; link library items and projects |
-| **Projects** | Kanban board (drag & drop), tasks with due dates and **task dependencies** (blocked tasks are locked) |
-| **Calendar & Timeline** | Month calendar of every deadline, chronological timeline, and a 5-level **life horizons** board (this year → lifetime) |
-| **Habits** | Daily / weekly habits, 7-day check-in grid, streaks, best streak, 30-day consistency, 12-week heatmaps |
-| **Insights** | Completions per week, pipeline, category progress, automatic patterns (best day, neglected areas…) |
-| **Journal** | Reflections with mood, tags, prompts, and full-text search of memories |
-| **Settings** | Custom categories (icon/color), JSON backup & restore, CSV import/export, demo data, privacy, shortcuts |
+Never put OpenAI secret keys, Google client secrets, or Supabase service-role keys in this repository or browser code. The browser may use only a Supabase **anon** key, protected by the RLS policies in `supabase/schema.sql`.
 
-### ⚡ Super-fast adding
-Press **N** anywhere (or the + button) and type one item per line — paste hundreds at once. Smart syntax:
+The Supabase schema must be run once in the Supabase SQL editor. Configure these GitHub Actions repository variables for cloud sign-in and sync:
 
-```
-Learn guitar #learning !2 ~1-3y
-Call mom #family +today
-Visit Iceland #travel @2027-06-01 *
-```
-`#category` · `!1–!4` priority · `@YYYY-MM-DD` due date · `+today` pin to Today · `~this-year|1-3y|3-5y|5-10y|lifetime` horizon · `*` star
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-### ⌨️ Shortcuts
-- `N` — quick add
-- `⌘/Ctrl + K` — search everything / command palette
-- `G` then `O T L G P C H I J S` — jump to a page
+Configure Google OAuth inside Supabase Auth → Providers using the OAuth client created in Google Cloud. Add these callback URLs in both systems:
 
-## 🔒 Privacy
-Local-first: all data lives in your browser's localStorage. No account, no server, no tracking. Use **Settings → Full backup** to export and move between devices.
+- `https://abdullahbinfahad.github.io/life-os/`
+- your local development URL
 
-## 🧱 Tech stack
-- **React 18 + TypeScript** with **Vite**
-- **Tailwind CSS** for the modern UI (dark & light mode)
-- **Zustand** (persisted) as the state store / local database
-- **React Router** (hash routing, works on GitHub Pages)
-- **lucide-react** icons
-- **GitHub Actions** → GitHub Pages auto-deploy
+For `records.abdullahbinfahad.info`, keep the GitHub Pages URL as the canonical main URL and configure the subdomain as a DNS/HTTP redirect to it. A single GitHub Pages project cannot serve two independent custom domains simultaneously.
 
-## 🚀 Run locally
+## Local development
+
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # production build in dist/
+npm run dev
+npm run build
 ```
 
-## 🗺️ Roadmap ideas
-- Optional cloud sync (Supabase) & multi-device login
-- PWA / offline install
-- Recurring items and reminders
-- AI suggestions for next steps
+## Supabase setup
 
----
-Built for Abdullah Bin Fahad · MIT License
+1. Create or open the Supabase project.
+2. Run `supabase/schema.sql`.
+3. Enable Google, email and phone providers in Auth settings.
+4. Add the public URL to the Auth redirect allow-list.
+5. Add the two `VITE_SUPABASE_*` values to GitHub Actions variables.
+
+## AI integration
+
+AI should be connected through a server-side Supabase Edge Function or another protected backend. Do not call OpenAI directly from this static client with a secret key. The UI can safely expose prompts and results only through an authenticated server function with rate limits and usage controls.

@@ -12,8 +12,8 @@ export default function Settings() {
   const [msg, setMsg] = useState('');
 
   const exportJSON = () => {
-    const { categories, items, goals, projects, habits, journal, settings } = useStore.getState();
-    download(`life-os-backup-${today()}.json`, JSON.stringify({ version: 1, categories, items, goals, projects, habits, journal, settings }, null, 2));
+    const { categories, items, goals, projects, habits, journal, albums, settings } = useStore.getState();
+    download(`life-circle-backup-${today()}.json`, JSON.stringify({ version: 3, categories, items, goals, projects, habits, journal, albums, settings }, null, 2));
   };
   const exportCSV = () => {
     const head = ['title', 'category', 'status', 'priority', 'horizon', 'type', 'dueDate', 'tags', 'notes'];
@@ -63,8 +63,12 @@ export default function Settings() {
         <h3 className="mb-4 font-semibold">Profile & preferences</h3>
         <div className="grid gap-4 sm:grid-cols-3">
           <div><label className="label">Your name</label><input className="input" value={s.settings.name} onChange={(e) => s.updateSettings({ name: e.target.value })} /></div>
+          <div><label className="label">Profile photo URL</label><input className="input" type="url" placeholder="https://…" value={s.settings.avatarUrl ?? ''} onChange={(e) => s.updateSettings({ avatarUrl: e.target.value || undefined })} /></div>
+          <div><label className="label">Birthday</label><input className="input" type="date" value={s.settings.birthday ?? ''} onChange={(e) => s.updateSettings({ birthday: e.target.value || undefined })} /></div>
+          <div><label className="label">Location</label><input className="input" placeholder="City, country" value={s.settings.location ?? ''} onChange={(e) => s.updateSettings({ location: e.target.value || undefined })} /></div>
           <div><label className="label">Theme</label><select className="input" value={s.settings.theme} onChange={(e) => s.updateSettings({ theme: e.target.value as any })}><option value="dark">Dark</option><option value="light">Light</option></select></div>
           <div><label className="label">Week starts</label><select className="input" value={s.settings.weekStartsMonday ? 'mon' : 'sun'} onChange={(e) => s.updateSettings({ weekStartsMonday: e.target.value === 'mon' })}><option value="mon">Monday</option><option value="sun">Sunday</option></select></div>
+          <div className="sm:col-span-3"><label className="label">Short bio</label><textarea className="input min-h-20" placeholder="What matters to you?" value={s.settings.bio ?? ''} onChange={(e) => s.updateSettings({ bio: e.target.value || undefined })} /></div>
         </div>
       </section>
 
@@ -107,7 +111,7 @@ export default function Settings() {
       <section className="card mb-6 p-6">
         <h3 className="mb-2 flex items-center gap-2 font-semibold"><Lock size={16} /> Privacy</h3>
         <p className="text-sm muted">Life OS is local-first. All your data is stored only in this browser (localStorage). Nothing is sent to any server. Export a backup regularly to keep it safe or move it to another device.</p>
-        <div className="mt-3 text-xs muted">{s.items.length} items · {s.goals.length} goals · {s.projects.length} projects · {s.habits.length} habits · {s.journal.length} journal entries</div>
+        <div className="mt-3 text-xs muted">{s.items.length} items · {s.goals.length} goals · {s.projects.length} projects · {s.habits.length} habits · {s.journal.length} journal entries · {s.albums.length} albums</div>
         <button className="btn-danger mt-4" onClick={() => { if (confirm('Erase ALL data permanently? Export a backup first!') && confirm('Are you absolutely sure?')) { s.resetAll(); setMsg('All data erased.'); } }}><Trash2 size={16} /> Erase all data</button>
       </section>
 

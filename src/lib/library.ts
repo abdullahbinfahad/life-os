@@ -1,9 +1,10 @@
 import type { Category } from './types';
 import { DEFAULT_CATEGORIES as BASE_CATEGORIES, TEMPLATE_LIBRARY as BASE_LIBRARY } from './templates';
 import { EXTRA_CATEGORIES, EXTRA_LIBRARY } from './templates-extra';
+import { EXTENDED_CATEGORIES } from './category-catalog';
 
 /** All categories: the original 12 plus 7 new ones. */
-export const DEFAULT_CATEGORIES: Category[] = [...BASE_CATEGORIES, ...EXTRA_CATEGORIES];
+export const DEFAULT_CATEGORIES: Category[] = [...BASE_CATEGORIES, ...EXTRA_CATEGORIES, ...EXTENDED_CATEGORIES];
 
 /** 1,000+ ideas: base + extra, merged per category with duplicates removed. */
 export const TEMPLATE_LIBRARY: Record<string, string[]> = (() => {

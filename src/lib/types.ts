@@ -87,11 +87,38 @@ export interface JournalEntry {
   content: string;
   mood: 1 | 2 | 3 | 4 | 5;
   tags: string[];
+  visibility: 'private' | 'public';
+  coverImage?: string;
+  location?: string;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface Album {
+  id: string;
+  title: string;
+  description: string;
+  coverImage?: string;
+  memories: AlbumMemory[];
+  createdAt: string;
+}
+
+export interface AlbumMemory {
+  id: string;
+  title: string;
+  note: string;
+  imageUrl?: string;
+  date?: string;
+  location?: string;
+  tags: string[];
 }
 
 export interface Settings {
   theme: 'dark' | 'light';
   name: string;
   weekStartsMonday: boolean;
+  birthday?: string;
+  bio?: string;
+  location?: string;
+  avatarUrl?: string;
 }

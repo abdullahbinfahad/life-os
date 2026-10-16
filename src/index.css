@@ -4,13 +4,13 @@
 
 @layer base {
   html { @apply antialiased; }
-  body { @apply bg-slate-50 text-slate-900 dark:bg-[#0b0d12] dark:text-slate-100; }
+  body { @apply bg-slate-50 text-slate-900 dark:bg-[#0b0d12] dark:text-slate-100; background-image: radial-gradient(circle at 10% 0%, rgba(99,102,241,.10), transparent 30%), radial-gradient(circle at 90% 10%, rgba(217,70,239,.08), transparent 28%); }
   ::selection { @apply bg-indigo-500/30; }
   * { scrollbar-width: thin; scrollbar-color: rgb(100 116 139 / .35) transparent; }
 }
 
 @layer components {
-  .card { @apply rounded-2xl border border-slate-200 bg-white/80 shadow-sm backdrop-blur dark:border-white/[.06] dark:bg-white/[.03]; }
+  .card { @apply rounded-2xl border border-slate-200/80 bg-white/70 shadow-sm backdrop-blur-xl dark:border-white/[.08] dark:bg-white/[.045]; box-shadow: 0 20px 60px rgba(15, 23, 42, .06), inset 0 1px 0 rgba(255,255,255,.35); }
   .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none; }
   .btn-primary { @apply btn bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500; }
   .btn-ghost { @apply btn text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[.06]; }

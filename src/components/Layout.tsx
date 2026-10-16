@@ -1,4 +1,4 @@
-import { BarChart3, Cloud, CloudOff, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X } from 'lucide-react';
+import { BarChart3, Cloud, CloudOff, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X, Images } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
@@ -49,6 +49,7 @@ export const NAV = [
   { to: '/habits', label: 'Habits', desc: 'Recurring actions and consistency', icon: Repeat },
   { to: '/insights', label: 'Insights', desc: 'Progress and patterns over time', icon: BarChart3 },
   { to: '/journal', label: 'Journal', desc: 'Reflections and memories', icon: BookOpen },
+  { to: '/albums', label: 'Albums', desc: 'Memory tree and life moments', icon: Images },
   { to: '/settings', label: 'Settings', desc: 'Templates, imports, exports, privacy', icon: Settings },
 ];
 
@@ -71,7 +72,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'g') (window as any).__g = Date.now();
       else if ((window as any).__g && Date.now() - (window as any).__g < 800) {
-        const map: Record<string, string> = { o: '/', t: '/today', l: '/library', g: '/goals', p: '/projects', c: '/calendar', h: '/habits', i: '/insights', j: '/journal', s: '/settings' };
+        const map: Record<string, string> = { o: '/', t: '/today', l: '/library', g: '/goals', p: '/projects', c: '/calendar', h: '/habits', i: '/insights', j: '/journal', m: '/albums', s: '/settings' };
         if (map[e.key]) nav(map[e.key]);
         (window as any).__g = 0;
       }
