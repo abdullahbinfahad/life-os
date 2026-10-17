@@ -182,7 +182,8 @@ export function friendlyAuthError(msg?: string) {
   if (m.includes('invalid login')) return 'Wrong email/phone or password.';
   if (m.includes('email not confirmed')) return 'Please confirm your email first — check your inbox.';
   if (m.includes('already registered') || m.includes('already exists')) return 'An account with this email/phone already exists. Try signing in.';
-  if (m.includes('phone') && m.includes('provider')) return 'Phone sign-up is not enabled yet on this server.';
+  if (m.includes('unsupported provider') || (m.includes('google') && m.includes('provider'))) return 'Google sign-in is not enabled in the project yet. Use email sign-in for now, or ask the project owner to enable Google under Supabase → Authentication → Sign In / Providers.';
+  if (m.includes('phone') && m.includes('provider')) return 'Phone sign-up is not enabled yet on this server. Use email sign-up, or enable Phone under Supabase → Authentication → Sign In / Providers.';
   if (m.includes('rate limit')) return 'Too many attempts. Please wait a minute and try again.';
   if (m.includes('token') && m.includes('expired')) return 'That code has expired. Request a new one.';
   return msg;
