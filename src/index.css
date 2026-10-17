@@ -20,4 +20,9 @@
   .label { @apply mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400; }
   .chip { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium; }
   .muted { @apply text-slate-500 dark:text-slate-400; }
+  .mobile-bottom-nav { @apply fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200/80 bg-white/90 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:border-white/[.08] dark:bg-[#0b0d12]/90; }
+}
+
+@media (max-width: 1023px) {
+  main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
 }

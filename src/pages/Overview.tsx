@@ -1,114 +1,63 @@
-import { ArrowRight, CheckCircle2, Flame, FolderKanban, Library, Sparkles, Sunrise, Target } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Flame, Plus, Sunrise, Target } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CatBadge, PageHeader, Progress, Ring, Stat } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
-import { addDays, fmtDate, pct, streak, today } from '../lib/utils';
+import { pct, streak, today } from '../lib/utils';
 
 export default function Overview() {
-  const { items, goals, projects, habits, journal, categories, settings, loadDemo } = useStore();
+  const { items, goals, habits, categories, settings } = useStore();
   const catMap = useCategoryMap();
   const t = today();
-  const done = items.filter((i) => i.status === 'done').length;
+  const activeGoals = goals.filter((g) => g.status === 'active');
+  const completedGoals = goals.filter((g) => g.status === 'done').length;
   const todayItems = items.filter((i) => i.todayDate === t || i.dueDate === t);
   const todayDone = todayItems.filter((i) => i.status === 'done').length;
-  const activeGoals = goals.filter((g) => g.status === 'active');
   const activeHabits = habits.filter((h) => !h.archived);
   const habitsToday = activeHabits.filter((h) => h.log.includes(t)).length;
   const bestStreak = Math.max(0, ...activeHabits.map((h) => streak(h.log)));
-  const upcoming = [
-    ...items.filter((i) => i.dueDate && i.dueDate >= t && i.status !== 'done').map((i) => ({ title: i.title, date: i.dueDate!, kind: 'Item' })),
-    ...goals.filter((g) => g.targetDate && g.targetDate >= t && g.status !== 'done').map((g) => ({ title: g.title, date: g.targetDate!, kind: 'Goal' })),
-    ...projects.flatMap((p) => p.tasks.filter((x) => x.dueDate && !x.done && x.dueDate >= t).map((x) => ({ title: x.title, date: x.dueDate!, kind: p.title }))),
-  ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6);
-  const hour = new Date().getHours();
-  const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const goalProgress = (g: (typeof goals)[0]) => pct(g.milestones.filter((m) => m.done).length, g.milestones.length);
+  const lifetimeGoals = activeGoals;
 
   return (
-    <div>
-      <PageHeader title={`${greet}${settings.name ? `, ${settings.name}` : ''}`} subtitle="Your current life at a glance" />
+    <div className="space-y-6">
+      <PageHeader title={settings.name ? `Your life map, ${settings.name}` : 'Your life map'} subtitle="Choose what matters for the long term, then take one small step today." />
 
-      {items.length + goals.length + habits.length === 0 && (
-        <div className="card mb-6 overflow-hidden bg-gradient-to-br from-indigo-600 to-fuchsia-600 p-8 text-white">
-          <h2 className="text-2xl font-bold">Welcome to Life Circle</h2>
-          <p className="mt-2 max-w-xl text-white/80">Capture everything you want to do in life — hundreds or thousands of things — then organize, prioritize and track them.</p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Link to="/library" className="btn bg-white text-indigo-700 hover:bg-white/90"><Sparkles size={16} /> Start with 1,000+ ideas</Link>
-            <button className="btn bg-white/15 hover:bg-white/25" onClick={loadDemo}>Load demo data</button>
+      <section className="card overflow-hidden border-indigo-200/70 bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-700 p-6 text-white shadow-xl shadow-indigo-600/15 sm:p-8">
+        <div className="max-w-2xl">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium"><Target size={14} /> Lifetime goals first</div>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">What do you want your life to become?</h2>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-white/80">Create a few meaningful goals for your health, family, work, learning, money, and experiences. Life Circle turns them into milestones and daily actions you can actually track.</p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Link to="/goals" className="btn bg-white text-indigo-700 hover:bg-white/90"><Plus size={16} /> Set a lifetime goal</Link>
+            <Link to="/today" className="btn bg-white/15 text-white hover:bg-white/25"><Sunrise size={16} /> Plan today</Link>
           </div>
         </div>
-      )}
+      </section>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Life Library" value={items.length} sub={`${done} completed · ${pct(done, items.length)}%`} icon={<Library size={18} />} />
-        <Stat label="Today" value={`${todayDone}/${todayItems.length}`} sub="actions done" icon={<Sunrise size={18} />} color="#f59e0b" />
-        <Stat label="Active goals" value={activeGoals.length} sub={`${goals.filter((g) => g.status === 'done').length} achieved`} icon={<Target size={18} />} color="#22c55e" />
-        <Stat label="Best streak" value={`${bestStreak}d`} sub={`${habitsToday}/${activeHabits.length} habits today`} icon={<Flame size={18} />} color="#ef4444" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Life goals" value={activeGoals.length} sub={`${completedGoals} achieved`} icon={<Target size={18} />} color="#6366f1" />
+        <Stat label="Today" value={`${todayDone}/${todayItems.length}`} sub="actions complete" icon={<Sunrise size={18} />} color="#f59e0b" />
+        <Stat label="Habits" value={`${habitsToday}/${activeHabits.length}`} sub="checked in today" icon={<CheckCircle2 size={18} />} color="#22c55e" />
+        <Stat label="Best streak" value={`${bestStreak}d`} sub="keep going" icon={<Flame size={18} />} color="#ef4444" />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="card p-5 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Life balance</h3><Link to="/insights" className="text-xs text-indigo-500">Insights →</Link></div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {categories.map((c) => {
-              const ci = items.filter((i) => i.categoryId === c.id);
-              const cd = ci.filter((i) => i.status === 'done').length;
-              return (
-                <div key={c.id}>
-                  <div className="mb-1 flex justify-between text-sm"><span>{c.icon} {c.name}</span><span className="muted">{cd}/{ci.length}</span></div>
-                  <Progress value={pct(cd, ci.length)} color={c.color} />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div className="card p-5">
-          <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Coming up</h3><Link to="/calendar" className="text-xs text-indigo-500">Calendar →</Link></div>
-          {upcoming.length === 0 ? <p className="text-sm muted">No upcoming deadlines.</p> : (
-            <div className="space-y-3">
-              {upcoming.map((u, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-12 shrink-0 rounded-lg bg-indigo-500/10 py-1 text-center text-xs font-semibold text-indigo-500">
-                    {u.date === t ? 'Today' : u.date === addDays(t, 1) ? 'Tmrw' : fmtDate(u.date).split(',')[0]}
-                  </div>
-                  <div className="min-w-0"><div className="truncate text-sm">{u.title}</div><div className="text-xs muted">{u.kind}</div></div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="card p-5 lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between gap-3"><div><h3 className="font-semibold">Your goals in motion</h3><p className="mt-1 text-sm muted">The few outcomes you are actively moving forward.</p></div><Link to="/goals" className="shrink-0 text-sm text-indigo-500">Manage goals <ArrowRight size={14} className="inline" /></Link></div>
+          {activeGoals.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center dark:border-white/15"><Target className="mx-auto text-indigo-500" size={28} /><p className="mt-2 font-medium">Start with one goal that matters</p><p className="mt-1 text-sm muted">You can add milestones and link daily actions later.</p><Link to="/goals" className="btn-primary mt-4"><Plus size={15} /> Create your first goal</Link></div> : <div className="grid gap-3 sm:grid-cols-2">{activeGoals.slice(0, 6).map((g) => { const p = goalProgress(g); return <Link to="/goals" key={g.id} className="rounded-2xl border border-slate-200 p-4 transition hover:-translate-y-0.5 hover:border-indigo-300 dark:border-white/[.07]"><div className="flex items-center gap-3"><Ring value={p} size={54} color={catMap[g.categoryId]?.color} /><div className="min-w-0"><div className="truncate font-medium">{g.title}</div><CatBadge cat={catMap[g.categoryId]} /></div></div><Progress className="mt-4" value={p} color={catMap[g.categoryId]?.color} /></Link>; })}</div>}
+        </section>
+
+        <section className="card p-5">
+          <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">Next step</h3><p className="mt-1 text-sm muted">Keep today small and clear.</p></div><Link to="/today" className="text-sm text-indigo-500">Open <ArrowRight size={14} className="inline" /></Link></div>
+          {todayItems.length === 0 ? <div className="rounded-2xl bg-amber-500/10 p-4"><Sunrise className="text-amber-500" size={22} /><p className="mt-2 font-medium">Nothing planned for today</p><p className="mt-1 text-sm muted">Pick one action from a goal and make it your next step.</p><Link to="/today" className="btn-outline mt-3 !px-3 !py-1.5 text-xs">Plan one action</Link></div> : <div className="space-y-2">{todayItems.slice(0, 5).map((item) => <div key={item.id} className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm dark:bg-white/[.04]"><CheckCircle2 size={16} className={item.status === 'done' ? 'text-emerald-500' : 'muted'} /><span className={item.status === 'done' ? 'line-through muted' : 'truncate'}>{item.title}</span></div>)}</div>}
+        </section>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="card p-5 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Goals in motion</h3><Link to="/goals" className="text-xs text-indigo-500">All goals →</Link></div>
-          {activeGoals.length === 0 ? <p className="text-sm muted">No active goals yet.</p> : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {activeGoals.slice(0, 4).map((g) => (
-                <div key={g.id} className="flex items-center gap-4 rounded-xl border border-slate-200 p-3 dark:border-white/[.06]">
-                  <Ring value={goalProgress(g)} size={56} color={catMap[g.categoryId]?.color} />
-                  <div className="min-w-0"><div className="truncate font-medium">{g.title}</div><CatBadge cat={catMap[g.categoryId]} /></div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="card p-5">
-          <h3 className="mb-4 font-semibold">Quick jump</h3>
-          <div className="space-y-2">
-            {[
-              { to: '/today', label: 'Plan today', icon: <Sunrise size={16} /> },
-              { to: '/projects', label: `${projects.filter((p) => p.status === 'active').length} active projects`, icon: <FolderKanban size={16} /> },
-              { to: '/habits', label: 'Check in habits', icon: <CheckCircle2 size={16} /> },
-              { to: '/journal', label: `${journal.length} journal entries`, icon: <Sparkles size={16} /> },
-            ].map((l) => (
-              <Link key={l.to} to={l.to} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition hover:bg-slate-100 dark:hover:bg-white/[.05]">
-                {l.icon}{l.label}<ArrowRight size={14} className="ml-auto muted" />
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
+      <section className="card p-5">
+        <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">Life areas</h3><p className="mt-1 text-sm muted">A quick view of where your attention is going.</p></div><Link to="/library" className="text-sm text-indigo-500">Browse ideas <ArrowRight size={14} className="inline" /></Link></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{categories.slice(0, 8).map((c) => { const areaItems = items.filter((i) => i.categoryId === c.id); const complete = areaItems.filter((i) => i.status === 'done').length; return <div key={c.id} className="rounded-xl bg-slate-50 p-3 dark:bg-white/[.04]"><div className="flex justify-between text-sm"><span>{c.icon} {c.name}</span><span className="muted">{complete}/{areaItems.length}</span></div><Progress className="mt-2" value={pct(complete, areaItems.length)} color={c.color} /></div>; })}</div>
+        {lifetimeGoals.length > 0 && <p className="mt-4 text-xs muted">{lifetimeGoals.length} lifetime {lifetimeGoals.length === 1 ? 'goal is' : 'goals are'} on your map.</p>}
+      </section>
     </div>
   );
 }

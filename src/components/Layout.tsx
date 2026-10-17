@@ -1,4 +1,4 @@
-import { BarChart3, Cloud, CloudOff, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X, Images } from 'lucide-react';
+import { BarChart3, ChevronDown, Cloud, CloudOff, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X, Images } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
@@ -52,12 +52,15 @@ export const NAV = [
   { to: '/albums', label: 'Albums', desc: 'Memory tree and life moments', icon: Images },
   { to: '/settings', label: 'Settings', desc: 'Templates, imports, exports, privacy', icon: Settings },
 ];
+const PRIMARY_NAV = NAV.filter((item) => ['/', '/goals', '/today', '/habits'].includes(item.to));
+const OTHER_NAV = NAV.filter((item) => !PRIMARY_NAV.some((primary) => primary.to === item.to));
 
 export default function Layout({ children }: { children: ReactNode }) {
   const theme = useStore((s) => s.settings.theme);
   const updateSettings = useStore((s) => s.updateSettings);
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [othersOpen, setOthersOpen] = useState(false);
   const loc = useLocation();
   const nav = useNavigate();
 
@@ -94,7 +97,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         <Search size={15} /> Search… <kbd className="ml-auto rounded bg-slate-100 px-1.5 text-[10px] dark:bg-white/10">⌘K</kbd>
       </button>
       <nav className="flex-1 space-y-0.5 overflow-y-auto">
-        {NAV.map(({ to, label, icon: Icon }) => (
+        <div className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.16em] muted">Start here</div>
+        {PRIMARY_NAV.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} end={to === '/'}
             className={({ isActive }) => cx(
               'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition',
@@ -103,6 +107,16 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Icon size={17} /> {label}
           </NavLink>
         ))}
+        <button onClick={() => setOthersOpen((open) => !open)} className="mt-4 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[.05]">
+          <Menu size={17} /> <span className="flex-1 text-left">Others</span><ChevronDown size={15} className={cx('transition-transform', othersOpen && 'rotate-180')} />
+        </button>
+        {othersOpen && <div className="mt-1 space-y-0.5 border-l border-slate-200 pl-2 dark:border-white/10">
+          {OTHER_NAV.map(({ to, label, icon: Icon }) => (
+            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => cx('group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition', isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[.05]')}>
+              <Icon size={16} /> {label}
+            </NavLink>
+          ))}
+        </div>}
       </nav>
       <button className="btn-ghost mt-4 justify-start" onClick={() => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' })}>
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
@@ -127,13 +141,17 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/70 px-4 py-3 backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/70 lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/80 lg:hidden">
           <button className="btn-ghost !p-2" onClick={() => setMobile(true)}>{mobile ? <X size={18} /> : <Menu size={18} />}</button>
           <Logo size={24} /><span className="font-bold">{APP_NAME}</span>
           <button className="btn-ghost ml-auto !p-2" onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>
         <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</main>
       </div>
+      <nav className="mobile-bottom-nav lg:hidden" aria-label="Primary navigation">
+        {PRIMARY_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => cx('flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium', isActive ? 'text-indigo-600 dark:text-indigo-300' : 'muted')}><Icon size={18} /><span>{label === 'Overview' ? 'Home' : label}</span></NavLink>)}
+        <button onClick={() => setMobile(true)} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium muted"><Menu size={18} /><span>Others</span></button>
+      </nav>
       <QuickAdd />
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
       <Toaster />
