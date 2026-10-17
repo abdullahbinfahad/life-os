@@ -27,8 +27,10 @@ jobs:
         env:
           # Set these in GitHub → Settings → Secrets and variables → Actions → Variables.
           # Without them the app still works, in "this device only" mode.
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # These are public-by-design Supabase browser values. The fallback keeps
+          # deployment working even if repository Actions variables are unavailable.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://qzbcanzmgetdrnlijujh.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_i2kZoTcgXZK-rlWpYX5G8w_FlVI0VfP' }}
       - uses: actions/configure-pages@v5
         with:
           enablement: true
