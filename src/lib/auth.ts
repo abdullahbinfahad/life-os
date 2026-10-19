@@ -12,6 +12,7 @@ interface AuthState {
   user: User | null;
   guest: boolean; // chose "use without account" (this device only)
   sync: SyncStatus;
+  syncError?: string;
   lastSynced?: string;
   recovery: boolean; // arrived from a password-reset link
   setGuest: (g: boolean) => void;
@@ -47,35 +48,89 @@ let unsubscribe: (() => void) | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let applyingRemote = false;
 let currentUserId: string | null = null;
+let changeRevision = 0;
+let syncedRevision = 0;
+let pushPromise: Promise<boolean> | null = null;
+
+function syncErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String((error as any)?.message ?? error ?? 'Unknown error');
+  if (/Could not find the table|does not exist|schema cache/i.test(message))
+    return 'Cloud storage is not installed yet. The project owner must run supabase/schema.sql in the Supabase SQL Editor.';
+  if (/row-level security|permission denied|not allowed/i.test(message))
+    return 'Cloud storage rejected this request. Check that the Life OS tables and owner-only RLS policies are installed.';
+  return message;
+}
 
 async function pushNow() {
-  if (!supabase || !currentUserId) return;
-  if (!navigator.onLine) { useAuth.setState({ sync: 'offline' }); return; }
-  useAuth.setState({ sync: 'saving' });
-  const { error } = await supabase
-    .from('life_data')
-    .upsert({ user_id: currentUserId, data: snapshot(), updated_at: new Date().toISOString() });
-  useAuth.setState(error ? { sync: 'error' } : { sync: 'saved', lastSynced: new Date().toISOString() });
-  if (error) console.error('Sync failed', error);
+  if (!supabase || !currentUserId) return false;
+  if (!navigator.onLine) { useAuth.setState({ sync: 'offline' }); return false; }
+  if (pushPromise) return pushPromise;
+  const owner = currentUserId;
+  pushPromise = (async () => {
+    useAuth.setState({ sync: 'saving', syncError: undefined });
+    try {
+      do {
+        const revision = changeRevision;
+        const { error } = await supabase!
+          .from('life_data')
+          .upsert({ user_id: owner, data: snapshot(), updated_at: new Date().toISOString() });
+        if (error) throw error;
+        syncedRevision = revision;
+        if (currentUserId !== owner) return false;
+      } while (changeRevision !== syncedRevision);
+      useAuth.setState({ sync: 'saved', lastSynced: new Date().toISOString(), syncError: undefined });
+      return true;
+    } catch (error) {
+      const message = syncErrorMessage(error);
+      if (currentUserId === owner) useAuth.setState({ sync: 'error', syncError: message });
+      console.error('Sync failed:', message);
+      return false;
+    } finally {
+      pushPromise = null;
+    }
+  })();
+  return pushPromise;
 }
 
 function schedulePush() {
   if (applyingRemote) return;
+  changeRevision += 1;
   if (timer) clearTimeout(timer);
   timer = setTimeout(pushNow, 1200);
 }
 
-export async function syncNow() { if (timer) clearTimeout(timer); await pushNow(); }
+export async function syncNow() {
+  if (timer) { clearTimeout(timer); timer = null; }
+  return pushNow();
+}
 
 async function startSync(userId: string) {
   if (!supabase) return;
   if (currentUserId === userId && unsubscribe) return;
   stopSync();
   currentUserId = userId;
+  changeRevision = 0;
+  syncedRevision = 0;
   useAuth.setState({ sync: 'loading' });
 
-  const { data, error } = await supabase.from('life_data').select('data, updated_at').eq('user_id', userId).maybeSingle();
-  if (error) { useAuth.setState({ sync: 'error' }); console.error(error); return; }
+  let result;
+  try {
+    result = await supabase.from('life_data').select('data, updated_at').eq('user_id', userId).maybeSingle();
+  } catch (error) {
+    const message = syncErrorMessage(error);
+    useAuth.setState({ sync: 'error', syncError: message });
+    console.error('Cloud load failed:', message);
+    unsubscribe = useStore.subscribe(schedulePush);
+    return;
+  }
+  const { data, error } = result;
+  if (error) {
+    const message = syncErrorMessage(error);
+    useAuth.setState({ sync: 'error', syncError: message });
+    console.error('Cloud load failed:', message);
+    unsubscribe = useStore.subscribe(schedulePush);
+    return;
+  }
 
   // Which account does the data in this browser belong to?
   const localOwner = localStorage.getItem('life-circle-owner');
@@ -98,6 +153,7 @@ function stopSync() {
   unsubscribe?.();
   unsubscribe = null;
   if (timer) clearTimeout(timer);
+  timer = null;
   currentUserId = null;
 }
 
@@ -107,9 +163,12 @@ function stopSync() {
 
 export function initAuth() {
   if (!supabase) return;
-  supabase.auth.getSession().then(({ data }) => {
+  supabase.auth.getSession().then(({ data, error }) => {
+    if (error) useAuth.setState({ sync: 'error', syncError: syncErrorMessage(error) });
     useAuth.setState({ session: data.session, user: data.session?.user ?? null, ready: true });
     if (data.session) startSync(data.session.user.id);
+  }).catch((error) => {
+    useAuth.setState({ ready: true, sync: 'error', syncError: syncErrorMessage(error) });
   });
   supabase.auth.onAuthStateChange((event, session) => {
     useAuth.setState({ session, user: session?.user ?? null, ready: true });
@@ -139,8 +198,10 @@ export const auth = {
   resetPassword: (email: string) => supabase!.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() }),
   updatePassword: (password: string) => supabase!.auth.updateUser({ password }),
   async signOut() {
-    await syncNow();
-    await supabase!.auth.signOut();
+    const saved = await syncNow();
+    if (!saved) throw new Error(useAuth.getState().syncError || 'Could not save your latest changes. Please retry sync before signing out.');
+    const { error } = await supabase!.auth.signOut();
+    if (error) throw error;
     // Remove this account's data from the device so the next person can't see it.
     useStore.getState().resetAll();
     localStorage.removeItem('life-circle-owner');

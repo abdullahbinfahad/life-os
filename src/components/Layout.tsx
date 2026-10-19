@@ -11,7 +11,7 @@ import { auth, syncNow, useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
 
 function AccountBox() {
-  const { user, sync, guest, setGuest } = useAuth();
+  const { user, sync, syncError, guest, setGuest } = useAuth();
   if (!cloudEnabled) return null;
   if (!user)
     return (
@@ -29,11 +29,14 @@ function AccountBox() {
           : <span className="grid h-8 w-8 place-items-center rounded-full bg-indigo-500/15 text-sm font-semibold text-indigo-500">{name[0]?.toUpperCase()}</span>}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{name}</div>
-          <button onClick={() => syncNow()} className={cx('flex items-center gap-1 text-[11px]', sync === 'error' ? 'text-rose-500' : 'muted')}>
+          <button title={syncError || 'Click to sync now'} onClick={() => void syncNow()} className={cx('flex items-center gap-1 text-[11px]', sync === 'error' ? 'text-rose-500' : 'muted')}>
             {sync === 'saving' || sync === 'loading' ? <RefreshCw size={11} className="animate-spin" /> : sync === 'error' || sync === 'offline' ? <CloudOff size={11} /> : <Cloud size={11} />} {label}
           </button>
         </div>
-        <button className="btn-ghost !p-1.5" title="Sign out" onClick={() => confirm('Sign out? Your data stays safe in your account.') && auth.signOut()}><LogOut size={15} /></button>
+        <button className="btn-ghost !p-1.5" title="Sign out" onClick={() => {
+          if (confirm('Sign out? Your data stays safe in your account.'))
+            void auth.signOut().catch((error) => alert(error?.message || 'Could not sign out safely. Please retry sync first.'));
+        }}><LogOut size={15} /></button>
       </div>
     </div>
   );

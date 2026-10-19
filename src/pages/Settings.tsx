@@ -2,10 +2,13 @@ import { Download, Lock, Plus, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
+import { useAuth } from '../lib/auth';
+import { cloudEnabled } from '../lib/supabase';
 import { csvEscape, download, parseCSV, today } from '../lib/utils';
 
 export default function Settings() {
   const s = useStore();
+  const { user, sync, syncError, lastSynced } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const csvRef = useRef<HTMLInputElement>(null);
   const [newCat, setNewCat] = useState({ name: '', icon: '⭐', color: '#6366f1' });
@@ -110,7 +113,14 @@ export default function Settings() {
 
       <section className="card mb-6 p-6">
         <h3 className="mb-2 flex items-center gap-2 font-semibold"><Lock size={16} /> Privacy</h3>
-        <p className="text-sm muted">Life OS is local-first. All your data is stored only in this browser (localStorage). Nothing is sent to any server. Export a backup regularly to keep it safe or move it to another device.</p>
+        <p className="text-sm muted">{user && cloudEnabled
+          ? 'Your signed-in account is backed by private cloud sync. Database row-level security restricts your Life OS data to your account. A copy also stays in this browser for offline use.'
+          : cloudEnabled
+            ? 'Your data is saved on this device until you sign in. Sign in to protect it in your private cloud account and sync across devices.'
+            : 'Your data is stored only in this browser. Configure cloud authentication to protect it in an account and sync across devices. Export a backup regularly.'}</p>
+        {cloudEnabled && user && <div className={`mt-3 text-xs ${sync === 'error' ? 'text-rose-500' : 'muted'}`} role="status">
+          {sync === 'error' ? `Cloud sync failed: ${syncError || 'Please retry.'}` : sync === 'saved' ? `Synced${lastSynced ? ` · ${new Date(lastSynced).toLocaleString()}` : ''}` : sync === 'offline' ? 'Offline · changes remain on this device and will sync when connected.' : sync === 'saving' ? 'Saving to your private cloud account…' : sync === 'loading' ? 'Loading your private cloud data…' : 'Cloud sync is ready.'}
+        </div>}
         <div className="mt-3 text-xs muted">{s.items.length} items · {s.goals.length} goals · {s.projects.length} projects · {s.habits.length} habits · {s.journal.length} journal entries · {s.albums.length} albums</div>
         <button className="btn-danger mt-4" onClick={() => { if (confirm('Erase ALL data permanently? Export a backup first!') && confirm('Are you absolutely sure?')) { s.resetAll(); setMsg('All data erased.'); } }}><Trash2 size={16} /> Erase all data</button>
       </section>
