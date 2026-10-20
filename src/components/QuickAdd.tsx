@@ -1,10 +1,10 @@
 import { Plus, Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays, fmtDate, today } from '../lib/utils';
 import { Modal } from './ui';
 import { toast } from './Toaster';
-import type { Horizon, Priority } from '../lib/types';
+import type { Horizon, Priority, ItemType } from '../lib/types';
 
 /**
  * Quick add with smart syntax:
@@ -43,6 +43,13 @@ export function parseQuick(line: string, cats: { id: string; name: string }[]) {
 export default function QuickAdd() {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [type, setType] = useState<ItemType>('other');
+  const [advanced, setAdvanced] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
   const cats = useStore((s) => s.categories);
   const addItems = useStore((s) => s.addItems);
   const items = useStore((s) => s.items);
@@ -74,56 +81,59 @@ export default function QuickAdd() {
   const parsed = marked.filter((p) => !p.tooLong && !(skipDupes && p.dupe));
 
   const submit = () => {
+    if (!advanced) {
+      const cleanTitle = title.trim();
+      if (!cleanTitle) { titleRef.current?.focus(); return; }
+      addItems([{ title: cleanTitle, notes: notes.trim(), categoryId, type, status: 'next', priority: 2, horizon: '1-3y', tags: [], starred: false, ...(dueDate ? { dueDate } : {}) }]);
+      toast('Added to your library');
+      setTitle(''); setNotes(''); setCategoryId(''); setDueDate(''); setType('other'); setOpen(false);
+      return;
+    }
     if (!parsed.length) return;
     addItems(parsed.map(({ dupe, tooLong, invalidDate, ...p }) => p));
     toast(`Added ${parsed.length} item${parsed.length === 1 ? '' : 's'}`);
-    setText('');
-    setOpen(false);
+    setText(''); setOpen(false);
   };
-
   return (
     <>
-      <button onClick={() => setOpen(true)} title="Quick add (N)"
-        className="fixed bottom-6 right-6 z-30 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-xl shadow-indigo-500/30 transition hover:scale-105 active:scale-95">
+      <button onClick={() => setOpen(true)} title="Quick add (N)" aria-label="Add something to Life Circle" aria-haspopup="dialog"
+        className="fixed bottom-[calc(5.6rem+env(safe-area-inset-bottom))] right-4 z-30 grid h-12 w-12 place-items-center rounded-full border border-indigo-500/30 bg-white/55 text-indigo-700 shadow-lg shadow-indigo-900/10 backdrop-blur-xl transition hover:scale-105 active:scale-95 dark:bg-slate-900/45 dark:text-indigo-200 lg:bottom-6 lg:right-6 lg:h-14 lg:w-14">
         <Plus size={26} />
       </button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Quick add to your Life Library">
-        <textarea autoFocus className="input min-h-[140px] font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(); }}
-          placeholder={'One item per line. Paste 100s at once!\n\nLearn guitar #learning !2 ~1-3y\nCall mom #family +today\nVisit Iceland #travel @2027-06-01 *'} />
-        <div className="mt-3 rounded-xl bg-slate-100 p-3 text-xs muted dark:bg-white/[.04]">
-          <div className="mb-1 flex items-center gap-1 font-medium text-slate-700 dark:text-slate-200"><Sparkles size={13} /> Smart syntax</div>
-          <code>#category</code> or <code>#tag</code> · <code>!1</code>–<code>!4</code> priority · <code>@2027-01-31</code> <code>@tomorrow</code> <code>@nextweek</code> <code>@3d</code> <code>@2w</code> <code>@6m</code> <code>@1y</code> due · <code>+today</code> pin · <code>~this-year|1-3y|3-5y|5-10y|lifetime</code> · <code>$skill</code> <code>$book</code> <code>$place</code> type · <code>*</code> star
-        </div>
-        {dupes > 0 && (
-          <label className="mt-3 flex items-center gap-2 text-sm text-amber-500">
-            <input type="checkbox" className="accent-indigo-600" checked={skipDupes} onChange={(e) => setSkipDupes(e.target.checked)} />
-            Skip {dupes} duplicate{dupes === 1 ? '' : 's'} already in your library
+      <Modal open={open} onClose={() => setOpen(false)} title="Add to your Life Library">
+        {!advanced ? <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+          <label className="block text-sm font-medium">Title <span className="text-rose-500">*</span>
+            <input ref={titleRef} autoFocus aria-label="Entry title, required" required maxLength={200} className="input mt-1 w-full" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What would you like to add?" />
           </label>
-        )}
-        {marked.length > 0 && (
-          <div className="mt-3 max-h-48 space-y-1 overflow-y-auto text-sm">
-            {marked.slice(0, 80).map((p, i) => (
-              <div key={i} className={'flex items-center gap-2 ' + ((p.dupe && skipDupes) || p.tooLong ? 'opacity-40 line-through' : '')}>
-                <span className="truncate">{p.title}</span>
-                {p.dupe && <span className="chip bg-amber-500/10 text-amber-500">duplicate</span>}
-                {p.tooLong && <span className="chip bg-rose-500/10 text-rose-500">too long</span>}
-                {p.invalidDate && <span className="chip bg-rose-500/10 text-rose-500">bad date @{p.invalidDate}</span>}
-                {p.dueDate && <span className="chip bg-slate-500/10">{fmtDate(p.dueDate)}</span>}
-                {p.type && <span className="chip bg-cyan-500/10 text-cyan-500">{p.type}</span>}
-                {p.tags.length > 0 && <span className="chip bg-indigo-500/10 text-indigo-400">#{p.tags.join(' #')}</span>}
-                {p.starred && <span className="text-amber-400">★</span>}
-                {p.categoryId && <span className="chip bg-indigo-500/10 text-indigo-500">{cats.find((c) => c.id === p.categoryId)?.icon} {cats.find((c) => c.id === p.categoryId)?.name}</span>}
-                {p.priority && <span className="chip bg-orange-500/10 text-orange-500">P{p.priority}</span>}
-                {p.todayDate && <span className="chip bg-amber-500/10 text-amber-500">Today</span>}
-              </div>
-            ))}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block text-sm font-medium">Type
+              <select aria-label="Entry type" className="input mt-1 w-full" value={type} onChange={(e) => setType(e.target.value as ItemType)}>
+                {(['other','goal','idea','experience','skill','place','book','habit'] as ItemType[]).map((v) => <option key={v} value={v}>{v === 'other' ? 'Item' : v[0].toUpperCase() + v.slice(1)}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm font-medium">Category <span className="font-normal muted">(optional)</span>
+              <select aria-label="Category" className="input mt-1 w-full" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <option value="">No category</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              </select>
+            </label>
           </div>
-        )}
-        <div className="mt-4 flex justify-end gap-2">
-          <button className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
-          <button className="btn-primary" disabled={!parsed.length} onClick={submit}>Add {parsed.length || ''} item{parsed.length === 1 ? '' : 's'} <kbd className="text-[10px] opacity-70">⌘↵</kbd></button>
-        </div>
+          <label className="block text-sm font-medium">Due date <span className="font-normal muted">(optional)</span>
+            <input aria-label="Due date" type="date" className="input mt-1 w-full sm:max-w-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </label>
+          <label className="block text-sm font-medium">Notes <span className="font-normal muted">(optional)</span>
+            <textarea aria-label="Notes" className="input mt-1 min-h-20 w-full resize-y" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a little detail…" />
+          </label>
+          <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-3 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+            <button type="button" className="btn-ghost self-start" onClick={() => setAdvanced(true)}>Add many / advanced</button>
+            <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button><button type="submit" className="btn-primary" disabled={!title.trim()}>Add item</button></div>
+          </div>
+        </form> : <div>
+          <button type="button" className="btn-ghost mb-3" onClick={() => setAdvanced(false)}>← Simple add</button>
+          <textarea aria-label="Items to add, one per line" className="input min-h-[120px] w-full font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(); }} placeholder="One item per line" />
+          <details className="mt-3 rounded-xl bg-slate-100 p-3 text-xs muted dark:bg-white/[.04]"><summary className="flex cursor-pointer list-none items-center gap-1 font-medium"><Sparkles size={13} /> Legacy smart syntax help</summary><p className="mt-2"><code>#category</code> · <code>!1</code>–<code>!4</code> priority · <code>@date</code> due · <code>+today</code> pin · <code>~horizon</code> · <code>$type</code> · <code>*</code> star</p></details>
+          {dupes > 0 && <label className="mt-3 flex items-center gap-2 text-sm text-amber-500"><input type="checkbox" className="accent-indigo-600" checked={skipDupes} onChange={(e) => setSkipDupes(e.target.checked)} />Skip {dupes} duplicate{dupes === 1 ? '' : 's'}</label>}
+          <div className="mt-4 flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button><button type="button" className="btn-primary" disabled={!parsed.length} onClick={submit}>Add {parsed.length} item{parsed.length === 1 ? '' : 's'}</button></div>
+        </div>}
       </Modal>
     </>
   );

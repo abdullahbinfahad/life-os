@@ -60,3 +60,58 @@ create policy "owners manage public journals" on public.public_journals for all 
 revoke all on public.public_journals from anon;
 grant select on public.public_journals to anon, authenticated;
 grant insert, update, delete on public.public_journals to authenticated;
+
+-- Private media for profile photos and album memories. The browser stores only
+-- these object paths in life_data; it requests short-lived signed URLs to view
+-- them. File names must begin with the authenticated user's UUID.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'life-media',
+  'life-media',
+  false,
+  5242880, -- 5 MiB (the client compresses to <= 4.5 MiB)
+  array['image/jpeg', 'image/png', 'image/webp']::text[]
+)
+on conflict (id) do update set
+  public = false,
+  file_size_limit = 5242880,
+  allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp']::text[];
+
+-- Policies are intentionally limited to the life-media bucket and the first
+-- folder in an object name, e.g. <auth.uid()>/avatars/<uuid>.webp.
+drop policy if exists "life-media users read own objects" on storage.objects;
+drop policy if exists "life-media users insert own objects" on storage.objects;
+drop policy if exists "life-media users update own objects" on storage.objects;
+drop policy if exists "life-media users delete own objects" on storage.objects;
+
+create policy "life-media users read own objects"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'life-media'
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
+create policy "life-media users insert own objects"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'life-media'
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
+create policy "life-media users update own objects"
+on storage.objects for update to authenticated
+using (
+  bucket_id = 'life-media'
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+)
+with check (
+  bucket_id = 'life-media'
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
+create policy "life-media users delete own objects"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'life-media'
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);

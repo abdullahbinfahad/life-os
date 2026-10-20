@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Album, AlbumMemory, Category, Goal, Habit, JournalEntry, LifeItem, Project, Settings, Task } from './types';
+import type { Album, AlbumMemory, Category, Goal, Habit, JournalEntry, LifeItem, Project, Settings, Task, TrashRecord } from './types';
 import { DEFAULT_CATEGORIES } from './library';
 import { addDays, today, uid } from './utils';
 
@@ -15,6 +15,7 @@ interface State {
   journal: JournalEntry[];
   albums: Album[];
   settings: Settings;
+  trash: TrashRecord[];
 
   // items
   addItems: (items: NewItem[]) => void;
@@ -57,12 +58,18 @@ interface State {
   deleteMemory: (albumId: string, memoryId: string) => void;
   // settings / data
   updateSettings: (patch: Partial<Settings>) => void;
+  restoreFromTrash: (id: string) => boolean;
+  permanentlyDeleteFromTrash: (id: string) => TrashRecord | undefined;
+  emptyTrash: () => TrashRecord[];
   importAll: (data: Partial<State>) => void;
   resetAll: () => void;
   loadDemo: () => void;
 }
 
 const now = () => new Date().toISOString();
+const trashEntry = (entityType: TrashRecord['entityType'], title: string, data: unknown, parentId?: string, metadata?: TrashRecord['metadata']): TrashRecord => ({
+  id: uid(), entityType, title: title || 'Untitled', data, parentId, metadata, deletedAt: now(),
+});
 
 const makeItem = (i: NewItem): LifeItem => ({
   id: uid(),
@@ -87,6 +94,7 @@ const initial = {
   habits: [] as Habit[],
   journal: [] as JournalEntry[],
   albums: [] as Album[],
+  trash: [] as TrashRecord[],
   settings: { theme: 'dark', name: '', weekStartsMonday: true } as Settings,
 };
 
@@ -110,15 +118,22 @@ export const useStore = create<State>()(
         }));
       },
       deleteItems: (ids) => {
-        const s_ = new Set(ids);
-        const removed = get().items.filter((i) => s_.has(i.id));
-        set((s) => ({ items: s.items.filter((i) => !s_.has(i.id)) }));
+        const selected = new Set(ids);
+        const removed = get().items.filter((i) => selected.has(i.id));
+        set((s) => ({
+          items: s.items.filter((i) => !selected.has(i.id)),
+          trash: [...s.trash, ...removed.map((item) => trashEntry('item', item.title, item))],
+        }));
         return removed;
       },
       restoreItems: (restored) =>
         set((s) => {
           const have = new Set(s.items.map((i) => i.id));
-          return { items: [...restored.filter((i) => !have.has(i.id)), ...s.items] };
+          const restoredIds = new Set(restored.map((i) => i.id));
+          return {
+            items: [...restored.filter((i) => !have.has(i.id)), ...s.items],
+            trash: s.trash.filter((record) => !(record.entityType === 'item' && restoredIds.has((record.data as LifeItem).id))),
+          };
         }),
       duplicateItems: (ids) =>
         set((s) => {
@@ -163,10 +178,14 @@ export const useStore = create<State>()(
       updateCategory: (id, patch) => set((s) => ({ categories: s.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
       deleteCategory: (id) =>
         set((s) => {
+          const category = s.categories.find((c) => c.id === id);
+          if (!category) return s;
           const fallback = s.categories.find((c) => c.id !== id)?.id ?? 'experiences';
+          const affectedItemIds = s.items.filter((i) => i.categoryId === id).map((i) => i.id);
           return {
             categories: s.categories.filter((c) => c.id !== id),
             items: s.items.map((i) => (i.categoryId === id ? { ...i, categoryId: fallback } : i)),
+            trash: [...s.trash, trashEntry('category', category.name, category, undefined, { affectedItemIds, fallbackCategoryId: fallback })],
           };
         }),
 
@@ -189,11 +208,18 @@ export const useStore = create<State>()(
           ),
         })),
       deleteGoal: (id) =>
-        set((s) => ({
-          goals: s.goals.filter((g) => g.id !== id),
-          items: s.items.map((i) => (i.goalId === id ? { ...i, goalId: undefined } : i)),
-          projects: s.projects.map((p) => (p.goalId === id ? { ...p, goalId: undefined } : p)),
-        })),
+        set((s) => {
+          const goal = s.goals.find((g) => g.id === id);
+          if (!goal) return s;
+          const linkedItemIds = s.items.filter((i) => i.goalId === id).map((i) => i.id);
+          const linkedProjectIds = s.projects.filter((p) => p.goalId === id).map((p) => p.id);
+          return {
+            goals: s.goals.filter((g) => g.id !== id),
+            items: s.items.map((i) => (i.goalId === id ? { ...i, goalId: undefined } : i)),
+            projects: s.projects.map((p) => (p.goalId === id ? { ...p, goalId: undefined } : p)),
+            trash: [...s.trash, trashEntry('goal', goal.title, goal, undefined, { linkedItemIds, linkedProjectIds })],
+          };
+        }),
 
       addProject: (p) => {
         const id = uid();
@@ -206,7 +232,10 @@ export const useStore = create<State>()(
         return id;
       },
       updateProject: (id, patch) => set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
-      deleteProject: (id) => set((s) => ({ projects: s.projects.filter((p) => p.id !== id) })),
+      deleteProject: (id) => set((s) => {
+        const project = s.projects.find((p) => p.id === id);
+        return project ? { projects: s.projects.filter((p) => p.id !== id), trash: [...s.trash, trashEntry('project', project.title, project)] } : s;
+      }),
       addTask: (projectId, title, dueDate) =>
         set((s) => ({
           projects: s.projects.map((p) =>
@@ -229,18 +258,15 @@ export const useStore = create<State>()(
           ),
         })),
       deleteTask: (projectId, taskId) =>
-        set((s) => ({
-          projects: s.projects.map((p) =>
-            p.id === projectId
-              ? {
-                  ...p,
-                  tasks: p.tasks
-                    .filter((t) => t.id !== taskId)
-                    .map((t) => ({ ...t, dependsOn: t.dependsOn.filter((d) => d !== taskId) })),
-                }
-              : p,
-          ),
-        })),
+        set((s) => {
+          const project = s.projects.find((p) => p.id === projectId);
+          const task = project?.tasks.find((t) => t.id === taskId);
+          if (!task) return s;
+          return {
+            projects: s.projects.map((p) => p.id === projectId ? { ...p, tasks: p.tasks.filter((t) => t.id !== taskId).map((t) => ({ ...t, dependsOn: t.dependsOn.filter((d) => d !== taskId) })) } : p),
+            trash: [...s.trash, trashEntry('task', task.title, task, projectId)],
+          };
+        }),
 
       addHabit: (h) =>
         set((s) => ({
@@ -250,7 +276,10 @@ export const useStore = create<State>()(
           ],
         })),
       updateHabit: (id, patch) => set((s) => ({ habits: s.habits.map((h) => (h.id === id ? { ...h, ...patch } : h)) })),
-      deleteHabit: (id) => set((s) => ({ habits: s.habits.filter((h) => h.id !== id) })),
+      deleteHabit: (id) => set((s) => {
+        const habit = s.habits.find((h) => h.id === id);
+        return habit ? { habits: s.habits.filter((h) => h.id !== id), trash: [...s.trash, trashEntry('habit', habit.title, habit)] } : s;
+      }),
       toggleHabit: (id, date) =>
         set((s) => ({
           habits: s.habits.map((h) =>
@@ -269,7 +298,10 @@ export const useStore = create<State>()(
             ],
           };
         }),
-      deleteEntry: (id) => set((s) => ({ journal: s.journal.filter((j) => j.id !== id) })),
+      deleteEntry: (id) => set((s) => {
+        const entry = s.journal.find((j) => j.id === id);
+        return entry ? { journal: s.journal.filter((j) => j.id !== id), trash: [...s.trash, trashEntry('journal', entry.title || 'Journal entry', entry)] } : s;
+      }),
 
       addAlbum: (a) => {
         const id = uid();
@@ -277,12 +309,87 @@ export const useStore = create<State>()(
         return id;
       },
       updateAlbum: (id, patch) => set((s) => ({ albums: s.albums.map((a) => (a.id === id ? { ...a, ...patch } : a)) })),
-      deleteAlbum: (id) => set((s) => ({ albums: s.albums.filter((a) => a.id !== id) })),
+      deleteAlbum: (id) => set((s) => {
+        const album = s.albums.find((a) => a.id === id);
+        return album ? { albums: s.albums.filter((a) => a.id !== id), trash: [...s.trash, trashEntry('album', album.title, album)] } : s;
+      }),
       addMemory: (albumId, memory) => set((s) => ({ albums: s.albums.map((a) => a.id === albumId ? { ...a, memories: [{ id: uid(), note: '', tags: [], ...memory }, ...a.memories] } : a) })),
       updateMemory: (albumId, memoryId, patch) => set((s) => ({ albums: s.albums.map((a) => a.id === albumId ? { ...a, memories: a.memories.map((m) => m.id === memoryId ? { ...m, ...patch } : m) } : a) })),
-      deleteMemory: (albumId, memoryId) => set((s) => ({ albums: s.albums.map((a) => a.id === albumId ? { ...a, memories: a.memories.filter((m) => m.id !== memoryId) } : a) })),
+      deleteMemory: (albumId, memoryId) => set((s) => {
+        const album = s.albums.find((a) => a.id === albumId);
+        const memory = album?.memories.find((m) => m.id === memoryId);
+        if (!memory) return s;
+        return {
+          albums: s.albums.map((a) => a.id === albumId ? { ...a, memories: a.memories.filter((m) => m.id !== memoryId) } : a),
+          trash: [...s.trash, trashEntry('memory', memory.title, memory, albumId)],
+        };
+      }),
 
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+      restoreFromTrash: (id) => {
+        let restored = false;
+        set((s) => {
+          const record = s.trash.find((entry) => entry.id === id);
+          if (!record) return s;
+          const trash = s.trash.filter((entry) => entry.id !== id);
+          const prependUnique = <T extends { id: string }>(rows: T[], row: T) => [row, ...rows.filter((entry) => entry.id !== row.id)];
+          switch (record.entityType) {
+            case 'item': restored = true; return { items: prependUnique(s.items, record.data as LifeItem), trash };
+            case 'goal': {
+              const goal = record.data as Goal;
+              const itemIds = new Set(record.metadata?.linkedItemIds ?? []);
+              const projectIds = new Set(record.metadata?.linkedProjectIds ?? []);
+              restored = true;
+              return {
+                goals: prependUnique(s.goals, goal),
+                items: s.items.map((item) => itemIds.has(item.id) && !item.goalId ? { ...item, goalId: goal.id } : item),
+                projects: s.projects.map((project) => projectIds.has(project.id) && !project.goalId ? { ...project, goalId: goal.id } : project),
+                trash,
+              };
+            }
+            case 'project': restored = true; return { projects: prependUnique(s.projects, record.data as Project), trash };
+            case 'task': {
+              const project = s.projects.find((row) => row.id === record.parentId);
+              if (!project) return s;
+              const task = record.data as Task;
+              restored = true;
+              return { projects: s.projects.map((row) => row.id === project.id ? { ...row, tasks: prependUnique(row.tasks, task) } : row), trash };
+            }
+            case 'habit': restored = true; return { habits: prependUnique(s.habits, record.data as Habit), trash };
+            case 'journal': restored = true; return { journal: prependUnique(s.journal, record.data as JournalEntry), trash };
+            case 'album': restored = true; return { albums: prependUnique(s.albums, record.data as Album), trash };
+            case 'memory': {
+              const albumId = record.parentId;
+              if (!albumId || !s.albums.some((row) => row.id === albumId)) return s;
+              const memory = record.data as AlbumMemory;
+              restored = true;
+              return { albums: s.albums.map((row) => row.id === albumId ? { ...row, memories: prependUnique(row.memories, memory) } : row), trash };
+            }
+            case 'category': {
+              const category = record.data as Category;
+              const affected = new Set(record.metadata?.affectedItemIds ?? []);
+              const fallback = record.metadata?.fallbackCategoryId;
+              restored = true;
+              return {
+                categories: prependUnique(s.categories, category),
+                items: s.items.map((item) => affected.has(item.id) && item.categoryId === fallback ? { ...item, categoryId: category.id } : item),
+                trash,
+              };
+            }
+          }
+        });
+        return restored;
+      },
+      permanentlyDeleteFromTrash: (id) => {
+        const record = get().trash.find((entry) => entry.id === id);
+        if (record) set((s) => ({ trash: s.trash.filter((entry) => entry.id !== id) }));
+        return record;
+      },
+      emptyTrash: () => {
+        const records = get().trash;
+        set({ trash: [] });
+        return records;
+      },
       importAll: (data) =>
         set(() => ({
           categories: data.categories ?? initial.categories,
@@ -292,6 +399,7 @@ export const useStore = create<State>()(
           habits: data.habits ?? [],
           journal: data.journal ?? [],
           albums: data.albums ?? [],
+          trash: data.trash ?? [],
           settings: { ...initial.settings, ...(data.settings ?? {}) },
         })),
       resetAll: () => set(() => ({ ...initial })),
@@ -345,13 +453,14 @@ export const useStore = create<State>()(
     }),
     {
       name: 'life-os-v1',
-      version: 2,
-      // v2: add the new idea categories for people who already had data
+      version: 3,
+      // v2 adds the idea categories; v3 introduces an initially empty Trash.
       migrate: (persisted: any, version) => {
         if (persisted && version < 2) {
           const have = new Set((persisted.categories ?? []).map((c: Category) => c.id));
           persisted.categories = [...(persisted.categories ?? []), ...DEFAULT_CATEGORIES.filter((c) => !have.has(c.id))];
         }
+        if (persisted && version < 3) persisted.trash = [];
         return persisted;
       },
     },

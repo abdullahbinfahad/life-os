@@ -1,6 +1,6 @@
-import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { HashRouter, Route, Routes } from 'react-router-dom';
-import { Logo } from './components/Brand';
+import { LoadingLogo } from './components/Brand';
 import Layout from './components/Layout';
 import Albums from './pages/Albums';
 import { useAuth } from './lib/auth';
@@ -17,17 +17,39 @@ import Projects from './pages/Projects';
 import Settings from './pages/Settings';
 import Today from './pages/Today';
 import PublicJournal from './pages/PublicJournal';
+import PublicJournalIndex from './pages/PublicJournalIndex';
 
 export default function App() {
   const { ready, session, guest, recovery, sync } = useAuth();
+  const [hash, setHash] = useState(() => window.location.hash);
 
-  if (window.location.hash.startsWith('#/public/journal/')) return <HashRouter><Routes><Route path="/public/journal/:slug" element={<PublicJournal />} /></Routes></HashRouter>;
+  useEffect(() => {
+    const handleHashChange = () => setHash(window.location.hash);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const publicPath = hash.slice(1).split(/[?#]/)[0].replace(/\/+$/, '');
+  const isPublicRoute = publicPath === '/public' || publicPath.startsWith('/public/journal/');
+
+  // Public journal pages intentionally bypass auth and the signed-in app shell.
+  if (isPublicRoute) {
+    return (
+      <HashRouter>
+        <Routes>
+          <Route path="/public" element={<PublicJournalIndex />} />
+          <Route path="/public/journal/:slug" element={<PublicJournal />} />
+          <Route path="*" element={<PublicJournalIndex />} />
+        </Routes>
+      </HashRouter>
+    );
+  }
 
   if (cloudEnabled) {
     if (!ready || (session && sync === 'loading'))
       return (
         <div className="grid min-h-screen place-items-center">
-          <div className="flex flex-col items-center gap-3"><Logo size={56} /><Loader2 className="animate-spin muted" /></div>
+          <div className="flex flex-col items-center gap-3" role="status" aria-live="polite"><LoadingLogo size={68} /><span className="text-sm muted">Getting your Life Circle ready…</span></div>
         </div>
       );
     if (recovery && session) return <SetNewPassword />;

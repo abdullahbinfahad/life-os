@@ -1,5 +1,6 @@
 import { BookOpen, Globe2, Lock, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Empty, PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
 import type { JournalEntry } from '../lib/types';
@@ -35,7 +36,16 @@ export default function Journal() {
 
   return (
     <div>
-      <PageHeader title="Journal" subtitle="Reflections and memories" actions={<button className="btn-primary" onClick={() => newEntry()}><Plus size={16} /> New entry</button>} />
+      <PageHeader
+        title="Journal"
+        subtitle="Reflections and memories"
+        actions={
+          <>
+            <Link to="/public" className="btn-outline"><Globe2 size={16} /> Browse public journals</Link>
+            <button className="btn-primary" onClick={() => newEntry()}><Plus size={16} /> New entry</button>
+          </>
+        }
+      />
       {journal.length === 0 && !draft ? (
         <Empty icon={<BookOpen size={28} />} title="Start journaling" text="Pick a prompt to begin."
           action={<div className="flex max-w-lg flex-wrap justify-center gap-2">{PROMPTS.map((p) => <button key={p} className="chip border border-slate-200 px-3 py-1.5 text-sm hover:border-indigo-400 dark:border-white/10" onClick={() => newEntry(p)}>{p}</button>)}</div>} />
@@ -68,7 +78,13 @@ export default function Journal() {
               <input className="input mt-3" placeholder="Tags, comma separated" value={(current.tags ?? []).join(', ')} onChange={(e) => edit({ tags: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
               <input className="input mt-3" placeholder="Location or memory context (optional)" value={current.location ?? ''} onChange={(e) => edit({ location: e.target.value || undefined })} />
               {current.visibility === 'public' && <p className="mt-3 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">Public preview enabled. When cloud publishing is configured, this entry can appear on your public journal page. Do not include sensitive information.</p>}
-              {draft && <div className="mt-4 flex flex-wrap justify-end gap-2"><button className="btn-ghost" onClick={() => setDraft(null)}>Discard</button>{current.visibility === 'public' && user && <button className="btn-outline" onClick={publish}><Globe2 size={15} /> Publish link</button>}<button className="btn-primary" onClick={save}>Save entry</button></div>}
+              {(draft || (current.visibility === 'public' && user)) && (
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  {draft && <button className="btn-ghost" onClick={() => setDraft(null)}>Discard</button>}
+                  {current.visibility === 'public' && user && <button className="btn-outline" onClick={publish}><Globe2 size={15} /> {entry && !draft ? 'Update public link' : 'Publish link'}</button>}
+                  {draft && <button className="btn-primary" onClick={save}>Save entry</button>}
+                </div>
+              )}
             </div>
           ) : <div className="card grid place-items-center p-10 muted">Select an entry</div>}
         </div>

@@ -1,4 +1,4 @@
-import { BarChart3, ChevronDown, Cloud, CloudOff, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X, Images } from 'lucide-react';
+import { BarChart3, Cloud, CloudOff, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X, Images, Globe2 } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
@@ -9,9 +9,18 @@ import { APP_NAME, Logo } from './Brand';
 import Toaster from './Toaster';
 import { auth, syncNow, useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
+import { getPrivateImageUrl } from '../lib/media';
 
 function AccountBox() {
   const { user, sync, syncError, guest, setGuest } = useAuth();
+  const avatarPath = useStore((s) => s.settings.avatarPath);
+  const [privateAvatar, setPrivateAvatar] = useState<string>();
+  useEffect(() => {
+    let active = true;
+    if (!user || !avatarPath) { setPrivateAvatar(undefined); return () => { active = false; }; }
+    getPrivateImageUrl(user.id, avatarPath).then((url) => { if (active) setPrivateAvatar(url); }).catch(() => { if (active) setPrivateAvatar(undefined); });
+    return () => { active = false; };
+  }, [user?.id, avatarPath]);
   if (!cloudEnabled) return null;
   if (!user)
     return (
@@ -20,7 +29,7 @@ function AccountBox() {
       </button>
     );
   const name = (user.user_metadata?.full_name as string) || user.email || user.phone || 'You';
-  const avatar = user.user_metadata?.avatar_url as string | undefined;
+  const avatar = privateAvatar || user.user_metadata?.avatar_url as string | undefined;
   const label = { off: '', loading: 'Loading…', saving: 'Saving…', saved: 'Synced', error: 'Sync error — retry', offline: 'Offline — will sync' }[sync];
   return (
     <div className="mt-3 rounded-xl border border-slate-200 p-2.5 dark:border-white/10">
@@ -53,17 +62,16 @@ export const NAV = [
   { to: '/insights', label: 'Insights', desc: 'Progress and patterns over time', icon: BarChart3 },
   { to: '/journal', label: 'Journal', desc: 'Reflections and memories', icon: BookOpen },
   { to: '/albums', label: 'Albums', desc: 'Memory tree and life moments', icon: Images },
+  { to: '/public', label: 'Public Journal', desc: 'Read published reflections', icon: Globe2 },
   { to: '/settings', label: 'Settings', desc: 'Templates, imports, exports, privacy', icon: Settings },
 ];
 const PRIMARY_NAV = NAV.filter((item) => ['/', '/goals', '/today', '/habits'].includes(item.to));
-const OTHER_NAV = NAV.filter((item) => !PRIMARY_NAV.some((primary) => primary.to === item.to));
 
 export default function Layout({ children }: { children: ReactNode }) {
   const theme = useStore((s) => s.settings.theme);
   const updateSettings = useStore((s) => s.updateSettings);
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
-  const [othersOpen, setOthersOpen] = useState(false);
   const loc = useLocation();
   const nav = useNavigate();
 
@@ -100,8 +108,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         <Search size={15} /> Search… <kbd className="ml-auto rounded bg-slate-100 px-1.5 text-[10px] dark:bg-white/10">⌘K</kbd>
       </button>
       <nav className="flex-1 space-y-0.5 overflow-y-auto">
-        <div className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.16em] muted">Start here</div>
-        {PRIMARY_NAV.map(({ to, label, icon: Icon }) => (
+        <div className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.16em] muted">Main menu</div>
+        {NAV.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} end={to === '/'}
             className={({ isActive }) => cx(
               'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition',
@@ -110,16 +118,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Icon size={17} /> {label}
           </NavLink>
         ))}
-        <button onClick={() => setOthersOpen((open) => !open)} className="mt-4 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[.05]">
-          <Menu size={17} /> <span className="flex-1 text-left">Others</span><ChevronDown size={15} className={cx('transition-transform', othersOpen && 'rotate-180')} />
-        </button>
-        {othersOpen && <div className="mt-1 space-y-0.5 border-l border-slate-200 pl-2 dark:border-white/10">
-          {OTHER_NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => cx('group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition', isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[.05]')}>
-              <Icon size={16} /> {label}
-            </NavLink>
-          ))}
-        </div>}
       </nav>
       <button className="btn-ghost mt-4 justify-start" onClick={() => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' })}>
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
@@ -131,8 +129,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 left-1/3 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="ambient-orb absolute -top-40 left-1/3 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="ambient-orb absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-fuchsia-500/10 blur-3xl" />
       </div>
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white/70 p-4 backdrop-blur-xl dark:border-white/[.06] dark:bg-black/20 lg:block">
         {sidebar}
@@ -153,7 +151,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </div>
       <nav className="mobile-bottom-nav lg:hidden" aria-label="Primary navigation">
         {PRIMARY_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => cx('flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium', isActive ? 'text-indigo-600 dark:text-indigo-300' : 'muted')}><Icon size={18} /><span>{label === 'Overview' ? 'Home' : label}</span></NavLink>)}
-        <button onClick={() => setMobile(true)} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium muted"><Menu size={18} /><span>Others</span></button>
+        <button onClick={() => setMobile(true)} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium muted" aria-label="Open all pages"><Menu size={18} /><span>All pages</span></button>
       </nav>
       <QuickAdd />
       <CommandPalette open={palette} onClose={() => setPalette(false)} />

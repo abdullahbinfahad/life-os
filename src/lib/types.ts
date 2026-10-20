@@ -107,6 +107,9 @@ export interface AlbumMemory {
   id: string;
   title: string;
   note: string;
+  /** Private object path in the life-media bucket; render via a signed URL. */
+  imagePath?: string;
+  /** Legacy/external URL fallback. New direct uploads use imagePath instead. */
   imageUrl?: string;
   date?: string;
   location?: string;
@@ -120,5 +123,21 @@ export interface Settings {
   birthday?: string;
   bio?: string;
   location?: string;
+  /** Private object path in the life-media bucket; render via a signed URL. */
+  avatarPath?: string;
+  /** Optional legacy/external URL fallback. */
   avatarUrl?: string;
+}
+
+export type TrashEntityType = 'item' | 'goal' | 'project' | 'task' | 'habit' | 'journal' | 'album' | 'memory' | 'category';
+
+export interface TrashRecord {
+  id: string;
+  entityType: TrashEntityType;
+  title: string;
+  deletedAt: string;
+  /** Parent container id for tasks and album memories. */
+  parentId?: string;
+  data: unknown;
+  metadata?: { linkedItemIds?: string[]; linkedProjectIds?: string[]; affectedItemIds?: string[]; fallbackCategoryId?: string };
 }

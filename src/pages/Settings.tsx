@@ -1,8 +1,10 @@
-import { Download, Lock, Plus, Trash2, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Download, ImagePlus, Lock, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
+import { compressImage, deletePrivateImage, formatBytes, getPrivateImageUrl, uploadPrivateImage } from '../lib/media';
+import type { Album, AlbumMemory, Settings as SettingsData, TrashRecord } from '../lib/types';
 import { cloudEnabled } from '../lib/supabase';
 import { csvEscape, download, parseCSV, today } from '../lib/utils';
 
@@ -13,10 +15,11 @@ export default function Settings() {
   const csvRef = useRef<HTMLInputElement>(null);
   const [newCat, setNewCat] = useState({ name: '', icon: '⭐', color: '#6366f1' });
   const [msg, setMsg] = useState('');
+  const [trashBusy, setTrashBusy] = useState(false);
 
   const exportJSON = () => {
-    const { categories, items, goals, projects, habits, journal, albums, settings } = useStore.getState();
-    download(`life-circle-backup-${today()}.json`, JSON.stringify({ version: 3, categories, items, goals, projects, habits, journal, albums, settings }, null, 2));
+    const { categories, items, goals, projects, habits, journal, albums, settings, trash } = useStore.getState();
+    download(`life-circle-backup-${today()}.json`, JSON.stringify({ version: 4, categories, items, goals, projects, habits, journal, albums, settings, trash }, null, 2));
   };
   const exportCSV = () => {
     const head = ['title', 'category', 'status', 'priority', 'horizon', 'type', 'dueDate', 'tags', 'notes'];
@@ -57,6 +60,44 @@ export default function Settings() {
     setMsg(`Imported ${items.length} items.`);
   };
 
+  const purgeRecord = async (record: TrashRecord, ask = true) => {
+    if (ask && !confirm(`Permanently delete “${record.title}”? This cannot be undone.`)) return;
+    if (trashBusy) return;
+    const paths = trashImagePaths(record);
+    if (paths.length && !user?.id) {
+      setMsg('Sign in to permanently remove this record’s private photo files. The record remains in Trash.');
+      return;
+    }
+    setTrashBusy(true);
+    try {
+      if (user?.id) await Promise.all(paths.map((path) => deletePrivateImage(user.id, path)));
+      s.permanentlyDeleteFromTrash(record.id);
+      setMsg(`“${record.title}” was permanently deleted.`);
+    } catch (error) {
+      setMsg(error instanceof Error ? `Could not permanently delete: ${error.message}` : 'Could not permanently delete this record.');
+    } finally {
+      setTrashBusy(false);
+    }
+  };
+
+  const emptyTrash = async () => {
+    if (!s.trash.length || trashBusy || !confirm('Permanently delete every item currently in Trash? This cannot be undone.')) return;
+    setTrashBusy(true);
+    let deleted = 0;
+    let failed = 0;
+    for (const record of [...s.trash]) {
+      const paths = trashImagePaths(record);
+      if (paths.length && !user?.id) { failed += 1; continue; }
+      try {
+        if (user?.id) await Promise.all(paths.map((path) => deletePrivateImage(user.id, path)));
+        s.permanentlyDeleteFromTrash(record.id);
+        deleted += 1;
+      } catch { failed += 1; }
+    }
+    setTrashBusy(false);
+    setMsg(failed ? `Permanently deleted ${deleted}; ${failed} record(s) remain in Trash because private media could not be removed.` : 'Trash emptied permanently.');
+  };
+
   return (
     <div className="max-w-4xl">
       <PageHeader title="Settings" subtitle="Templates, imports, exports, privacy" />
@@ -64,9 +105,10 @@ export default function Settings() {
 
       <section className="card mb-6 p-6">
         <h3 className="mb-4 font-semibold">Profile & preferences</h3>
+        <div className="mb-5"><ProfilePhotoControl settings={s.settings} userId={user?.id} updateSettings={s.updateSettings} /></div>
         <div className="grid gap-4 sm:grid-cols-3">
           <div><label className="label">Your name</label><input className="input" value={s.settings.name} onChange={(e) => s.updateSettings({ name: e.target.value })} /></div>
-          <div><label className="label">Profile photo URL</label><input className="input" type="url" placeholder="https://…" value={s.settings.avatarUrl ?? ''} onChange={(e) => s.updateSettings({ avatarUrl: e.target.value || undefined })} /></div>
+          <div><label className="label">Profile photo URL</label><input className="input" type="url" placeholder="https://…" value={s.settings.avatarUrl ?? ''} onChange={(e) => s.updateSettings({ avatarUrl: e.target.value || undefined })} /><p className="mt-1 text-xs muted">Optional external-image fallback. Private uploads are shown first.</p></div>
           <div><label className="label">Birthday</label><input className="input" type="date" value={s.settings.birthday ?? ''} onChange={(e) => s.updateSettings({ birthday: e.target.value || undefined })} /></div>
           <div><label className="label">Location</label><input className="input" placeholder="City, country" value={s.settings.location ?? ''} onChange={(e) => s.updateSettings({ location: e.target.value || undefined })} /></div>
           <div><label className="label">Theme</label><select className="input" value={s.settings.theme} onChange={(e) => s.updateSettings({ theme: e.target.value as any })}><option value="dark">Dark</option><option value="light">Light</option></select></div>
@@ -111,13 +153,31 @@ export default function Settings() {
         </div>
       </section>
 
+      <section className="card mb-6 p-6" aria-labelledby="trash-heading">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div><h3 id="trash-heading" className="font-semibold">Trash</h3><p className="mt-1 text-sm muted">Deleted items stay here until you restore them or permanently remove them.</p></div>
+          <div className="flex items-center gap-2"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium dark:bg-white/[.08]">{s.trash.length} item{s.trash.length === 1 ? '' : 's'}</span><button className="btn-danger !px-3 !py-1.5" disabled={!s.trash.length || trashBusy} onClick={() => void emptyTrash()}><Trash2 size={14} /> Empty trash</button></div>
+        </div>
+        {s.trash.length === 0 ? <p className="rounded-xl bg-slate-100/70 p-4 text-sm muted dark:bg-white/[.04]">Nothing in Trash. Deleted items will appear here.</p> : (
+          <div className="space-y-2">
+            {[...s.trash].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt)).map((record) => (
+              <div key={record.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-white/[.08]">
+                <div className="min-w-0 flex-1"><div className="truncate font-medium">{record.title}</div><div className="mt-0.5 text-xs muted">{record.entityType[0].toUpperCase() + record.entityType.slice(1)} · deleted {new Date(record.deletedAt).toLocaleString()}</div></div>
+                <button className="btn-outline !px-2.5 !py-1.5" disabled={trashBusy} onClick={() => { if (s.restoreFromTrash(record.id)) setMsg(`“${record.title}” restored.`); else setMsg('Restore the parent project or album first, then restore this record.'); }}><RotateCcw size={14} /> Restore</button>
+                <button className="btn-ghost !px-2.5 !py-1.5 text-rose-500" disabled={trashBusy} onClick={() => void purgeRecord(record)}><Trash2 size={14} /> Delete forever</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       <section className="card mb-6 p-6">
         <h3 className="mb-2 flex items-center gap-2 font-semibold"><Lock size={16} /> Privacy</h3>
         <p className="text-sm muted">{user && cloudEnabled
-          ? 'Your signed-in account is backed by private cloud sync. Database row-level security restricts your Life OS data to your account. A copy also stays in this browser for offline use.'
+          ? 'Your signed-in account is backed by private cloud sync. Database row-level security restricts your Life OS data to your account. Uploaded photos are stored in a private bucket and shown with signed URLs. A copy also stays in this browser for offline use.'
           : cloudEnabled
-            ? 'Your data is saved on this device until you sign in. Sign in to protect it in your private cloud account and sync across devices.'
-            : 'Your data is stored only in this browser. Configure cloud authentication to protect it in an account and sync across devices. Export a backup regularly.'}</p>
+            ? 'Your data is saved on this device until you sign in. Sign in to protect it in your private cloud account and sync across devices. Direct photo uploads require sign-in so they are never embedded in local JSON.'
+            : 'Your data is stored only in this browser. Configure cloud authentication to protect it in an account and sync across devices. Direct photo uploads require a private signed-in cloud account; external image URLs still work. Export a backup regularly.'}</p>
         {cloudEnabled && user && <div className={`mt-3 text-xs ${sync === 'error' ? 'text-rose-500' : 'muted'}`} role="status">
           {sync === 'error' ? `Cloud sync failed: ${syncError || 'Please retry.'}` : sync === 'saved' ? `Synced${lastSynced ? ` · ${new Date(lastSynced).toLocaleString()}` : ''}` : sync === 'offline' ? 'Offline · changes remain on this device and will sync when connected.' : sync === 'saving' ? 'Saving to your private cloud account…' : sync === 'loading' ? 'Loading your private cloud data…' : 'Cloud sync is ready.'}
         </div>}
@@ -135,4 +195,106 @@ export default function Settings() {
       </section>
     </div>
   );
+}
+
+function trashImagePaths(record: TrashRecord): string[] {
+  if (record.entityType === 'album') {
+    const memories = (record.data as Album).memories ?? [];
+    return memories.map((memory) => memory.imagePath).filter((path): path is string => Boolean(path));
+  }
+  if (record.entityType === 'memory') {
+    const path = (record.data as AlbumMemory).imagePath;
+    return path ? [path] : [];
+  }
+  return [];
+}
+
+function ProfilePhotoControl({ settings, userId, updateSettings }: { settings: SettingsData; userId?: string; updateSettings: (patch: Partial<SettingsData>) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | undefined>(settings.avatarUrl);
+  const [status, setStatus] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!settings.avatarPath || !userId) {
+      setPreview(settings.avatarUrl);
+      return () => { active = false; };
+    }
+    setPreview(undefined);
+    getPrivateImageUrl(userId, settings.avatarPath).then((url) => {
+      if (active) setPreview(url);
+    }).catch((error) => {
+      if (!active) return;
+      setPreview(settings.avatarUrl);
+      setStatus(error instanceof Error ? error.message : 'Could not load your private profile photo.');
+    });
+    return () => { active = false; };
+  }, [settings.avatarPath, settings.avatarUrl, userId]);
+
+  const upload = async (file?: File) => {
+    if (!file || busy) return;
+    if (!userId) {
+      setStatus('Sign in to upload a private profile photo.');
+      return;
+    }
+    setBusy(true);
+    const localPreview = URL.createObjectURL(file);
+    setPreview(localPreview);
+    try {
+      setStatus('Compressing photo on this device…');
+      const compressed = await compressImage(file);
+      setStatus(`Compressed ${formatBytes(compressed.originalBytes)} to ${formatBytes(compressed.file.size)}. Uploading privately…`);
+      const nextPath = await uploadPrivateImage(userId, compressed.file, 'avatars');
+      const oldPath = settings.avatarPath;
+      updateSettings({ avatarPath: nextPath });
+      if (oldPath) {
+        try {
+          await deletePrivateImage(userId, oldPath);
+        } catch {
+          setStatus('Profile photo updated, but the previous private file could not be removed.');
+          return;
+        }
+      }
+      setStatus('Private profile photo updated.');
+    } catch (error) {
+      URL.revokeObjectURL(localPreview);
+      setPreview(settings.avatarUrl);
+      setStatus(error instanceof Error ? error.message : 'Could not update your profile photo.');
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  };
+
+  const remove = async () => {
+    if (!settings.avatarPath && !settings.avatarUrl) return;
+    if (!confirm('Remove your profile photo?')) return;
+    if (settings.avatarPath) {
+      if (!userId) {
+        setStatus('Sign in to remove your private profile photo.');
+        return;
+      }
+      setBusy(true);
+      try {
+        await deletePrivateImage(userId, settings.avatarPath);
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Could not remove your private profile photo.');
+        setBusy(false);
+        return;
+      }
+    }
+    updateSettings({ avatarPath: undefined, avatarUrl: undefined });
+    setPreview(undefined);
+    setStatus('Profile photo removed.');
+    setBusy(false);
+  };
+
+  return <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 p-4 dark:border-white/[.08]">
+    <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-500/15 text-indigo-500">{preview ? <img src={preview} alt="Profile preview" className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : <ImagePlus size={24} />}</div>
+    <div className="min-w-0 flex-1"><div className="font-medium">Profile photo</div><p className="mt-1 text-sm muted">Choose JPEG, PNG, or WebP. It is compressed locally, then stored privately in your signed-in account.</p>{status && <p className="mt-2 text-xs muted" role="status">{status}</p>}</div>
+    <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => upload(e.target.files?.[0])} />
+    <button type="button" className="btn-outline" disabled={busy} onClick={() => input.current?.click()}><Upload size={16} /> {busy ? 'Uploading…' : 'Upload photo'}</button>
+    {(settings.avatarPath || settings.avatarUrl) && <button type="button" className="btn-ghost text-rose-500" disabled={busy} onClick={remove} title="Remove profile photo"><X size={16} /></button>}
+  </div>;
 }

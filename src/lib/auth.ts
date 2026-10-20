@@ -40,8 +40,8 @@ export const useAuth = create<AuthState>()(
 /* ------------------------------------------------------------------ */
 
 const snapshot = () => {
-  const { categories, items, goals, projects, habits, journal, albums, settings } = useStore.getState();
-  return { version: 3, categories, items, goals, projects, habits, journal, albums, settings };
+  const { categories, items, goals, projects, habits, journal, albums, settings, trash } = useStore.getState();
+  return { version: 4, categories, items, goals, projects, habits, journal, albums, settings, trash };
 };
 
 let unsubscribe: (() => void) | null = null;

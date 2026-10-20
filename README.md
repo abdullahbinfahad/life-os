@@ -13,10 +13,11 @@ Live app: https://abdullahbinfahad.github.io/life-os/
 - Goals, projects, dependency-aware tasks, habits, insights, calendar/timeline and Today planning.
 - Journal entries with tags, mood, location, cover-image fields and private/public visibility.
 - Public journal reader route: `#/public/journal/<slug>` when a row is published in `public_journals`.
-- Memory albums with a visual memory-tree foundation.
-- Profile fields: name, photo URL, birthday, location and bio.
+- Memory albums with compressed, private photo uploads and a visual memory-tree foundation.
+- Profile fields plus a direct profile-photo upload, compressed locally and stored privately.
+- Recoverable Trash for deleted items, goals, projects/tasks, habits, journal entries, albums and memories.
 - JSON/CSV backup and restore.
-- Mobile-friendly frosted/liquid-glass interface with the full-person emoji logo.
+- Responsive mobile interface, animated runner logo, and installable web-app/iOS home-screen icons.
 
 ## Security and credentials
 
@@ -45,12 +46,12 @@ npm run build
 ## Supabase setup
 
 1. Create or open the Supabase project.
-2. Run `supabase/schema.sql`.
+2. Run `supabase/schema.sql` (safe to re-run; it creates the private media bucket and owner-only storage policies as well as the app tables).
 3. Confirm Google and email providers are enabled in Auth settings. Phone/password sign-up also requires enabling Phone and configuring an SMS provider; the app sends an SMS verification code when a phone account is created.
 4. Add the public URL to the Auth redirect allow-list.
 5. Add the two `VITE_SUPABASE_*` values to GitHub Actions variables.
 
-If the app shows `Cloud storage is not installed yet`, open the Supabase SQL Editor for the same project and run `supabase/schema.sql`. This creates the private per-user data table, public journal table, and row-level security policies. Do not disable RLS or use a service-role key in the browser.
+If the app shows `Cloud storage is not installed yet`, open the Supabase SQL Editor for the same project and run `supabase/schema.sql`. This creates the private per-user data table, public journal table, private media bucket and row-level security policies. Do not disable RLS or use a service-role key in the browser.
 
 ## AI integration
 

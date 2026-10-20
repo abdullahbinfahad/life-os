@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Life Circle runner mark</title>
+  <desc id="desc">An abstract running person in indigo on a transparent background.</desc>
+  <g fill="none" stroke="#4f46e5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="153" cy="43" r="17" fill="#4f46e5" stroke="none"/>
+    <path d="M137 76 119 122l20 42" stroke-width="20"/>
+    <path d="m133 82-35 24-35-8" stroke-width="17"/>
+    <path d="m140 82 31 21 35-10" stroke-width="17"/>
+    <path d="m133 159-39 53" stroke-width="20"/>
+    <path d="m137 159 47 27 25 35" stroke-width="20"/>
+  </g>
+</svg>
