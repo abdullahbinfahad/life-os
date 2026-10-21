@@ -1,11 +1,14 @@
-import { ArrowLeft, RefreshCw, WifiOff } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { ArrowLeft, MessageCircle, RefreshCw, Send, Trash2, WifiOff } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Logo } from '../components/Brand';
+import { useAuth } from '../lib/auth';
+import { useOwnerAdmin } from '../lib/admin';
 import { supabase } from '../lib/supabase';
 
 type PublicEntry = { title: string; excerpt: string; content: string; published_at: string };
 type LoadState = 'loading' | 'ready' | 'not-found' | 'offline' | 'missing-table' | 'error' | 'unavailable';
+type Comment = { id: string; author_name: string; content: string; created_at: string; author_id?: string };
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -26,8 +29,16 @@ function stateForError(error: unknown): Extract<LoadState, 'offline' | 'missing-
 
 export default function PublicJournal() {
   const { slug } = useParams();
+  const navigate = useNavigate();
+  const { user, setGuest } = useAuth();
+  const canModerate = useOwnerAdmin();
   const [entry, setEntry] = useState<PublicEntry | null>(null);
   const [state, setState] = useState<LoadState>('loading');
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentState, setCommentState] = useState<'loading' | 'ready' | 'missing' | 'offline' | 'error'>('loading');
+  const [draft, setDraft] = useState('');
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [commentNotice, setCommentNotice] = useState('');
 
   const loadEntry = useCallback(async () => {
     setState('loading');
@@ -73,6 +84,60 @@ export default function PublicJournal() {
     void loadEntry();
   }, [loadEntry]);
 
+  const loadComments = useCallback(async () => {
+    if (!slug) return;
+    if (!navigator.onLine) { setCommentState('offline'); return; }
+    if (!supabase) { setCommentState('error'); return; }
+    const columns = user?.id ? 'id,author_id,author_name,content,created_at' : 'id,author_name,content,created_at';
+    const { data, error } = await supabase.from('public_journal_comments')
+      .select(columns as any)
+      .eq('journal_slug', slug).order('created_at', { ascending: true }).limit(100);
+    if (error) {
+      const message = `${error.code ?? ''} ${error.message ?? ''}`;
+      setCommentState(/42P01|PGRST205|schema cache|does not exist/i.test(message) ? 'missing' : !navigator.onLine ? 'offline' : 'error');
+      return;
+    }
+    setComments((data ?? []) as unknown as Comment[]);
+    setCommentState('ready');
+  }, [slug, user?.id]);
+
+  useEffect(() => {
+    void loadComments();
+    const client = supabase;
+    if (!client || !slug) return;
+    const channel = client.channel(`public-comments-${slug}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'public_journal_comments', filter: `journal_slug=eq.${slug}` }, () => { void loadComments(); })
+      .subscribe();
+    return () => { void client.removeChannel(channel); };
+  }, [slug, loadComments]);
+
+  const submitComment = async (event: FormEvent) => {
+    event.preventDefault();
+    const content = draft.trim();
+    if (!slug || !supabase || !user?.id || !content || commentBusy) return;
+    const displayName = String(user.user_metadata?.full_name || user.user_metadata?.name || 'Reader').trim().slice(0, 80) || 'Reader';
+    setCommentBusy(true);
+    setCommentNotice('');
+    try {
+      const { error } = await supabase.from('public_journal_comments').insert({
+        journal_slug: slug, author_id: user.id, author_name: displayName, content,
+      });
+      if (error) throw error;
+      setDraft('');
+      setCommentNotice('Your comment was posted.');
+      await loadComments();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      setCommentNotice(/42P01|PGRST205|schema cache|does not exist/i.test(message) ? 'Comments need to be enabled for this site first.' : `Could not post your comment: ${message}`);
+    } finally { setCommentBusy(false); }
+  };
+
+  const removeComment = async (id: string) => {
+    if (!supabase || !user?.id || !confirm('Remove your comment?')) return;
+    const { error } = await supabase.from('public_journal_comments').delete().eq('id', id);
+    if (error) setCommentNotice('Could not remove that comment.'); else { setCommentNotice('Comment removed.'); await loadComments(); }
+  };
+
   const retry = <button className="btn-outline mt-5" onClick={() => void loadEntry()}><RefreshCw size={16} /> Try again</button>;
 
   return (
@@ -94,6 +159,26 @@ export default function PublicJournal() {
             <p className="mb-3 text-sm font-medium text-indigo-500">Published {formatDate(entry.published_at)}</p>
             <h1 className="break-words text-3xl font-bold tracking-tight sm:text-4xl">{entry.title || 'Journal entry'}</h1>
             <div className="mt-8 whitespace-pre-wrap break-words leading-8">{entry.content}</div>
+            <section className="mt-10 border-t border-slate-200 pt-7 dark:border-white/10" aria-labelledby="comments-title">
+              <div className="flex items-center gap-2"><MessageCircle size={19} className="text-emerald-500" /><h2 id="comments-title" className="text-xl font-semibold">Comments <span className="text-sm font-normal muted">{commentState === 'ready' ? `· ${comments.length}` : ''}</span></h2></div>
+              {commentState === 'loading' && <p className="mt-4 text-sm muted" role="status">Loading comments…</p>}
+              {commentState === 'offline' && <p className="mt-4 text-sm muted">Comments need an internet connection.</p>}
+              {commentState === 'missing' && <p className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[.06] p-4 text-sm muted">The comments feature is ready in this release and is waiting for the database migration to be enabled.</p>}
+              {commentState === 'error' && <div className="mt-4 flex items-center gap-3 text-sm muted"><span>Comments could not be loaded.</span><button className="btn-ghost !p-2" onClick={() => void loadComments()} aria-label="Retry loading comments"><RefreshCw size={15} /></button></div>}
+              {commentState === 'ready' && <div className="mt-4 space-y-3">
+                {comments.length === 0 && <p className="rounded-xl border border-slate-200 p-4 text-sm muted dark:border-white/10">No comments yet. Start a thoughtful conversation.</p>}
+                {comments.map((comment) => <article key={comment.id} className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[.03]">
+                  <div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="break-words text-sm font-semibold">{comment.author_name || 'Reader'}</p><time className="text-xs muted" dateTime={comment.created_at}>{formatDate(comment.created_at)}</time></div>{user && (comment.author_id === user.id || canModerate) && <button className="btn-ghost !min-h-9 !p-2 text-rose-500" onClick={() => void removeComment(comment.id)} aria-label={canModerate ? 'Remove comment' : 'Remove your comment'}><Trash2 size={14} /></button>}</div>
+                  <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{comment.content}</p>
+                </article>)}
+              </div>}
+              {commentNotice && <p className="mt-3 text-sm muted" role="status">{commentNotice}</p>}
+              {commentState === 'ready' && (user ? <form className="mt-5 space-y-3" onSubmit={submitComment}>
+                <label htmlFor="public-comment" className="label">Add a comment as {String(user.user_metadata?.full_name || user.user_metadata?.name || 'Reader').slice(0, 80)}</label>
+                <textarea id="public-comment" className="input min-h-28 resize-y" value={draft} maxLength={2000} onChange={(event) => setDraft(event.target.value)} placeholder="Write a kind, useful response…" required />
+                <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs muted">{draft.length}/2000 · Your email is never shown publicly.</span><button className="btn-primary" disabled={commentBusy || !draft.trim()}><Send size={15} /> {commentBusy ? 'Posting…' : 'Post comment'}</button></div>
+              </form> : <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[.06] p-4"><p className="text-sm">Sign in to leave a comment. Readers can browse without an account.</p><button className="btn-primary mt-3" onClick={() => { setGuest(false); navigate('/'); }}>Sign in to comment</button></div>)}
+            </section>
           </>
         )}
       </article>

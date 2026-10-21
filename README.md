@@ -47,9 +47,10 @@ npm run build
 
 1. Create or open the Supabase project.
 2. Run `supabase/schema.sql` (safe to re-run; it creates the private media bucket and owner-only storage policies as well as the app tables).
-3. Confirm Google and email providers are enabled in Auth settings. Phone/password sign-up also requires enabling Phone and configuring an SMS provider; the app sends an SMS verification code when a phone account is created.
-4. Add the public URL to the Auth redirect allow-list.
-5. Add the two `VITE_SUPABASE_*` values to GitHub Actions variables.
+3. For an existing installation that already ran the main schema, run `supabase/migrations/20261021_public_journal_comments.sql`. It adds public journal comments (readable publicly, writable only by signed-in readers), enables realtime comments where available, and installs a database-verified owner metrics function. It does not change existing journal or account rows.
+4. Confirm Google and email providers are enabled in Auth settings. Phone/password sign-up also requires enabling Phone and configuring an SMS provider; the app sends an SMS verification code when a phone account is created.
+5. Add the public URL to the Auth redirect allow-list.
+6. Add the two `VITE_SUPABASE_*` values to GitHub Actions variables.
 
 If the app shows `Cloud storage is not installed yet`, open the Supabase SQL Editor for the same project and run `supabase/schema.sql`. This creates the private per-user data table, public journal table, private media bucket and row-level security policies. Do not disable RLS or use a service-role key in the browser.
 

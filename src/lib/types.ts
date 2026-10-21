@@ -119,7 +119,7 @@ export interface AlbumMemory {
 }
 
 export interface Settings {
-  theme: 'dark' | 'light';
+  theme: 'dark' | 'light' | 'forest';
   name: string;
   weekStartsMonday: boolean;
   birthday?: string;

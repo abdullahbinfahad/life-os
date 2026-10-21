@@ -1,4 +1,4 @@
-import { BarChart3, Cloud, CloudOff, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X, Images, Globe2 } from 'lucide-react';
+import { BarChart3, Cloud, CloudOff, Crown, Leaf, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X, Images, Globe2 } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
@@ -10,6 +10,7 @@ import Toaster from './Toaster';
 import { auth, syncNow, useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
 import { getPrivateImageUrl } from '../lib/media';
+import { useOwnerAdmin } from '../lib/admin';
 
 function AccountBox() {
   const { user, sync, syncError, guest, setGuest } = useAuth();
@@ -73,6 +74,7 @@ const PRIMARY_NAV = NAV.filter((item) => ['/', '/goals', '/today', '/habits', '/
 export default function Layout({ children }: { children: ReactNode }) {
   const theme = useStore((s) => s.settings.theme);
   const updateSettings = useStore((s) => s.updateSettings);
+  const ownerAdmin = useOwnerAdmin();
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
   const loc = useLocation();
@@ -118,16 +120,20 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Icon size={17} /> {label}
           </NavLink>
         ))}
+        {ownerAdmin && <NavLink to="/admin" className={({ isActive }) => cx('group mt-2 flex items-center gap-3 rounded-xl border border-amber-300/50 bg-gradient-to-r from-amber-100/70 to-emerald-100/70 px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:-translate-y-0.5 dark:border-amber-300/20 dark:from-amber-400/10 dark:to-emerald-400/10 dark:text-slate-100', isActive && 'ring-2 ring-amber-400/50')}><Crown size={17} className="text-amber-600 dark:text-amber-300" /> Owner system console</NavLink>}
       </nav>
       <button className="btn-ghost mt-4 justify-start" onClick={() => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' })}>
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+      </button>
+      <button className="btn-ghost justify-start" onClick={() => updateSettings({ theme: theme === 'forest' ? 'dark' : 'forest' })}>
+        {theme === 'forest' ? <Moon size={16} /> : <Leaf size={16} />} {theme === 'forest' ? 'Night glass theme' : 'Emerald night theme'}
       </button>
       <AccountBox />
     </div>
   );
 
   return (
-    <div className="min-h-screen">
+    <div className={cx('min-h-screen', ownerAdmin && 'owner-premium')}>
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="ambient-orb absolute -top-40 left-1/3 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-3xl" />
         <div className="ambient-orb absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-fuchsia-500/10 blur-3xl" />
@@ -142,7 +148,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/80 lg:hidden">
           <button className="btn-ghost !p-2" aria-label={mobile ? 'Close menu' : 'Open menu'} aria-expanded={mobile} onClick={() => setMobile((open) => !open)}>{mobile ? <X size={18} /> : <Menu size={18} />}</button>
-          <Logo size={24} /><span className="font-bold">{APP_NAME}</span>
+          <Logo size={24} /><span className="font-bold">{APP_NAME}</span>{ownerAdmin && <span className="premium-pill"><Crown size={12} /> Owner</span>}
           <button className="btn-ghost ml-auto !p-2" onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>
         <main className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</main>

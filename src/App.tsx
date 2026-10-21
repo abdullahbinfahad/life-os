@@ -9,6 +9,7 @@ import { useStore } from './lib/store';
 const AuthPage = lazy(() => import('./pages/Auth'));
 const SetNewPassword = lazy(() => import('./pages/Auth').then((module) => ({ default: module.SetNewPassword })));
 const Albums = lazy(() => import('./pages/Albums'));
+const AdminConsole = lazy(() => import('./pages/AdminConsole'));
 const Calendar = lazy(() => import('./pages/Calendar'));
 const Goals = lazy(() => import('./pages/Goals'));
 const Habits = lazy(() => import('./pages/Habits'));
@@ -45,6 +46,7 @@ function PrivateRoutes() {
     <Route path="/journal" element={<Journal />} />
     <Route path="/albums" element={<Albums />} />
     <Route path="/settings" element={<Settings />} />
+    <Route path="/admin" element={<AdminConsole />} />
     <Route path="*" element={<Overview />} />
   </Routes></Layout></Suspense>;
 }
@@ -61,7 +63,10 @@ function RouteContent() {
 
 export default function App() {
   const theme = useStore((s) => s.settings.theme);
-  useEffect(() => { document.documentElement.classList.toggle('dark', theme === 'dark'); }, [theme]);
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark' || theme === 'forest');
+    document.documentElement.classList.toggle('theme-forest', theme === 'forest');
+  }, [theme]);
 
   // HashRouter is used for the app as a whole. For a direct path-based public
   // link, GitHub Pages serves 404.html as the app shell and BrowserRouter
