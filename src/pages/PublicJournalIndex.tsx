@@ -80,9 +80,9 @@ export default function PublicJournalIndex() {
         <Link to="/public" className="mb-10 inline-flex items-center gap-2 text-sm muted" aria-label="Public journals home">
           <Logo size={28} /> Life Circle
         </Link>
-        <header className="mb-8 max-w-2xl">
-          <p className="text-sm font-medium text-indigo-500">Life Circle</p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight">Public journals</h1>
+        <header className="mb-8 min-w-0 max-w-2xl">
+          <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">Life Circle</p>
+          <h1 className="mt-2 break-words text-3xl font-bold tracking-tight sm:text-4xl">Public journals</h1>
           <p className="mt-3 text-lg muted">Reflections shared for anyone to read.</p>
         </header>
 
@@ -127,12 +127,12 @@ export default function PublicJournalIndex() {
               <Link
                 key={entry.slug}
                 to={`/public/journal/${encodeURIComponent(entry.slug)}`}
-                className="card block p-6 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md dark:hover:border-indigo-400/50"
+                className="card block min-w-0 p-4 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md dark:hover:border-indigo-400/50 sm:p-6"
               >
-                <p className="text-sm font-medium text-indigo-500">{formatDate(entry.published_at)}</p>
-                <h2 className="mt-2 text-xl font-semibold tracking-tight">{entry.title || 'Journal entry'}</h2>
-                {entry.excerpt && <p className="mt-2 leading-6 muted">{entry.excerpt}</p>}
-                <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-indigo-500">Read journal <ArrowRight size={16} /></span>
+                <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{formatDate(entry.published_at)}</p>
+                <h2 className="mt-2 break-words text-xl font-semibold tracking-tight">{entry.title || 'Journal entry'}</h2>
+                {entry.excerpt && <p className="mt-2 break-words leading-6 muted">{entry.excerpt}</p>}
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-indigo-700 dark:text-indigo-300">Read journal <ArrowRight size={16} /></span>
               </Link>
             ))}
           </div>

@@ -60,12 +60,25 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
     if (selectedPreview?.startsWith('blob:')) URL.revokeObjectURL(selectedPreview);
   }, [selectedPreview]);
 
-  const choosePhoto = (file?: File) => {
-    if (!file) return;
+  const choosePhoto = async (file?: File) => {
+    if (!file || busy) return;
     if (selectedPreview?.startsWith('blob:')) URL.revokeObjectURL(selectedPreview);
-    setSelectedPhoto(file);
-    setSelectedPreview(URL.createObjectURL(file));
-    setStatus('Photo selected. It will be compressed and uploaded when you add the memory.');
+    setSelectedPhoto(null);
+    setSelectedPreview(undefined);
+    setBusy(true);
+    setStatus('Preparing and compressing photo on this device…');
+    try {
+      const compressed = await compressImage(file);
+      const preview = URL.createObjectURL(compressed.file);
+      setSelectedPhoto(compressed.file);
+      setSelectedPreview(preview);
+      setStatus(`Photo ready (${formatBytes(compressed.file.size)}). It will upload privately when you add the memory.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not prepare this photo.');
+    } finally {
+      setBusy(false);
+      if (photoInput.current) photoInput.current.value = '';
+    }
   };
 
   const clearSelectedPhoto = () => {
@@ -172,13 +185,13 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
     <div className="mb-5 rounded-xl border border-dashed border-slate-300 p-3 dark:border-white/[.12]">
       <div className="flex flex-wrap items-center gap-3">
         {selectedPreview && <img src={selectedPreview} alt="Selected memory preview" className="h-16 w-16 rounded-lg object-cover" />}
-        <div className="min-w-0 flex-1"><div className="text-sm font-medium">Optional memory photo</div><p className="text-xs muted">JPEG, PNG, or WebP · compressed in this browser before private upload.</p></div>
-        <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => choosePhoto(e.target.files?.[0])} />
+        <div className="min-w-0 flex-1"><div className="text-sm font-medium">Optional memory photo</div><p className="text-xs muted">Phone photos, including browser-supported HEIC/HEIF · compressed before private upload.</p></div>
+        <input ref={photoInput} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => choosePhoto(e.target.files?.[0])} />
         <button type="button" className="btn-outline" disabled={busy} onClick={() => photoInput.current?.click()}><Upload size={15} /> Choose photo</button>
         {selectedPhoto && <button type="button" className="btn-ghost !p-2" onClick={clearSelectedPhoto} title="Remove selected photo"><X size={16} /></button>}
       </div>
     </div>
-    {status && <p className="mb-4 text-sm muted" role="status">{status}</p>}
+    {status && <p className="mb-4 break-words text-sm muted" role="status">{status}</p>}
     <div className="grid gap-3 sm:grid-cols-2">{album.memories.map((memory) => <MemoryCard key={memory.id} memory={memory} userId={userId} busy={busyMemoryId === memory.id} onReplace={(file) => replacePhoto(memory, file)} onRemovePhoto={() => removePhoto(memory)} onDelete={() => removeMemory(memory)} />)}</div>
   </section>;
 }
@@ -210,7 +223,7 @@ function MemoryCard({ memory, userId, busy, onReplace, onRemovePhoto, onDelete }
   return <article className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[.08]">
     {hasPhoto && <div className="relative h-40 bg-slate-100 dark:bg-white/[.04]">{imageUrl ? <img src={imageUrl} alt={memory.title} className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : <div className="grid h-full place-items-center px-4 text-center text-xs muted">{imageError || 'Loading private photo…'}</div>}</div>}
     <div className="p-4"><div className="flex items-start justify-between gap-2"><h3 className="font-medium">{memory.title}</h3><button className="muted hover:text-rose-500" disabled={busy} onClick={onDelete} title="Delete memory"><Trash2 size={14} /></button></div>
-      <div className="mt-3 flex flex-wrap gap-2"><input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { onReplace(e.target.files?.[0]); e.currentTarget.value = ''; }} /><button className="btn-outline !px-2 !py-1 text-xs" disabled={busy} onClick={() => fileInput.current?.click()}><ImagePlus size={14} /> {hasPhoto ? 'Replace photo' : 'Add photo'}</button>{hasPhoto && <button className="btn-ghost !px-2 !py-1 text-xs text-rose-500" disabled={busy} onClick={onRemovePhoto}>Remove photo</button>}</div>
+      <div className="mt-3 flex flex-wrap gap-2"><input ref={fileInput} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => { onReplace(e.target.files?.[0]); e.currentTarget.value = ''; }} /><button className="btn-outline !px-2 !py-1 text-xs" disabled={busy} onClick={() => fileInput.current?.click()}><ImagePlus size={14} /> {hasPhoto ? 'Replace photo' : 'Add photo'}</button>{hasPhoto && <button className="btn-ghost !px-2 !py-1 text-xs text-rose-500" disabled={busy} onClick={onRemovePhoto}>Remove photo</button>}</div>
       {busy && <p className="mt-2 text-xs muted">Updating private photo…</p>}
     </div>
   </article>;

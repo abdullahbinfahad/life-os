@@ -2,11 +2,11 @@ import { CheckCircle2, Circle, Flame, Pencil, Plus, Star, Sunrise, X } from 'luc
 import { useState } from 'react';
 import { CatBadge, Empty, PageHeader, PRIORITY_META, Ring } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
-import { cx, pct, streak, today } from '../lib/utils';
+import { cx, pct, streak, today, weekCount } from '../lib/utils';
 import ItemEditor from '../components/ItemEditor';
 
 export default function Today() {
-  const { items, habits, projects, toggleItemDone, updateItem, addItems, toggleHabit, updateTask } = useStore();
+  const { items, habits, projects, settings, toggleItemDone, updateItem, addItems, toggleHabit, updateTask } = useStore();
   const catMap = useCategoryMap();
   const t = today();
   const [text, setText] = useState('');
@@ -106,7 +106,7 @@ export default function Today() {
                 <button key={h.id} onClick={() => toggleHabit(h.id, t)} className={cx('mb-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition', on ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-slate-200 dark:border-white/[.07]')}>
                   {on ? <CheckCircle2 size={18} className="text-emerald-500" /> : <Circle size={18} className="muted" />}
                   <span className="flex-1">{h.title}</span>
-                  <span className="flex items-center gap-1 text-xs text-orange-500"><Flame size={13} />{streak(h.log)}</span>
+                  {h.frequency === 'daily' ? <span className="flex items-center gap-1 text-xs text-orange-500"><Flame size={13} />{streak(h.log)}</span> : <span className="shrink-0 text-xs font-medium text-indigo-600 dark:text-indigo-300">{weekCount(h.log, t, settings.weekStartsMonday)}/{h.targetPerWeek} this week</span>}
                 </button>
               );
             })}

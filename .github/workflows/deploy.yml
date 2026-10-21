@@ -31,6 +31,7 @@ jobs:
           # deployment working even if repository Actions variables are unavailable.
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://qzbcanzmgetdrnlijujh.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_i2kZoTcgXZK-rlWpYX5G8w_FlVI0VfP' }}
+      - run: cp dist/index.html dist/404.html
       - uses: actions/configure-pages@v5
         with:
           enablement: true

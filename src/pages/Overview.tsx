@@ -13,22 +13,22 @@ export default function Overview() {
   const todayDone = todayItems.filter((i) => i.status === 'done').length;
   const activeHabits = habits.filter((h) => !h.archived);
   const habitsToday = activeHabits.filter((h) => h.log.includes(t)).length;
-  const bestStreak = Math.max(0, ...activeHabits.map((h) => streak(h.log)));
+  const bestStreak = Math.max(0, ...activeHabits.filter((h) => h.frequency === 'daily').map((h) => streak(h.log)));
   const goalProgress = (g: (typeof goals)[0]) => pct(g.milestones.filter((m) => m.done).length, g.milestones.length);
 
   return (
     <div className="space-y-6">
       <PageHeader title={settings.name ? `Welcome back, ${settings.name}` : 'Welcome to your life map'} subtitle="A clear place for the goals you care about and the next small step you can take." />
 
-      <section className="card overflow-hidden border-indigo-200/70 bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-700 p-6 text-white shadow-xl shadow-indigo-600/15 sm:p-8">
+      <section className="card overflow-hidden border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 text-slate-900 shadow-xl shadow-indigo-600/5 dark:border-indigo-400/20 dark:from-indigo-950 dark:via-slate-900 dark:to-violet-950 dark:text-slate-100 dark:shadow-indigo-600/10 sm:p-8">
         <div className="max-w-2xl">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium"><Target size={14} /> Start with what matters</div>
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Make room for one meaningful next step.</h2>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-white/80">Add a task for today or set a goal for the longer term. Your overview will bring your plan and progress together.</p>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-800 dark:bg-white/15 dark:text-indigo-100"><Target size={14} /> Start with what matters</div>
+          <h2 className="break-words text-2xl font-bold tracking-tight sm:text-3xl">Make room for one meaningful next step.</h2>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">Add a task for today or set a goal for the longer term. Your overview will bring your plan and progress together.</p>
           <div className="mt-6 flex flex-wrap gap-2">
             <button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn bg-white text-indigo-700 hover:bg-white/90"><Plus size={16} /> Add a task</button>
-            <Link to="/goals" className="btn bg-white/15 text-white hover:bg-white/25"><Target size={16} /> Add a goal</Link>
-            <Link to="/today" className="btn bg-white/15 text-white hover:bg-white/25"><Sunrise size={16} /> View today</Link>
+            <Link to="/goals" className="btn bg-indigo-100 text-indigo-900 hover:bg-indigo-200 dark:bg-white/15 dark:text-white dark:hover:bg-white/25"><Target size={16} /> Add a goal</Link>
+            <Link to="/today" className="btn bg-indigo-100 text-indigo-900 hover:bg-indigo-200 dark:bg-white/15 dark:text-white dark:hover:bg-white/25"><Sunrise size={16} /> View today</Link>
           </div>
         </div>
       </section>
@@ -41,7 +41,7 @@ export default function Overview() {
 
         <section className="card p-5">
           <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">Habit check-in</h3><p className="mt-1 text-sm muted">A quick look at today.</p></div><Flame size={18} className="text-amber-500" /></div>
-          {activeHabits.length === 0 ? <div className="rounded-2xl bg-slate-50 p-4 dark:bg-white/[.04]"><p className="font-medium">No active habits yet</p><p className="mt-1 text-sm muted">Your habit check-ins will show here when you add habits.</p><Link to="/habits" className="mt-3 inline-block text-sm text-indigo-500">Explore habits <ArrowRight size={14} className="inline" /></Link></div> : <><p className="text-2xl font-semibold">{habitsToday}<span className="text-base font-normal muted"> / {activeHabits.length} checked in</span></p><Progress className="mt-3" value={pct(habitsToday, activeHabits.length)} color="#22c55e" /><p className="mt-3 text-sm muted">{bestStreak ? `Your longest current streak is ${bestStreak} ${bestStreak === 1 ? 'day' : 'days'}.` : 'A small repeatable action is a good start.'}</p></>}
+          {activeHabits.length === 0 ? <div className="rounded-2xl bg-slate-50 p-4 dark:bg-white/[.04]"><p className="font-medium">No active habits yet</p><p className="mt-1 text-sm muted">Your habit check-ins will show here when you add habits.</p><Link to="/habits" className="mt-3 inline-block text-sm text-indigo-700 dark:text-indigo-300">Explore habits <ArrowRight size={14} className="inline" /></Link></div> : <><p className="text-2xl font-semibold">{habitsToday}<span className="text-base font-normal muted"> / {activeHabits.length} checked in</span></p><Progress className="mt-3" value={pct(habitsToday, activeHabits.length)} color="#22c55e" /><p className="mt-3 text-sm muted">{bestStreak ? `Your longest current daily streak is ${bestStreak} ${bestStreak === 1 ? 'day' : 'days'}.` : 'A small repeatable action is a good start.'}</p></>}
         </section>
       </div>
 

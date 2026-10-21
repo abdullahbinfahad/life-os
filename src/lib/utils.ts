@@ -18,6 +18,17 @@ export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Bool
 
 export const pct = (a: number, b: number) => (b === 0 ? 0 : Math.round((a / b) * 100));
 
+export function weekStart(iso: string, startsMonday = true) {
+  const day = new Date(iso + 'T00:00:00').getDay();
+  const offset = startsMonday ? (day + 6) % 7 : day;
+  return addDays(iso, -offset);
+}
+
+export function weekCount(log: string[], date = today(), startsMonday = true) {
+  const start = weekStart(date, startsMonday);
+  return log.filter((day) => day >= start && day <= date).length;
+}
+
 export function download(filename: string, content: string, mime = 'application/json') {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);

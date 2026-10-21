@@ -45,6 +45,7 @@ const snapshot = () => {
 };
 
 let unsubscribe: (() => void) | null = null;
+let realtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let applyingRemote = false;
 let currentUserId: string | null = null;
@@ -147,11 +148,32 @@ async function startSync(userId: string) {
   }
   localStorage.setItem('life-circle-owner', userId);
   unsubscribe = useStore.subscribe(schedulePush);
+  realtimeChannel = supabase.channel(`life-data-${userId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'life_data', filter: `user_id=eq.${userId}` }, async () => {
+      // Don't replace newer local work with a concurrent remote snapshot.
+      if (currentUserId !== userId || changeRevision !== syncedRevision || applyingRemote) return;
+      try {
+        const { data: latest, error: latestError } = await supabase!.from('life_data').select('data, updated_at').eq('user_id', userId).maybeSingle();
+        if (latestError || !latest?.data || currentUserId !== userId || changeRevision !== syncedRevision) return;
+        applyingRemote = true;
+        useStore.getState().importAll(latest.data);
+        applyingRemote = false;
+        useAuth.setState({ sync: 'saved', lastSynced: latest.updated_at, syncError: undefined });
+      } catch (error) {
+        applyingRemote = false;
+        console.warn('Live sync refresh failed:', syncErrorMessage(error));
+      }
+    })
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.warn('Live sync is temporarily unavailable; changes will still save when this device syncs.');
+    });
 }
 
 function stopSync() {
   unsubscribe?.();
   unsubscribe = null;
+  if (realtimeChannel && supabase) void supabase.removeChannel(realtimeChannel);
+  realtimeChannel = null;
   if (timer) clearTimeout(timer);
   timer = null;
   currentUserId = null;

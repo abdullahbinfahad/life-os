@@ -24,7 +24,9 @@ function randomId() {
 }
 
 function extensionFor(type: string) {
-  return type === 'image/png' ? 'png' : 'webp';
+  if (type === 'image/png') return 'png';
+  if (type === 'image/jpeg') return 'jpg';
+  return 'webp';
 }
 
 function ownPath(userId: string, path: string) {
@@ -48,6 +50,8 @@ function canvasBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
 function loadImage(file: File) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const url = URL.createObjectURL(file);
+    const ext = file.name.toLowerCase().split('.').pop();
+    const heif = /heic|heif/.test(file.type.toLowerCase()) || ext === 'heic' || ext === 'heif';
     const image = new Image();
     image.onload = () => {
       URL.revokeObjectURL(url);
@@ -55,7 +59,9 @@ function loadImage(file: File) {
     };
     image.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(mediaError('This image could not be read. Please choose a JPEG, PNG, or WebP file.'));
+      reject(mediaError(heif
+        ? 'This browser could not convert this HEIC/HEIF photo. Export it as JPEG, or choose a JPEG photo instead.'
+        : 'This image could not be read. Choose a JPEG, PNG, WebP, or supported phone photo.'));
     };
     image.src = url;
   });
@@ -66,8 +72,11 @@ function loadImage(file: File) {
  * promise resolves. Images are kept below the Storage bucket's 5 MiB cap.
  */
 export async function compressImage(file: File): Promise<CompressedImage> {
-  if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
-    throw mediaError('Choose a JPEG, PNG, or WebP image.');
+  const sourceType = file.type.toLowerCase();
+  const ext = file.name.toLowerCase().split('.').pop();
+  const knownExtension = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'avif', 'bmp'].includes(ext ?? '');
+  if ((sourceType && !sourceType.startsWith('image/')) || sourceType === 'image/svg+xml' || (!sourceType && !knownExtension)) {
+    throw mediaError('Choose a photo or other raster image.');
   }
   if (!file.size) throw mediaError('The selected image is empty.');
   if (file.size > MAX_SOURCE_BYTES) throw mediaError('Choose an image smaller than 16 MiB before compression.');
@@ -92,7 +101,7 @@ export async function compressImage(file: File): Promise<CompressedImage> {
     const context = canvas.getContext('2d');
     if (!context) throw mediaError('Your browser does not support image compression.');
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    output = await canvasBlob(canvas, 'image/webp', attempt.quality);
+    output = await canvasBlob(canvas, 'image/jpeg', attempt.quality);
     if (output.size <= MAX_IMAGE_BYTES) break;
   }
 
@@ -100,8 +109,9 @@ export async function compressImage(file: File): Promise<CompressedImage> {
     throw mediaError('This image is still too large after compression. Try a smaller image.');
   }
 
-  // Browsers that cannot encode WebP fall back to PNG; the bucket accepts both.
-  const type = output.type === 'image/png' ? 'image/png' : 'image/webp';
+  // Normalize phone originals (including HEIC where the browser can decode it)
+  // to a storage-safe format that renders consistently across mobile browsers.
+  const type = ACCEPTED_IMAGE_TYPES.has(output.type) ? output.type : 'image/jpeg';
   const stem = file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9_-]+/gi, '-').slice(0, 48) || 'photo';
   return {
     file: new File([output], `${stem}.${extensionFor(type)}`, { type }),

@@ -14,13 +14,16 @@ import { getPrivateImageUrl } from '../lib/media';
 function AccountBox() {
   const { user, sync, syncError, guest, setGuest } = useAuth();
   const avatarPath = useStore((s) => s.settings.avatarPath);
+  const savedAvatarUrl = useStore((s) => s.settings.avatarUrl);
   const [privateAvatar, setPrivateAvatar] = useState<string>();
+  const [avatarFailed, setAvatarFailed] = useState(false);
   useEffect(() => {
     let active = true;
+    setAvatarFailed(false);
     if (!user || !avatarPath) { setPrivateAvatar(undefined); return () => { active = false; }; }
     getPrivateImageUrl(user.id, avatarPath).then((url) => { if (active) setPrivateAvatar(url); }).catch(() => { if (active) setPrivateAvatar(undefined); });
     return () => { active = false; };
-  }, [user?.id, avatarPath]);
+  }, [user?.id, avatarPath, savedAvatarUrl]);
   if (!cloudEnabled) return null;
   if (!user)
     return (
@@ -29,12 +32,12 @@ function AccountBox() {
       </button>
     );
   const name = (user.user_metadata?.full_name as string) || user.email || user.phone || 'You';
-  const avatar = privateAvatar || user.user_metadata?.avatar_url as string | undefined;
+  const avatar = privateAvatar || savedAvatarUrl || user.user_metadata?.avatar_url as string | undefined;
   const label = { off: '', loading: 'Loading…', saving: 'Saving…', saved: 'Synced', error: 'Sync error — retry', offline: 'Offline — will sync' }[sync];
   return (
     <div className="mt-3 rounded-xl border border-slate-200 p-2.5 dark:border-white/10">
       <div className="flex items-center gap-2">
-        {avatar ? <img src={avatar} alt="" className="h-8 w-8 rounded-full" referrerPolicy="no-referrer" />
+        {avatar && !avatarFailed ? <img src={avatar} alt="" onError={() => setAvatarFailed(true)} className="h-8 w-8 rounded-full object-cover" referrerPolicy="no-referrer" />
           : <span className="grid h-8 w-8 place-items-center rounded-full bg-indigo-500/15 text-sm font-semibold text-indigo-500">{name[0]?.toUpperCase()}</span>}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{name}</div>
@@ -65,7 +68,7 @@ export const NAV = [
   { to: '/public', label: 'Public Journal', desc: 'Read published reflections', icon: Globe2 },
   { to: '/settings', label: 'Settings', desc: 'Templates, imports, exports, privacy', icon: Settings },
 ];
-const PRIMARY_NAV = NAV.filter((item) => ['/', '/goals', '/today', '/habits'].includes(item.to));
+const PRIMARY_NAV = NAV.filter((item) => ['/', '/goals', '/today', '/habits', '/library'].includes(item.to));
 
 export default function Layout({ children }: { children: ReactNode }) {
   const theme = useStore((s) => s.settings.theme);
@@ -75,9 +78,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   const loc = useLocation();
   const nav = useNavigate();
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
   useEffect(() => setMobile(false), [loc.pathname]);
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -135,23 +135,20 @@ export default function Layout({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white/70 p-4 backdrop-blur-xl dark:border-white/[.06] dark:bg-black/20 lg:block">
         {sidebar}
       </aside>
-      {mobile && (
-        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setMobile(false)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-white p-4 dark:bg-[#0f1218]" onClick={(e) => e.stopPropagation()}>{sidebar}</aside>
-        </div>
-      )}
+      <div className={cx('mobile-drawer fixed inset-0 z-40 lg:hidden', mobile ? 'is-open' : 'is-closed')} aria-hidden={!mobile} onClick={() => setMobile(false)}>
+        <div className="mobile-drawer-backdrop absolute inset-0 bg-black/50" />
+        <aside className="mobile-drawer-panel absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white p-4 dark:bg-[#0f1218]" onClick={(e) => e.stopPropagation()}>{sidebar}</aside>
+      </div>
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/80 lg:hidden">
-          <button className="btn-ghost !p-2" onClick={() => setMobile(true)}>{mobile ? <X size={18} /> : <Menu size={18} />}</button>
+          <button className="btn-ghost !p-2" aria-label={mobile ? 'Close menu' : 'Open menu'} aria-expanded={mobile} onClick={() => setMobile((open) => !open)}>{mobile ? <X size={18} /> : <Menu size={18} />}</button>
           <Logo size={24} /><span className="font-bold">{APP_NAME}</span>
           <button className="btn-ghost ml-auto !p-2" onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>
-        <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</main>
+        <main className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</main>
       </div>
       <nav className="mobile-bottom-nav lg:hidden" aria-label="Primary navigation">
-        {PRIMARY_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => cx('flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium', isActive ? 'text-indigo-600 dark:text-indigo-300' : 'muted')}><Icon size={18} /><span>{label === 'Overview' ? 'Home' : label}</span></NavLink>)}
-        <button onClick={() => setMobile(true)} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium muted" aria-label="Open all pages"><Menu size={18} /><span>All pages</span></button>
+        {PRIMARY_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} aria-label={label} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{label === 'Overview' ? 'Home' : label}</span></NavLink>)}
       </nav>
       <QuickAdd />
       <CommandPalette open={palette} onClose={() => setPalette(false)} />

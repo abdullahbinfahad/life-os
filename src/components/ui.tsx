@@ -5,12 +5,12 @@ import type { Category } from '../lib/types';
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
+    <div className="mb-6 flex min-w-0 flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <h1 className="break-words text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
         {subtitle && <p className="mt-1 muted">{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}</div>}
     </div>
   );
 }
@@ -64,8 +64,9 @@ export function Ring({ value, size = 64, stroke = 7, color = '#6366f1', children
 export function CatBadge({ cat }: { cat?: Category }) {
   if (!cat) return null;
   return (
-    <span className="chip" style={{ background: cat.color + '22', color: cat.color }}>
-      <span>{cat.icon}</span>{cat.name}
+    <span className="chip max-w-full" style={{ background: cat.color + '1a' }}>
+      <span className="shrink-0" style={{ color: cat.color }}>{cat.icon}</span>
+      <span className="min-w-0 max-w-[140px] truncate text-slate-700 dark:text-slate-200">{cat.name}</span>
     </span>
   );
 }

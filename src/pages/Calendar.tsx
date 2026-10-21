@@ -114,9 +114,9 @@ export default function Calendar() {
 
       {tab === 'month' && (
         <div className="card p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">{cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h3>
-            <div className="flex gap-1">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="min-w-0 flex-1 break-words text-lg font-semibold">{cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h3>
+            <div className="ml-auto flex shrink-0 gap-1">
               <button className="btn-ghost !p-2" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}><ChevronLeft size={18} /></button>
               <button className="btn-outline !py-1" onClick={() => { const d = new Date(); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); }}>Today</button>
               <button className="btn-ghost !p-2" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight size={18} /></button>
@@ -136,10 +136,10 @@ export default function Calendar() {
                   onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; if (dragOverDate !== iso) setDragOverDate(iso); }}
                   onDragLeave={(event) => { if (event.currentTarget === event.target) setDragOverDate(null); }}
                   onDrop={(event) => handleDrop(event, iso)}
-                  className={cx('group min-h-[96px] cursor-pointer bg-white p-1.5 outline-none transition dark:bg-[#0d1016]', !inMonth && 'opacity-40', dragOverDate === iso && 'bg-indigo-50 ring-2 ring-inset ring-indigo-500 dark:bg-indigo-500/10', 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500')}>
-                  <div className="mb-1 flex items-center justify-between">
-                    <div className={cx('grid h-6 w-6 place-items-center rounded-full text-xs', iso === t && 'bg-indigo-600 font-bold text-white')}>{d.getDate()}</div>
-                    <span className="grid h-5 w-5 place-items-center rounded-full text-indigo-500 opacity-0 transition group-hover:opacity-100" aria-hidden="true"><Plus size={13} /></span>
+                  className={cx('group min-h-[96px] min-w-0 cursor-pointer bg-white p-0.5 outline-none transition dark:bg-[#0d1016] sm:p-1.5', !inMonth && 'opacity-40', dragOverDate === iso && 'bg-indigo-50 ring-2 ring-inset ring-indigo-500 dark:bg-indigo-500/10', 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500')}>
+                  <div className="mb-1 flex items-center justify-between gap-0.5">
+                    <div className={cx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs', iso === t && 'bg-indigo-600 font-bold text-white')}>{d.getDate()}</div>
+                    <span className="hidden h-5 w-5 shrink-0 place-items-center rounded-full text-indigo-500 opacity-0 transition group-hover:opacity-100 sm:grid" aria-hidden="true"><Plus size={13} /></span>
                   </div>
                   <div className="max-h-[72px] space-y-0.5 overflow-y-auto pr-0.5">
                     {ev.map((e) => (
@@ -157,8 +157,8 @@ export default function Calendar() {
                         }}
                         onDragStart={(event) => handleDragStart(event, e)}
                         onDragEnd={() => { setDraggedEvent(null); setDragOverDate(null); }}
-                        className={cx('block w-full cursor-grab truncate rounded px-1.5 py-0.5 text-left text-[11px] active:cursor-grabbing', e.done && 'line-through opacity-60', keyboardMovingEvent?.key === e.key && 'ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-[#0d1016]')}
-                        style={{ background: e.color + '22', color: e.color }}>{e.title}</button>
+                        className={cx('block w-full min-w-0 cursor-grab truncate rounded border-l-2 px-1 py-0.5 text-left text-[10px] text-slate-800 active:cursor-grabbing dark:text-slate-100 sm:px-1.5 sm:text-[11px]', e.done && 'line-through opacity-60', keyboardMovingEvent?.key === e.key && 'ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-[#0d1016]')}
+                        style={{ background: e.color + '22', borderLeftColor: e.color }}>{e.title}</button>
                     ))}
                   </div>
                 </div>
@@ -178,10 +178,10 @@ export default function Calendar() {
                   <h3 className="mb-3 font-semibold">{new Date(m + '-01T00:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h3>
                   <div className="space-y-2">
                     {evs.map((e, i) => (
-                      <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/[.06]">
-                        <span className="w-14 text-xs font-semibold muted">{new Date(e.date + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+                      <div key={i} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/[.06]">
+                        <span className="w-14 shrink-0 text-xs font-semibold muted">{new Date(e.date + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
                         <span className="h-2 w-2 rounded-full" style={{ background: e.color }} />
-                        <span className="flex-1 text-sm">{e.title}</span><span className="text-xs muted">{e.kind}</span>
+                        <span className="min-w-0 flex-1 break-words text-sm">{e.title}</span><span className="shrink-0 text-xs muted">{e.kind}</span>
                       </div>
                     ))}
                   </div>

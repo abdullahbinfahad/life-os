@@ -2,7 +2,7 @@ import { Plus, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays, fmtDate, today } from '../lib/utils';
-import { Modal } from './ui';
+import { HORIZON_META, Modal } from './ui';
 import { toast } from './Toaster';
 import type { Horizon, Priority, ItemType } from '../lib/types';
 
@@ -47,6 +47,7 @@ export default function QuickAdd() {
   const [notes, setNotes] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [horizon, setHorizon] = useState<Horizon>('1-3y');
   const [type, setType] = useState<ItemType>('other');
   const [advanced, setAdvanced] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -84,9 +85,9 @@ export default function QuickAdd() {
     if (!advanced) {
       const cleanTitle = title.trim();
       if (!cleanTitle) { titleRef.current?.focus(); return; }
-      addItems([{ title: cleanTitle, notes: notes.trim(), categoryId, type, status: 'next', priority: 2, horizon: '1-3y', tags: [], starred: false, ...(dueDate ? { dueDate } : {}) }]);
+      addItems([{ title: cleanTitle, notes: notes.trim(), categoryId, type, status: 'next', priority: 2, horizon, tags: [], starred: false, ...(dueDate ? { dueDate } : {}) }]);
       toast('Added to your library');
-      setTitle(''); setNotes(''); setCategoryId(''); setDueDate(''); setType('other'); setOpen(false);
+      setTitle(''); setNotes(''); setCategoryId(''); setDueDate(''); setType('other'); setHorizon('1-3y'); setOpen(false);
       return;
     }
     if (!parsed.length) return;
@@ -114,6 +115,11 @@ export default function QuickAdd() {
             <label className="block text-sm font-medium">Category <span className="font-normal muted">(optional)</span>
               <select aria-label="Category" className="input mt-1 w-full" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                 <option value="">No category</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm font-medium">Plan horizon
+              <select aria-label="Plan horizon" className="input mt-1 w-full" value={horizon} onChange={(e) => setHorizon(e.target.value as Horizon)}>
+                {Object.entries(HORIZON_META).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
           </div>

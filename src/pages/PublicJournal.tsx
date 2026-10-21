@@ -77,7 +77,7 @@ export default function PublicJournal() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 dark:bg-[#0b0d12] dark:text-slate-100">
-      <article className="mx-auto max-w-2xl">
+      <article className="mx-auto min-w-0 max-w-2xl break-words">
         <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
           <Link to="/public" className="flex items-center gap-2 text-sm muted" aria-label="Public journals home"><Logo size={28} /> Life Circle</Link>
           <Link to="/public" className="btn-primary"><ArrowLeft size={16} /> All public journals</Link>
@@ -92,9 +92,8 @@ export default function PublicJournal() {
         {state === 'ready' && entry && (
           <>
             <p className="mb-3 text-sm font-medium text-indigo-500">Published {formatDate(entry.published_at)}</p>
-            <h1 className="text-4xl font-bold tracking-tight">{entry.title || 'Journal entry'}</h1>
-            {entry.excerpt && <p className="mt-4 text-lg muted">{entry.excerpt}</p>}
-            <div className="mt-8 whitespace-pre-wrap leading-8">{entry.content}</div>
+            <h1 className="break-words text-3xl font-bold tracking-tight sm:text-4xl">{entry.title || 'Journal entry'}</h1>
+            <div className="mt-8 whitespace-pre-wrap break-words leading-8">{entry.content}</div>
           </>
         )}
       </article>

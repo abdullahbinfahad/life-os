@@ -1,7 +1,7 @@
 import { Award, CheckCircle2, TrendingUp, Zap } from 'lucide-react';
 import { PageHeader, Progress, Stat, STATUS_META } from '../components/ui';
 import { useStore } from '../lib/store';
-import { addDays, pct, today } from '../lib/utils';
+import { addDays, daysBetween, pct, today } from '../lib/utils';
 
 export default function Insights() {
   const { items, goals, habits, projects, journal, categories } = useStore();
@@ -17,7 +17,14 @@ export default function Insights() {
   const maxW = Math.max(1, ...weeks.map((w) => w.n));
   const thisMonth = done.filter((x) => x.completedAt?.slice(0, 7) === t.slice(0, 7)).length;
   const activeHabits = habits.filter((h) => !h.archived);
-  const habitRate = activeHabits.length ? Math.round(activeHabits.reduce((a, h) => a + Array.from({ length: 30 }, (_, i) => addDays(t, -i)).filter((d) => h.log.includes(d)).length, 0) / (activeHabits.length * 30) * 100) : 0;
+  const habitRates = activeHabits.map((h) => {
+    const created = h.createdAt?.slice(0, 10) || addDays(t, -29);
+    const activeDays = Math.max(0, Math.min(30, daysBetween(created, t) + 1));
+    const actual = h.log.filter((d) => d >= addDays(t, -29) && d <= t && d >= created).length;
+    const expected = h.frequency === 'daily' ? activeDays : activeDays * h.targetPerWeek / 7;
+    return expected ? Math.min(100, actual / expected * 100) : 0;
+  });
+  const habitRate = activeHabits.length ? Math.round(habitRates.reduce((sum, rate) => sum + rate, 0) / activeHabits.length) : 0;
   const statusCounts = Object.keys(STATUS_META).map((s) => ({ s, n: items.filter((i) => i.status === s).length }));
   const moods = journal.filter((j) => j.date >= addDays(t, -30));
   const avgMood = moods.length ? (moods.reduce((a, j) => a + j.mood, 0) / moods.length).toFixed(1) : '—';

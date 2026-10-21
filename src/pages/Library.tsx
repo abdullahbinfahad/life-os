@@ -93,6 +93,10 @@ export default function Library() {
   const toggleSel = (id: string) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const ids = [...sel];
   const done = items.filter((i) => i.status === 'done').length;
+  const markItemDone = (id: string, wasDone: boolean) => {
+    toggleItemDone(id);
+    toast(wasDone ? 'Plan moved back to open items.' : 'Plan marked complete.', { label: 'Undo', run: () => toggleItemDone(id) });
+  };
 
   const addInline = () => {
     const titles = inline.split('\n').map((t) => t.trim()).filter(Boolean);
@@ -108,6 +112,29 @@ export default function Library() {
           <button className="btn-outline" onClick={() => setPicker(true)}><Sparkles size={16} /> Browse ideas</button>
           <button className="btn-primary" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))}><Plus size={16} /> Add items</button>
         </>} />
+
+      <section className="card mb-4 p-4 sm:p-5" aria-label="Whole-life planning horizons">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0"><h2 className="font-semibold">Plan across your whole life</h2><p className="mt-1 break-words text-sm muted">Capture what matters, choose when it fits, and mark it complete as you live it.</p></div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <button className={cx('rounded-full px-3 py-1.5 font-medium', status === 'open' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-200')} onClick={() => setStatus('open')}>Open · {items.filter((i) => i.status !== 'done' && i.status !== 'dropped').length}</button>
+            <button className={cx('rounded-full px-3 py-1.5 font-medium', status === 'done' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-200')} onClick={() => setStatus('done')}>Completed · {done}</button>
+            <button className={cx('rounded-full px-3 py-1.5 font-medium', status === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-200')} onClick={() => setStatus('all')}>Everything</button>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {Object.entries(HORIZON_META).map(([key, label]) => {
+            const inHorizon = items.filter((i) => i.horizon === key);
+            const horizonDone = inHorizon.filter((i) => i.status === 'done').length;
+            const selected = horizon === key;
+            return <button key={key} aria-pressed={selected} onClick={() => setHorizon(selected ? 'all' : key)} className={cx('min-w-0 rounded-xl border p-3 text-left transition hover:border-indigo-400', selected ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-200 dark:border-white/[.08]')}>
+              <span className="block break-words text-sm font-semibold">{label}</span>
+              <span className="mt-1 block text-xs muted">{inHorizon.length} plans · {horizonDone} done</span>
+              <Progress value={pct(horizonDone, inHorizon.length)} className="mt-2" color="#22c55e" />
+            </button>;
+          })}
+        </div>
+      </section>
 
       {items.length > 0 && (
         <div className="card mb-4 flex items-center gap-4 p-4">
@@ -214,9 +241,9 @@ export default function Library() {
       )}
 
       {items.length === 0 ? (
-        <Empty icon={<LibIcon size={28} />} title="Your Life Library is empty" text="Start by browsing 1,000+ ready-made ideas, or paste your own list — hundreds at a time."
-          action={<div className="flex gap-2"><button className="btn-primary" onClick={() => setPicker(true)}><Sparkles size={16} /> Browse ideas</button>
-            <button className="btn-outline" onClick={() => useStore.getState().loadDemo()}>Load demo data</button></div>} />
+        <Empty icon={<LibIcon size={28} />} title="Start your whole-life plan" text="Add a goal, experience, skill, or idea; choose a time horizon and mark it done when you get there."
+          action={<div className="flex flex-wrap justify-center gap-2"><button className="btn-primary" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))}><Plus size={16} /> Add your first plan</button>
+            <button className="btn-outline" onClick={() => setPicker(true)}><Sparkles size={16} /> Browse ideas</button></div>} />
       ) : filtered.length === 0 ? (
         <Empty icon={<Search size={28} />} title="No matching items" text="Try clearing some filters." />
       ) : (
@@ -233,7 +260,7 @@ export default function Library() {
                 {g.items.map((i) => view === 'list' ? (
                   <div key={i.id} className={cx('group flex items-center gap-3 px-4 py-2.5 transition hover:bg-slate-50 dark:hover:bg-white/[.02]', sel.has(i.id) && 'bg-indigo-500/5')}>
                     <input type="checkbox" checked={sel.has(i.id)} onChange={() => toggleSel(i.id)} className="h-4 w-4 accent-indigo-600" />
-                    <button onClick={() => toggleItemDone(i.id)} className={i.status === 'done' ? 'text-emerald-500' : 'muted hover:text-emerald-500'}>
+                    <button title={i.status === 'done' ? 'Mark as open' : 'Mark complete'} aria-label={i.status === 'done' ? `Mark ${i.title} as open` : `Mark ${i.title} complete`} onClick={() => markItemDone(i.id, i.status === 'done')} className={i.status === 'done' ? 'text-emerald-500' : 'muted hover:text-emerald-500'}>
                       {i.status === 'done' ? <CheckCircle2 size={19} /> : <Circle size={19} />}
                     </button>
                     <button onClick={() => setEditing(i)} className={cx('min-w-0 flex-1 truncate text-left text-sm', i.status === 'done' && 'line-through muted')}>
@@ -262,7 +289,7 @@ export default function Library() {
                     <div className="mt-3 flex flex-wrap items-center gap-1.5">
                       <span className="chip" style={{ background: STATUS_META[i.status].color + '1f', color: STATUS_META[i.status].color }}>{STATUS_META[i.status].label}</span>
                       <span className="chip bg-slate-200/70 dark:bg-white/[.06]">{HORIZON_META[i.horizon]}</span>
-                      <button onClick={() => toggleItemDone(i.id)} className="ml-auto text-emerald-500">{i.status === 'done' ? <CheckCircle2 size={18} /> : <Circle size={18} />}</button>
+                      <button title={i.status === 'done' ? 'Mark as open' : 'Mark complete'} aria-label={i.status === 'done' ? `Mark ${i.title} as open` : `Mark ${i.title} complete`} onClick={() => markItemDone(i.id, i.status === 'done')} className="ml-auto text-emerald-500">{i.status === 'done' ? <CheckCircle2 size={18} /> : <Circle size={18} />}</button>
                     </div>
                   </div>
                 ))}

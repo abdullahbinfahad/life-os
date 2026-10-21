@@ -72,6 +72,8 @@ export interface Project {
 export interface Habit {
   id: string;
   title: string;
+  /** Optional reminder of why this routine matters; absent in older saved habits. */
+  why?: string;
   categoryId: string;
   frequency: 'daily' | 'weekly';
   targetPerWeek: number;

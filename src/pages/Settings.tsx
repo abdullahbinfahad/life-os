@@ -1,8 +1,8 @@
-import { Download, ImagePlus, Lock, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react';
+import { Download, ImagePlus, Lock, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
-import { useAuth } from '../lib/auth';
+import { syncNow, useAuth } from '../lib/auth';
 import { compressImage, deletePrivateImage, formatBytes, getPrivateImageUrl, uploadPrivateImage } from '../lib/media';
 import type { Album, AlbumMemory, Settings as SettingsData, TrashRecord } from '../lib/types';
 import { cloudEnabled } from '../lib/supabase';
@@ -122,20 +122,20 @@ export default function Settings() {
         <p className="mb-4 text-sm muted">Organize your life areas. Deleting a category moves its items to another.</p>
         <div className="grid gap-2 sm:grid-cols-2">
           {s.categories.map((c) => (
-            <div key={c.id} className="flex items-center gap-2 rounded-xl border border-slate-200 p-2 dark:border-white/[.06]">
+            <div key={c.id} className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 p-2 dark:border-white/[.06]">
               <input className="w-10 rounded-lg bg-transparent text-center text-lg outline-none" value={c.icon} onChange={(e) => s.updateCategory(c.id, { icon: e.target.value })} />
               <input type="color" className="h-7 w-7 cursor-pointer rounded border-0 bg-transparent" value={c.color} onChange={(e) => s.updateCategory(c.id, { color: e.target.value })} />
-              <input className="flex-1 bg-transparent text-sm outline-none" value={c.name} onChange={(e) => s.updateCategory(c.id, { name: e.target.value })} />
+              <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" value={c.name} onChange={(e) => s.updateCategory(c.id, { name: e.target.value })} />
               <span className="text-xs muted">{s.items.filter((i) => i.categoryId === c.id).length}</span>
               <button className="btn-ghost !p-1.5 text-rose-500" onClick={() => confirm(`Delete category "${c.name}"?`) && s.deleteCategory(c.id)}><Trash2 size={14} /></button>
             </div>
           ))}
         </div>
-        <div className="mt-3 flex gap-2">
-          <input className="input !w-16 text-center" value={newCat.icon} onChange={(e) => setNewCat({ ...newCat, icon: e.target.value })} />
-          <input type="color" className="h-10 w-10 cursor-pointer rounded-xl" value={newCat.color} onChange={(e) => setNewCat({ ...newCat, color: e.target.value })} />
-          <input className="input" placeholder="New category name" value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
-          <button className="btn-primary" onClick={() => { if (newCat.name.trim()) { s.addCategory(newCat); setNewCat({ name: '', icon: '⭐', color: '#6366f1' }); } }}><Plus size={16} /></button>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input className="input !w-16 shrink-0 text-center" value={newCat.icon} onChange={(e) => setNewCat({ ...newCat, icon: e.target.value })} aria-label="New category icon" />
+          <input type="color" className="h-10 w-10 shrink-0 cursor-pointer rounded-xl" value={newCat.color} onChange={(e) => setNewCat({ ...newCat, color: e.target.value })} aria-label="New category color" />
+          <input className="input min-w-[120px] flex-1 basis-32" placeholder="New category name" value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
+          <button className="btn-primary shrink-0" aria-label="Add category" onClick={() => { if (newCat.name.trim()) { s.addCategory(newCat); setNewCat({ name: '', icon: '⭐', color: '#6366f1' }); } }}><Plus size={16} /></button>
         </div>
       </section>
 
@@ -189,7 +189,7 @@ export default function Settings() {
         <h3 className="mb-3 font-semibold">Keyboard shortcuts</h3>
         <div className="grid gap-2 text-sm sm:grid-cols-2">
           {[['N', 'Quick add'], ['⌘/Ctrl + K', 'Search & command palette'], ['G then O/T/L/G/P/C/H/I/J/S', 'Go to page'], ['⌘/Ctrl + Enter', 'Submit quick add']].map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 dark:bg-white/[.04]"><span>{v}</span><kbd className="text-xs font-mono muted">{k}</kbd></div>
+            <div key={k} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-lg bg-slate-100 px-3 py-2 dark:bg-white/[.04]"><span className="min-w-0 break-words">{v}</span><kbd className="break-words text-right text-xs font-mono muted">{k}</kbd></div>
           ))}
         </div>
       </section>
@@ -214,9 +214,12 @@ function ProfilePhotoControl({ settings, userId, updateSettings }: { settings: S
   const [preview, setPreview] = useState<string | undefined>(settings.avatarUrl);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  const [statusIsError, setStatusIsError] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
+    setImageFailed(false);
     if (!settings.avatarPath || !userId) {
       setPreview(settings.avatarUrl);
       return () => { active = false; };
@@ -235,33 +238,49 @@ function ProfilePhotoControl({ settings, userId, updateSettings }: { settings: S
   const upload = async (file?: File) => {
     if (!file || busy) return;
     if (!userId) {
+      setStatusIsError(true);
       setStatus('Sign in to upload a private profile photo.');
       return;
     }
     setBusy(true);
-    const localPreview = URL.createObjectURL(file);
-    setPreview(localPreview);
+    setStatusIsError(false);
+    setImageFailed(false);
+    let localPreview: string | undefined;
     try {
-      setStatus('Compressing photo on this device…');
+      setStatus('Preparing and compressing photo on this device…');
       const compressed = await compressImage(file);
+      localPreview = URL.createObjectURL(compressed.file);
+      setPreview(localPreview);
       setStatus(`Compressed ${formatBytes(compressed.originalBytes)} to ${formatBytes(compressed.file.size)}. Uploading privately…`);
       const nextPath = await uploadPrivateImage(userId, compressed.file, 'avatars');
+      const nextUrl = await getPrivateImageUrl(userId, nextPath);
       const oldPath = settings.avatarPath;
       updateSettings({ avatarPath: nextPath });
+      setPreview(nextUrl);
+      const synced = await syncNow();
+      if (!synced) {
+        setStatusIsError(true);
+        setStatus('Photo uploaded privately, but account sync did not finish. Retry sync before closing this page; the previous photo was kept safe.');
+        return;
+      }
       if (oldPath) {
         try {
           await deletePrivateImage(userId, oldPath);
         } catch {
+          setStatusIsError(true);
           setStatus('Profile photo updated, but the previous private file could not be removed.');
           return;
         }
       }
+      setStatusIsError(false);
       setStatus('Private profile photo updated.');
     } catch (error) {
-      URL.revokeObjectURL(localPreview);
+      setStatusIsError(true);
       setPreview(settings.avatarUrl);
+      if (settings.avatarPath) getPrivateImageUrl(userId, settings.avatarPath).then(setPreview).catch(() => setImageFailed(true));
       setStatus(error instanceof Error ? error.message : 'Could not update your profile photo.');
     } finally {
+      if (localPreview) URL.revokeObjectURL(localPreview);
       setBusy(false);
       if (input.current) input.current.value = '';
     }
@@ -276,25 +295,35 @@ function ProfilePhotoControl({ settings, userId, updateSettings }: { settings: S
         return;
       }
       setBusy(true);
+      updateSettings({ avatarPath: undefined, avatarUrl: undefined });
+      const synced = await syncNow();
+      if (!synced) {
+        setStatusIsError(true);
+        setStatus('Photo was removed on this device, but account sync did not finish. Retry sync before closing this page; the private file was kept safe.');
+        setBusy(false);
+        return;
+      }
       try {
         await deletePrivateImage(userId, settings.avatarPath);
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Could not remove your private profile photo.');
+          setStatusIsError(true);
+          setStatus(error instanceof Error ? error.message : 'Could not remove your private profile photo.');
         setBusy(false);
         return;
       }
     }
     updateSettings({ avatarPath: undefined, avatarUrl: undefined });
     setPreview(undefined);
+    setStatusIsError(false);
     setStatus('Profile photo removed.');
     setBusy(false);
   };
 
   return <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 p-4 dark:border-white/[.08]">
-    <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-500/15 text-indigo-500">{preview ? <img src={preview} alt="Profile preview" className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : <ImagePlus size={24} />}</div>
-    <div className="min-w-0 flex-1"><div className="font-medium">Profile photo</div><p className="mt-1 text-sm muted">Choose JPEG, PNG, or WebP. It is compressed locally, then stored privately in your signed-in account.</p>{status && <p className="mt-2 text-xs muted" role="status">{status}</p>}</div>
-    <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => upload(e.target.files?.[0])} />
-    <button type="button" className="btn-outline" disabled={busy} onClick={() => input.current?.click()}><Upload size={16} /> {busy ? 'Uploading…' : 'Upload photo'}</button>
-    {(settings.avatarPath || settings.avatarUrl) && <button type="button" className="btn-ghost text-rose-500" disabled={busy} onClick={remove} title="Remove profile photo"><X size={16} /></button>}
+    <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-500/15 text-indigo-500">{preview && !imageFailed ? <img src={preview} alt="Profile preview" onError={() => { setImageFailed(true); setStatusIsError(true); setStatus('Photo could not be displayed. Check your connection, reload the page, or upload again.'); }} className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : <ImagePlus size={24} />}</div>
+    <div className="min-w-0 flex-1"><div className="font-medium">Profile photo</div><p className="mt-1 text-sm muted">Choose a photo from your phone. JPEG, PNG, WebP, and browser-supported HEIC/HEIF are compressed on this device, then stored privately in your account.</p>{status && <p className={`mt-2 break-words text-xs ${statusIsError ? 'text-rose-600 dark:text-rose-400' : 'muted'}`} role={statusIsError ? 'alert' : 'status'}>{status}</p>}</div>
+    <input ref={input} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => upload(e.target.files?.[0])} />
+    <button type="button" className="btn-outline" disabled={busy} onClick={() => input.current?.click()}><Upload size={16} /> {busy ? 'Saving…' : 'Save profile photo'}</button>
+    {(settings.avatarPath || settings.avatarUrl) && <button type="button" className="btn-ghost text-rose-600 dark:text-rose-400" disabled={busy} onClick={remove} title="Remove profile photo"><Trash2 size={16} /> <span>Remove</span></button>}
   </div>;
 }
