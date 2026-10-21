@@ -1,4 +1,4 @@
-import { BarChart3, Cloud, CloudOff, Crown, Leaf, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Moon, Repeat, Search, Settings, Sun, Sunrise, Target, X, Images, Globe2 } from 'lucide-react';
+import { BarChart3, Cloud, CloudOff, Crown, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Repeat, Search, Settings, Sunrise, Target, X, Images, Globe2 } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
@@ -72,15 +72,40 @@ export const NAV = [
 const PRIMARY_NAV = NAV.filter((item) => ['/', '/goals', '/today', '/habits', '/library'].includes(item.to));
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const theme = useStore((s) => s.settings.theme);
-  const updateSettings = useStore((s) => s.updateSettings);
   const ownerAdmin = useOwnerAdmin();
+  const forestTheme = useStore((s) => s.settings.theme === 'forest');
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
   const loc = useLocation();
   const nav = useNavigate();
 
   useEffect(() => setMobile(false), [loc.pathname]);
+  useEffect(() => {
+    if (!mobile) return;
+    const root = document.documentElement;
+    const previousOverflow = root.style.overflow;
+    root.style.overflow = 'hidden';
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobile(false); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => { root.style.overflow = previousOverflow; window.removeEventListener('keydown', closeOnEscape); };
+  }, [mobile]);
+  useEffect(() => {
+    if (!forestTheme || !window.matchMedia('(hover: hover) and (pointer: fine)').matches || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const root = document.documentElement;
+    let frame = 0;
+    const trackPointer = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const dx = ((event.clientX / Math.max(window.innerWidth, 1)) - 0.5) * 42;
+        const dy = ((event.clientY / Math.max(window.innerHeight, 1)) - 0.5) * 34;
+        root.style.setProperty('--pointer-dx', `${dx.toFixed(1)}px`);
+        root.style.setProperty('--pointer-dy', `${dy.toFixed(1)}px`);
+      });
+    };
+    window.addEventListener('pointermove', trackPointer, { passive: true });
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('pointermove', trackPointer); root.style.removeProperty('--pointer-dx'); root.style.removeProperty('--pointer-dy'); };
+  }, [forestTheme]);
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p); }
@@ -98,36 +123,30 @@ export default function Layout({ children }: { children: ReactNode }) {
   }, [nav]);
 
   const sidebar = (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 px-3 pb-6 pt-2">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-w-0 items-center gap-3 px-2 pb-4 pt-1">
         <Logo size={34} />
-        <div>
-          <div className="font-bold leading-tight">{APP_NAME}</div>
+        <div className="min-w-0">
+          <div className="truncate font-bold leading-tight">{APP_NAME}</div>
           <div className="text-[11px] leading-tight muted">A personal system for everything that matters</div>
         </div>
       </div>
-      <button onClick={() => setPalette(true)} className="mb-4 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm muted transition hover:border-indigo-400 dark:border-white/10">
+      <button onClick={() => setPalette(true)} className="mb-3 flex min-h-10 items-center gap-2 rounded-xl border border-slate-200/90 bg-white/65 px-3 py-2 text-sm muted shadow-sm transition duration-200 hover:border-indigo-400/60 hover:bg-white dark:border-white/10 dark:bg-white/[.025] dark:hover:bg-white/[.06]">
         <Search size={15} /> Search… <kbd className="ml-auto rounded bg-slate-100 px-1.5 text-[10px] dark:bg-white/10">⌘K</kbd>
       </button>
-      <nav className="flex-1 space-y-0.5 overflow-y-auto">
-        <div className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.16em] muted">Main menu</div>
+      <nav aria-label="Main menu" className="min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto overscroll-contain py-1 pr-1">
+        <div className="mb-2 px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[.16em] muted">Main menu</div>
         {NAV.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} end={to === '/'}
             className={({ isActive }) => cx(
-              'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition',
-              isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[.05]',
+              'sidebar-link group flex min-h-10 items-center gap-2.5 rounded-xl px-2 py-1.5 text-[13px] font-medium leading-tight transition duration-200',
+              isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:translate-x-0.5 hover:bg-slate-100/90 dark:text-slate-300 dark:hover:bg-white/[.055]',
             )}>
-            <Icon size={17} /> {label}
+            <span className="sidebar-icon grid h-8 w-8 shrink-0 place-items-center rounded-lg transition duration-200"><Icon size={17} className="transition-transform duration-200 group-hover:scale-110" /></span><span className="min-w-0">{label}</span>
           </NavLink>
         ))}
-        {ownerAdmin && <NavLink to="/admin" className={({ isActive }) => cx('group mt-2 flex items-center gap-3 rounded-xl border border-amber-300/50 bg-gradient-to-r from-amber-100/70 to-emerald-100/70 px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:-translate-y-0.5 dark:border-amber-300/20 dark:from-amber-400/10 dark:to-emerald-400/10 dark:text-slate-100', isActive && 'ring-2 ring-amber-400/50')}><Crown size={17} className="text-amber-600 dark:text-amber-300" /> Owner system console</NavLink>}
+        {ownerAdmin && <NavLink to="/admin" className={({ isActive }) => cx('sidebar-link group mt-2 flex min-h-10 items-center gap-2.5 rounded-xl border border-amber-300/50 bg-gradient-to-r from-amber-100/70 to-emerald-100/70 px-2 py-1.5 text-[13px] font-medium text-slate-800 shadow-sm transition duration-200 hover:-translate-y-0.5 dark:border-amber-300/20 dark:from-amber-400/10 dark:to-emerald-400/10 dark:text-slate-100', isActive && 'ring-2 ring-amber-400/50')}><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400/10"><Crown size={17} className="text-amber-600 dark:text-amber-300" /></span><span>Owner system console</span></NavLink>}
       </nav>
-      <button className="btn-ghost mt-4 justify-start" onClick={() => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' })}>
-        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-      </button>
-      <button className="btn-ghost justify-start" onClick={() => updateSettings({ theme: theme === 'forest' ? 'dark' : 'forest' })}>
-        {theme === 'forest' ? <Moon size={16} /> : <Leaf size={16} />} {theme === 'forest' ? 'Night glass theme' : 'Emerald night theme'}
-      </button>
       <AccountBox />
     </div>
   );
@@ -138,12 +157,12 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="ambient-orb absolute -top-40 left-1/3 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-3xl" />
         <div className="ambient-orb absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-fuchsia-500/10 blur-3xl" />
       </div>
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white/70 p-4 backdrop-blur-xl dark:border-white/[.06] dark:bg-black/20 lg:block">
+      <aside className="app-sidebar fixed inset-y-0 left-0 hidden h-[100dvh] w-64 overflow-hidden border-r border-slate-200/80 bg-white/75 p-4 backdrop-blur-2xl dark:border-white/[.07] dark:bg-[#0b0d12]/75 lg:block">
         {sidebar}
       </aside>
       <div className={cx('mobile-drawer fixed inset-0 z-40 lg:hidden', mobile ? 'is-open' : 'is-closed')} aria-hidden={!mobile} onClick={() => setMobile(false)}>
         <div className="mobile-drawer-backdrop absolute inset-0 bg-black/50" />
-        <aside className="mobile-drawer-panel absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white p-4 dark:bg-[#0f1218]" onClick={(e) => e.stopPropagation()}>{sidebar}</aside>
+        <aside className="mobile-drawer-panel absolute inset-y-0 left-0 w-72 max-w-[min(85vw,22rem)] overflow-hidden bg-white p-4 pt-[max(1rem,env(safe-area-inset-top))] dark:bg-[#0f1218]" onClick={(e) => e.stopPropagation()}>{sidebar}</aside>
       </div>
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/80 lg:hidden">

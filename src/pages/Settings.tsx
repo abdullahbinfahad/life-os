@@ -1,4 +1,4 @@
-import { Download, ImagePlus, Lock, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
+import { Check, Download, ImagePlus, Lock, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
@@ -111,8 +111,31 @@ export default function Settings() {
           <div><label className="label">Profile photo URL</label><input className="input" type="url" placeholder="https://…" value={s.settings.avatarUrl ?? ''} onChange={(e) => s.updateSettings({ avatarUrl: e.target.value || undefined })} /><p className="mt-1 text-xs muted">Optional external-image fallback. Private uploads are shown first.</p></div>
           <div><label className="label">Birthday</label><input className="input" type="date" value={s.settings.birthday ?? ''} onChange={(e) => s.updateSettings({ birthday: e.target.value || undefined })} /></div>
           <div><label className="label">Location</label><input className="input" placeholder="City, country" value={s.settings.location ?? ''} onChange={(e) => s.updateSettings({ location: e.target.value || undefined })} /></div>
-          <div><label className="label">Theme</label><select className="input" value={s.settings.theme} onChange={(e) => s.updateSettings({ theme: e.target.value as SettingsData['theme'] })}><option value="dark">Night glass</option><option value="forest">Emerald night</option><option value="light">Clean light</option></select></div>
           <div><label className="label">Week starts</label><select className="input" value={s.settings.weekStartsMonday ? 'mon' : 'sun'} onChange={(e) => s.updateSettings({ weekStartsMonday: e.target.value === 'mon' })}><option value="mon">Monday</option><option value="sun">Sunday</option></select></div>
+          <div className="sm:col-span-3">
+            <div className="mb-2"><span className="label">Appearance</span><p className="text-xs muted">Choose your look here. The sidebar stays focused on navigation.</p></div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {([
+                { value: 'dark', title: 'Night glass', detail: 'Your original dark theme', preview: 'linear-gradient(135deg,#182131,#0b0d12 62%,#253344)' },
+                { value: 'forest', title: 'Emerald night', detail: 'Green-glass surfaces and soft ambient motion', preview: 'radial-gradient(ellipse at 78% 4%,rgba(52,211,153,.42),transparent 55%),linear-gradient(140deg,#13291f,#07100c 76%)' },
+                { value: 'light', title: 'Clean light', detail: 'Your original bright theme', preview: 'linear-gradient(135deg,#dbeafe,#ffffff 52%,#d1fae5)' },
+              ] as const).map((choice) => {
+                const selected = s.settings.theme === choice.value;
+                return <button key={choice.value} type="button" aria-pressed={selected} onClick={() => s.updateSettings({ theme: choice.value as SettingsData['theme'] })}
+                  className={`theme-choice min-w-0 rounded-2xl border p-3 text-left transition duration-200 ${selected ? 'is-selected border-emerald-500 ring-2 ring-emerald-500/25' : 'border-slate-200 hover:border-emerald-400/70 dark:border-white/10'}`}>
+                  <span className="theme-preview relative mb-3 flex h-14 items-end gap-1.5 overflow-hidden rounded-xl border border-black/5 p-2 dark:border-white/10" style={{ background: choice.preview }} aria-hidden="true">
+                    <span className="h-2/3 w-[17%] rounded-t bg-white/15 backdrop-blur-sm" />
+                    <span className="h-full w-[17%] rounded-t bg-emerald-400/65" />
+                    <span className="h-1/2 w-[17%] rounded-t bg-white/20" />
+                    <span className="mb-1 h-1 w-[28%] rounded-full bg-white/55" />
+                    {choice.value === 'forest' && <span className="theme-preview-glow absolute -right-4 -top-5 h-16 w-16 rounded-full bg-emerald-300/35 blur-xl" />}
+                  </span>
+                  <span className="flex items-center justify-between gap-2 text-sm font-semibold"><span>{choice.title}</span>{selected && <Check size={16} className="shrink-0 text-emerald-500" aria-label="Selected" />}</span>
+                  <span className="mt-1 block text-xs leading-5 muted">{choice.detail}</span>
+                </button>;
+              })}
+            </div>
+          </div>
           <div className="sm:col-span-3"><label className="label">Short bio</label><textarea className="input min-h-20" placeholder="What matters to you?" value={s.settings.bio ?? ''} onChange={(e) => s.updateSettings({ bio: e.target.value || undefined })} /></div>
         </div>
       </section>
