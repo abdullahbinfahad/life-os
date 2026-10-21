@@ -133,7 +133,7 @@ export default function PublicJournal() {
   };
 
   const removeComment = async (id: string) => {
-    if (!supabase || !user?.id || !confirm('Remove your comment?')) return;
+    if (!supabase || !user?.id || !confirm(canModerate ? 'Remove this public comment?' : 'Remove your comment?')) return;
     const { error } = await supabase.from('public_journal_comments').delete().eq('id', id);
     if (error) setCommentNotice('Could not remove that comment.'); else { setCommentNotice('Comment removed.'); await loadComments(); }
   };
