@@ -146,12 +146,12 @@ export default function Library() {
       )}
 
       {/* category chips */}
-      <div className="mobile-choice-rail mb-3 gap-2 pb-1">
-        <button onClick={() => setCat('all')} className={cx('chip shrink-0 px-3 py-1.5 text-sm', cat === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-200/60 dark:bg-white/[.06]')}>{tr("All ·")}{items.length}</button>
+      <div className="mb-3 flex max-w-full flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-1">
+        <button onClick={() => setCat('all')} className={cx('chip shrink-0 whitespace-nowrap px-3 py-1.5 text-sm', cat === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-200/60 dark:bg-white/[.06]')}>{tr("All ·")}{items.length}</button>
         {categories.map((c) => {
           const n = items.filter((i) => i.categoryId === c.id).length;
           return (
-            <button key={c.id} onClick={() => setCat(c.id)} className="chip shrink-0 px-3 py-1.5 text-sm"
+            <button key={c.id} onClick={() => setCat(c.id)} className="chip shrink-0 whitespace-nowrap px-3 py-1.5 text-sm"
               style={cat === c.id ? { background: c.color, color: 'white' } : { background: c.color + '1a', color: c.color }}>
               {c.icon} {c.name} · {n}
             </button>
