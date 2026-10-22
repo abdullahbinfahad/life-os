@@ -11,8 +11,9 @@ export const addDays = (iso: string, n: number) => {
 export const daysBetween = (a: string, b: string) =>
   Math.round((new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000);
 
-export const fmtDate = (iso?: string) =>
-  iso ? new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+export const localeForLanguage = (language?: string) => ({ en: 'en-US', bn: 'bn-BD', hi: 'hi-IN', ar: 'ar-SA', es: 'es-ES' } as Record<string, string>)[language ?? 'en'] ?? 'en-US';
+export const fmtDate = (iso?: string, language?: string) =>
+  iso ? new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString(localeForLanguage(language), { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 

@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { cx } from '../lib/utils';
 
 export const APP_NAME = 'Life Circle';
-const LOADER_COLORS = ['#4f46e5', '#0f9f88', '#db5a32', '#b044a5', '#2879b8'];
 
 function RunnerGlyph() {
   return (
@@ -27,22 +26,25 @@ export function Logo({ size = 36, className }: { size?: number; className?: stri
   );
 }
 
-/** Loading-only runner: cycles through a restrained palette on each page refresh. */
+const LOADER_COLORS = ['#34d399', '#60a5fa', '#a78bfa', '#fbbf24', '#fb7185'];
+let pageLoaderColor = LOADER_COLORS[Math.floor(Math.random() * LOADER_COLORS.length)];
+try {
+  const previous = Number(sessionStorage.getItem('life-circle-loader-color-index') ?? '-1');
+  const next = ((Number.isFinite(previous) ? previous : -1) + 1) % LOADER_COLORS.length;
+  sessionStorage.setItem('life-circle-loader-color-index', String(next));
+  pageLoaderColor = LOADER_COLORS[next];
+} catch {
+  // Storage can be disabled in private browsing; the in-memory color still works.
+}
+
+/** A calm loading mark; only the orbit and a small vertical drift move. */
 export function LoadingLogo({ size = 56, className }: { size?: number; className?: string }) {
-  const [color, setColor] = useState(LOADER_COLORS[0]);
-  useEffect(() => {
-    try {
-      const previous = Number(sessionStorage.getItem('life-circle-loader-color-index') ?? '-1');
-      const next = ((Number.isFinite(previous) ? previous : -1) + 1) % LOADER_COLORS.length;
-      sessionStorage.setItem('life-circle-loader-color-index', String(next));
-      setColor(LOADER_COLORS[next]);
-    } catch {
-      setColor(LOADER_COLORS[(Date.now() >>> 4) % LOADER_COLORS.length]);
-    }
-  }, []);
+  const [color] = useState(pageLoaderColor);
   return (
-    <span role="img" aria-label={`${APP_NAME} loading`} className={cx('inline-flex shrink-0 select-none runner-loading', className)} style={{ width: size, height: size, color }}>
-      <RunnerGlyph />
+    <span role="img" aria-label={`${APP_NAME} loading`} className={cx('loading-mark', className)} style={{ width: size, height: size, color }}>
+      <span className="loading-halo" aria-hidden="true" />
+      <span className="loading-orbit" aria-hidden="true" />
+      <span className="loading-glyph" aria-hidden="true"><RunnerGlyph /></span>
     </span>
   );
 }

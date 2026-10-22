@@ -1,3 +1,4 @@
+import { translate as tr } from '../lib/locales';
 import { Check, Download, ImagePlus, Lock, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '../components/ui';
@@ -7,6 +8,8 @@ import { compressImage, deletePrivateImage, formatBytes, getPrivateImageUrl, upl
 import type { Album, AlbumMemory, Settings as SettingsData, TrashRecord } from '../lib/types';
 import { cloudEnabled } from '../lib/supabase';
 import { csvEscape, download, parseCSV, today } from '../lib/utils';
+import { APP_LANGUAGES } from '../lib/locales';
+import { playFeedback } from '../lib/sounds';
 
 export default function Settings() {
   const s = useStore();
@@ -100,20 +103,22 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl">
-      <PageHeader title="Settings" subtitle="Templates, imports, exports, privacy" />
+      <PageHeader title={tr("Settings")} subtitle={tr("Templates, imports, exports, privacy")} />
       {msg && <div className="mb-4 rounded-xl bg-emerald-500/15 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">{msg}</div>}
 
       <section className="card mb-6 p-6">
-        <h3 className="mb-4 font-semibold">Profile & preferences</h3>
+        <h3 className="mb-4 font-semibold">{tr("Profile & preferences")}</h3>
         <div className="mb-5"><ProfilePhotoControl settings={s.settings} userId={user?.id} updateSettings={s.updateSettings} /></div>
         <div className="grid gap-4 sm:grid-cols-3">
-          <div><label className="label">Your name</label><input className="input" value={s.settings.name} onChange={(e) => s.updateSettings({ name: e.target.value })} /></div>
-          <div><label className="label">Profile photo URL</label><input className="input" type="url" placeholder="https://…" value={s.settings.avatarUrl ?? ''} onChange={(e) => s.updateSettings({ avatarUrl: e.target.value || undefined })} /><p className="mt-1 text-xs muted">Optional external-image fallback. Private uploads are shown first.</p></div>
-          <div><label className="label">Birthday</label><input className="input" type="date" value={s.settings.birthday ?? ''} onChange={(e) => s.updateSettings({ birthday: e.target.value || undefined })} /></div>
-          <div><label className="label">Location</label><input className="input" placeholder="City, country" value={s.settings.location ?? ''} onChange={(e) => s.updateSettings({ location: e.target.value || undefined })} /></div>
-          <div><label className="label">Week starts</label><select className="input" value={s.settings.weekStartsMonday ? 'mon' : 'sun'} onChange={(e) => s.updateSettings({ weekStartsMonday: e.target.value === 'mon' })}><option value="mon">Monday</option><option value="sun">Sunday</option></select></div>
+          <div><label className="label">{tr("Your name")}</label><input className="input" value={s.settings.name} onChange={(e) => s.updateSettings({ name: e.target.value })} /></div>
+          <div><label className="label">{tr("Profile photo URL")}</label><input className="input" type="url" placeholder={tr("https://…")} value={s.settings.avatarUrl ?? ''} onChange={(e) => s.updateSettings({ avatarUrl: e.target.value || undefined })} /><p className="mt-1 text-xs muted">{tr("Optional external-image fallback. Private uploads are shown first.")}</p></div>
+          <div><label className="label">{tr("Birthday")}</label><input className="input" type="date" value={s.settings.birthday ?? ''} onChange={(e) => s.updateSettings({ birthday: e.target.value || undefined })} /></div>
+          <div><label className="label">{tr("Location")}</label><input className="input" placeholder={tr("City, country")} value={s.settings.location ?? ''} onChange={(e) => s.updateSettings({ location: e.target.value || undefined })} /></div>
+          <div><label className="label">{tr("Week starts")}</label><select className="input" value={s.settings.weekStartsMonday ? 'mon' : 'sun'} onChange={(e) => s.updateSettings({ weekStartsMonday: e.target.value === 'mon' })}><option value="mon">{tr("Monday")}</option><option value="sun">{tr("Sunday")}</option></select></div>
+          <div><label className="label" htmlFor="system-language">{tr("System language")}</label><select id="system-language" className="input" value={s.settings.language ?? 'en'} onChange={(e) => s.updateSettings({ language: e.target.value as NonNullable<SettingsData['language']> })}>{APP_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.native} · {language.label}</option>)}</select><p className="mt-1 text-xs muted">{tr("The interface changes immediately. Your entries stay in the language you wrote them.")}</p></div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/10"><label htmlFor="interaction-sounds" className="min-w-0"><span className="block text-sm font-medium">{tr("Soft interaction sounds")}</span><span className="block text-xs muted">{tr("Optional gentle tones for add, save, and sync.")}</span></label><input id="interaction-sounds" type="checkbox" className="h-5 w-5 shrink-0 accent-indigo-600" checked={s.settings.sounds ?? false} onChange={(e) => { const enabled = e.target.checked; s.updateSettings({ sounds: enabled }); if (enabled) window.setTimeout(() => playFeedback('confirm'), 0); }} /></div>
           <div className="sm:col-span-3">
-            <div className="mb-2"><span className="label">Appearance</span><p className="text-xs muted">Choose your look here. The sidebar stays focused on navigation.</p></div>
+            <div className="mb-2"><span className="label">{tr("Appearance")}</span><p className="text-xs muted">{tr("Choose your look here. The sidebar stays focused on navigation.")}</p></div>
             <div className="grid gap-3 sm:grid-cols-3">
               {([
                 { value: 'dark', title: 'Night glass', detail: 'Your original dark theme', preview: 'linear-gradient(135deg,#182131,#0b0d12 62%,#253344)' },
@@ -130,19 +135,19 @@ export default function Settings() {
                     <span className="mb-1 h-1 w-[28%] rounded-full bg-white/55" />
                     {choice.value === 'forest' && <span className="theme-preview-glow absolute -right-4 -top-5 h-16 w-16 rounded-full bg-emerald-300/35 blur-xl" />}
                   </span>
-                  <span className="flex items-center justify-between gap-2 text-sm font-semibold"><span>{choice.title}</span>{selected && <Check size={16} className="shrink-0 text-emerald-500" aria-label="Selected" />}</span>
+                  <span className="flex items-center justify-between gap-2 text-sm font-semibold"><span>{choice.title}</span>{selected && <Check size={16} className="shrink-0 text-emerald-500" aria-label={tr("Selected")} />}</span>
                   <span className="mt-1 block text-xs leading-5 muted">{choice.detail}</span>
                 </button>;
               })}
             </div>
           </div>
-          <div className="sm:col-span-3"><label className="label">Short bio</label><textarea className="input min-h-20" placeholder="What matters to you?" value={s.settings.bio ?? ''} onChange={(e) => s.updateSettings({ bio: e.target.value || undefined })} /></div>
+          <div className="sm:col-span-3"><label className="label">{tr("Short bio")}</label><textarea className="input min-h-20" placeholder={tr("What matters to you?")} value={s.settings.bio ?? ''} onChange={(e) => s.updateSettings({ bio: e.target.value || undefined })} /></div>
         </div>
       </section>
 
       <section className="card mb-6 p-6">
-        <h3 className="mb-1 font-semibold">Categories</h3>
-        <p className="mb-4 text-sm muted">Organize your life areas. Deleting a category moves its items to another.</p>
+        <h3 className="mb-1 font-semibold">{tr("Categories")}</h3>
+        <p className="mb-4 text-sm muted">{tr("Organize your life areas. Deleting a category moves its items to another.")}</p>
         <div className="grid gap-2 sm:grid-cols-2">
           {s.categories.map((c) => (
             <div key={c.id} className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 p-2 dark:border-white/[.06]">
@@ -155,22 +160,22 @@ export default function Settings() {
           ))}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input className="input !w-16 shrink-0 text-center" value={newCat.icon} onChange={(e) => setNewCat({ ...newCat, icon: e.target.value })} aria-label="New category icon" />
-          <input type="color" className="h-10 w-10 shrink-0 cursor-pointer rounded-xl" value={newCat.color} onChange={(e) => setNewCat({ ...newCat, color: e.target.value })} aria-label="New category color" />
-          <input className="input min-w-[120px] flex-1 basis-32" placeholder="New category name" value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
-          <button className="btn-primary shrink-0" aria-label="Add category" onClick={() => { if (newCat.name.trim()) { s.addCategory(newCat); setNewCat({ name: '', icon: '⭐', color: '#6366f1' }); } }}><Plus size={16} /></button>
+          <input className="input !w-16 shrink-0 text-center" value={newCat.icon} onChange={(e) => setNewCat({ ...newCat, icon: e.target.value })} aria-label={tr("New category icon")} />
+          <input type="color" className="h-10 w-10 shrink-0 cursor-pointer rounded-xl" value={newCat.color} onChange={(e) => setNewCat({ ...newCat, color: e.target.value })} aria-label={tr("New category color")} />
+          <input className="input min-w-[120px] flex-1 basis-32" placeholder={tr("New category name")} value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
+          <button className="btn-primary shrink-0" aria-label={tr("Add category")} onClick={() => { if (newCat.name.trim()) { s.addCategory(newCat); setNewCat({ name: '', icon: '⭐', color: '#6366f1' }); } }}><Plus size={16} /></button>
         </div>
       </section>
 
       <section className="card mb-6 p-6">
-        <h3 className="mb-1 font-semibold">Import & export</h3>
-        <p className="mb-4 text-sm muted">CSV import accepts a header row with: <code>title, category, status, priority, horizon, dueDate, tags, notes</code> — or just one title per line.</p>
+        <h3 className="mb-1 font-semibold">{tr("Import & export")}</h3>
+        <p className="mb-4 text-sm muted">{tr("CSV import accepts a header row with:")}<code>title, category, status, priority, horizon, dueDate, tags, notes</code> {tr("— or just one title per line.")}</p>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-outline" onClick={exportJSON}><Download size={16} /> Full backup (JSON)</button>
-          <button className="btn-outline" onClick={exportCSV}><Download size={16} /> Library (CSV)</button>
-          <button className="btn-outline" onClick={() => fileRef.current?.click()}><Upload size={16} /> Restore backup</button>
-          <button className="btn-outline" onClick={() => csvRef.current?.click()}><Upload size={16} /> Import CSV</button>
-          <button className="btn-outline" onClick={() => { s.loadDemo(); setMsg('Demo data added.'); }}>Load demo data</button>
+          <button className="btn-outline" onClick={exportJSON}><Download size={16} /> {tr("Full backup (JSON)")}</button>
+          <button className="btn-outline" onClick={exportCSV}><Download size={16} /> {tr("Library (CSV)")}</button>
+          <button className="btn-outline" onClick={() => fileRef.current?.click()}><Upload size={16} /> {tr("Restore backup")}</button>
+          <button className="btn-outline" onClick={() => csvRef.current?.click()}><Upload size={16} /> {tr("Import CSV")}</button>
+          <button className="btn-outline" onClick={() => { s.loadDemo(); setMsg('Demo data added.'); }}>{tr("Load demo data")}</button>
           <input ref={fileRef} type="file" accept=".json" hidden onChange={(e) => e.target.files?.[0] && importJSON(e.target.files[0])} />
           <input ref={csvRef} type="file" accept=".csv,.txt" hidden onChange={(e) => e.target.files?.[0] && importCSV(e.target.files[0])} />
         </div>
@@ -178,16 +183,16 @@ export default function Settings() {
 
       <section className="card mb-6 p-6" aria-labelledby="trash-heading">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div><h3 id="trash-heading" className="font-semibold">Trash</h3><p className="mt-1 text-sm muted">Deleted items stay here until you restore them or permanently remove them.</p></div>
-          <div className="flex items-center gap-2"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium dark:bg-white/[.08]">{s.trash.length} item{s.trash.length === 1 ? '' : 's'}</span><button className="btn-danger !px-3 !py-1.5" disabled={!s.trash.length || trashBusy} onClick={() => void emptyTrash()}><Trash2 size={14} /> Empty trash</button></div>
+          <div><h3 id="trash-heading" className="font-semibold">{tr("Trash")}</h3><p className="mt-1 text-sm muted">{tr("Deleted items stay here until you restore them or permanently remove them.")}</p></div>
+          <div className="flex items-center gap-2"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium dark:bg-white/[.08]">{s.trash.length} {tr("item")}{s.trash.length === 1 ? '' : 's'}</span><button className="btn-danger !px-3 !py-1.5" disabled={!s.trash.length || trashBusy} onClick={() => void emptyTrash()}><Trash2 size={14} /> {tr("Empty trash")}</button></div>
         </div>
-        {s.trash.length === 0 ? <p className="rounded-xl bg-slate-100/70 p-4 text-sm muted dark:bg-white/[.04]">Nothing in Trash. Deleted items will appear here.</p> : (
+        {s.trash.length === 0 ? <p className="rounded-xl bg-slate-100/70 p-4 text-sm muted dark:bg-white/[.04]">{tr("Nothing in Trash. Deleted items will appear here.")}</p> : (
           <div className="space-y-2">
             {[...s.trash].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt)).map((record) => (
               <div key={record.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-white/[.08]">
-                <div className="min-w-0 flex-1"><div className="truncate font-medium">{record.title}</div><div className="mt-0.5 text-xs muted">{record.entityType[0].toUpperCase() + record.entityType.slice(1)} · deleted {new Date(record.deletedAt).toLocaleString()}</div></div>
-                <button className="btn-outline !px-2.5 !py-1.5" disabled={trashBusy} onClick={() => { if (s.restoreFromTrash(record.id)) setMsg(`“${record.title}” restored.`); else setMsg('Restore the parent project or album first, then restore this record.'); }}><RotateCcw size={14} /> Restore</button>
-                <button className="btn-ghost !px-2.5 !py-1.5 text-rose-500" disabled={trashBusy} onClick={() => void purgeRecord(record)}><Trash2 size={14} /> Delete forever</button>
+                <div className="min-w-0 flex-1"><div className="truncate font-medium">{record.title}</div><div className="mt-0.5 text-xs muted">{record.entityType[0].toUpperCase() + record.entityType.slice(1)} {tr("· deleted")}{new Date(record.deletedAt).toLocaleString()}</div></div>
+                <button className="btn-outline !px-2.5 !py-1.5" disabled={trashBusy} onClick={() => { if (s.restoreFromTrash(record.id)) setMsg(`“${record.title}” restored.`); else setMsg('Restore the parent project or album first, then restore this record.'); }}><RotateCcw size={14} /> {tr("Restore")}</button>
+                <button className="btn-ghost !px-2.5 !py-1.5 text-rose-500" disabled={trashBusy} onClick={() => void purgeRecord(record)}><Trash2 size={14} /> {tr("Delete forever")}</button>
               </div>
             ))}
           </div>
@@ -195,21 +200,21 @@ export default function Settings() {
       </section>
 
       <section className="card mb-6 p-6">
-        <h3 className="mb-2 flex items-center gap-2 font-semibold"><Lock size={16} /> Privacy</h3>
+        <h3 className="mb-2 flex items-center gap-2 font-semibold"><Lock size={16} /> {tr("Privacy")}</h3>
         <p className="text-sm muted">{user && cloudEnabled
-          ? 'Your signed-in account is backed by private cloud sync. Database row-level security restricts your Life OS data to your account. Uploaded photos are stored in a private bucket and shown with signed URLs. A copy also stays in this browser for offline use.'
+          ? 'Your signed-in record is isolated from other user accounts by database row-level security. A verified system owner can access and edit account records for service administration. Uploaded photos are stored in a private bucket and shown with signed URLs. A copy also stays in this browser for offline use. Do not store passwords, payment details, government-ID numbers, or other secrets here.'
           : cloudEnabled
-            ? 'Your data is saved on this device until you sign in. Sign in to protect it in your private cloud account and sync across devices. Direct photo uploads require sign-in so they are never embedded in local JSON.'
+            ? 'Your data is saved on this device until you sign in. Cloud records are isolated by account, but a verified system owner can access and edit account records. Direct photo uploads require sign-in so they are never embedded in local JSON. Do not store passwords, payment details, government-ID numbers, or other secrets here.'
             : 'Your data is stored only in this browser. Configure cloud authentication to protect it in an account and sync across devices. Direct photo uploads require a private signed-in cloud account; external image URLs still work. Export a backup regularly.'}</p>
         {cloudEnabled && user && <div className={`mt-3 text-xs ${sync === 'error' ? 'text-rose-500' : 'muted'}`} role="status">
           {sync === 'error' ? `Cloud sync failed: ${syncError || 'Please retry.'}` : sync === 'saved' ? `Synced${lastSynced ? ` · ${new Date(lastSynced).toLocaleString()}` : ''}` : sync === 'offline' ? 'Offline · changes remain on this device and will sync when connected.' : sync === 'saving' ? 'Saving to your private cloud account…' : sync === 'loading' ? 'Loading your private cloud data…' : 'Cloud sync is ready.'}
         </div>}
-        <div className="mt-3 text-xs muted">{s.items.length} items · {s.goals.length} goals · {s.projects.length} projects · {s.habits.length} habits · {s.journal.length} journal entries · {s.albums.length} albums</div>
-        <button className="btn-danger mt-4" onClick={() => { if (confirm('Erase ALL data permanently? Export a backup first!') && confirm('Are you absolutely sure?')) { s.resetAll(); setMsg('All data erased.'); } }}><Trash2 size={16} /> Erase all data</button>
+        <div className="mt-3 text-xs muted">{s.items.length} {tr("items ·")}{s.goals.length} {tr("goals ·")}{s.projects.length} {tr("projects ·")}{s.habits.length} {tr("habits ·")}{s.journal.length} {tr("journal entries ·")}{s.albums.length} {tr("albums")}</div>
+        <button className="btn-danger mt-4" onClick={() => { if (confirm('Erase ALL data permanently? Export a backup first!') && confirm('Are you absolutely sure?')) { s.resetAll(); setMsg('All data erased.'); } }}><Trash2 size={16} /> {tr("Erase all data")}</button>
       </section>
 
       <section className="card p-6">
-        <h3 className="mb-3 font-semibold">Keyboard shortcuts</h3>
+        <h3 className="mb-3 font-semibold">{tr("Keyboard shortcuts")}</h3>
         <div className="grid gap-2 text-sm sm:grid-cols-2">
           {[['N', 'Quick add'], ['⌘/Ctrl + K', 'Search & command palette'], ['G then O/T/L/G/P/C/H/I/J/S', 'Go to page'], ['⌘/Ctrl + Enter', 'Submit quick add']].map(([k, v]) => (
             <div key={k} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-lg bg-slate-100 px-3 py-2 dark:bg-white/[.04]"><span className="min-w-0 break-words">{v}</span><kbd className="break-words text-right text-xs font-mono muted">{k}</kbd></div>
@@ -343,10 +348,10 @@ function ProfilePhotoControl({ settings, userId, updateSettings }: { settings: S
   };
 
   return <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 p-4 dark:border-white/[.08]">
-    <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-500/15 text-indigo-500">{preview && !imageFailed ? <img src={preview} alt="Profile preview" onError={() => { setImageFailed(true); setStatusIsError(true); setStatus('Photo could not be displayed. Check your connection, reload the page, or upload again.'); }} className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : <ImagePlus size={24} />}</div>
-    <div className="min-w-0 flex-1"><div className="font-medium">Profile photo</div><p className="mt-1 text-sm muted">Choose a photo from your phone. JPEG, PNG, WebP, and browser-supported HEIC/HEIF are compressed on this device, then stored privately in your account.</p>{status && <p className={`mt-2 break-words text-xs ${statusIsError ? 'text-rose-600 dark:text-rose-400' : 'muted'}`} role={statusIsError ? 'alert' : 'status'}>{status}</p>}</div>
+    <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-500/15 text-indigo-500">{preview && !imageFailed ? <img src={preview} alt={tr("Profile preview")} onError={() => { setImageFailed(true); setStatusIsError(true); setStatus('Photo could not be displayed. Check your connection, reload the page, or upload again.'); }} className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : <ImagePlus size={24} />}</div>
+    <div className="min-w-0 flex-1"><div className="font-medium">{tr("Profile photo")}</div><p className="mt-1 text-sm muted">{tr("Choose a photo from your phone. JPEG, PNG, WebP, and browser-supported HEIC/HEIF are compressed on this device, then stored privately in your account.")}</p>{status && <p className={`mt-2 break-words text-xs ${statusIsError ? 'text-rose-600 dark:text-rose-400' : 'muted'}`} role={statusIsError ? 'alert' : 'status'}>{status}</p>}</div>
     <input ref={input} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => upload(e.target.files?.[0])} />
     <button type="button" className="btn-outline" disabled={busy} onClick={() => input.current?.click()}><Upload size={16} /> {busy ? 'Saving…' : 'Save profile photo'}</button>
-    {(settings.avatarPath || settings.avatarUrl) && <button type="button" className="btn-ghost text-rose-600 dark:text-rose-400" disabled={busy} onClick={remove} title="Remove profile photo"><Trash2 size={16} /> <span>Remove</span></button>}
+    {(settings.avatarPath || settings.avatarUrl) && <button type="button" className="btn-ghost text-rose-600 dark:text-rose-400" disabled={busy} onClick={remove} title={tr("Remove profile photo")}><Trash2 size={16} /> <span>{tr("Remove")}</span></button>}
   </div>;
 }

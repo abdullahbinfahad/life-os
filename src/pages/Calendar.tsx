@@ -1,8 +1,10 @@
+import { translate as tr } from '../lib/locales';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { type DragEvent, type FormEvent, type KeyboardEvent, useMemo, useState } from 'react';
 import { HORIZON_META, Modal, PageHeader } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
-import { cx, toISODate, today } from '../lib/utils';
+import { cx, localeForLanguage, toISODate, today } from '../lib/utils';
+import { playFeedback } from '../lib/sounds';
 
 type EventKind = 'Item' | 'Goal' | 'Milestone' | 'Project' | 'Task';
 type Ev = {
@@ -16,7 +18,7 @@ type Ev = {
   done?: boolean;
 };
 
-const displayDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+const displayDate = (date: string, language = 'en') => new Date(`${date}T00:00:00`).toLocaleDateString(localeForLanguage(language), {
   weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
 });
 
@@ -61,7 +63,8 @@ export default function Calendar() {
     const title = entryTitle.trim();
     if (!title || !selectedDate) return;
     addItems([{ title, notes: entryDetails.trim(), dueDate: selectedDate }]);
-    setAnnouncement(`Added ${title} on ${displayDate(selectedDate)}.`);
+    playFeedback('add');
+    setAnnouncement(`Added ${title} on ${displayDate(selectedDate, settings.language)}.`);
     setSelectedDate(null);
   };
 
@@ -76,7 +79,7 @@ export default function Calendar() {
     }
     if (event.kind === 'Project') updateProject(event.entityId, { dueDate: date });
     if (event.kind === 'Task' && event.parentId) updateTask(event.parentId, event.entityId, { dueDate: date });
-    setAnnouncement(`Moved ${event.title.replace(/^[^\w]+\s*/, '')} to ${displayDate(date)}.`);
+    setAnnouncement(`Moved ${event.title.replace(/^[^\w]+\s*/, '')} to ${displayDate(date, settings.language)}.`);
   };
 
   const handleDayKeyDown = (event: KeyboardEvent<HTMLDivElement>, date: string) => {
@@ -107,9 +110,9 @@ export default function Calendar() {
 
   return (
     <div>
-      <PageHeader title="Calendar & Timeline" subtitle="Deadlines and life horizons" actions={
-        <div className="flex rounded-xl border border-slate-200 p-0.5 dark:border-white/10">
-          {(['month', 'timeline', 'horizons'] as const).map((x) => <button key={x} onClick={() => setTab(x)} className={cx('rounded-lg px-3 py-1.5 text-sm capitalize', tab === x && 'bg-indigo-600 text-white')}>{x}</button>)}
+      <PageHeader title={tr("Calendar & Timeline")} subtitle={tr("Deadlines and life horizons")} actions={
+        <div className="mobile-choice-rail max-w-full gap-1 rounded-xl border border-slate-200 p-0.5 dark:border-white/10" role="tablist" aria-label={tr("Calendar views")}>
+          {(['month', 'timeline', 'horizons'] as const).map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => setTab(x)} className={cx('rounded-lg px-3 py-1.5 text-sm capitalize', tab === x && 'bg-indigo-600 text-white')}>{x}</button>)}
         </div>} />
 
       {tab === 'month' && (
@@ -118,11 +121,11 @@ export default function Calendar() {
             <h3 className="min-w-0 flex-1 break-words text-lg font-semibold">{cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h3>
             <div className="ml-auto flex shrink-0 gap-1">
               <button className="btn-ghost !p-2" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}><ChevronLeft size={18} /></button>
-              <button className="btn-outline !py-1" onClick={() => { const d = new Date(); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); }}>Today</button>
+              <button className="btn-outline !py-1" onClick={() => { const d = new Date(); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); }}>{tr("Today")}</button>
               <button className="btn-ghost !p-2" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight size={18} /></button>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 dark:border-white/[.06] dark:bg-white/[.06]" role="grid" aria-label="Monthly calendar">
+          <div className="calendar-month-grid grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 dark:border-white/[.06] dark:bg-white/[.06]" role="grid" aria-label={tr("Monthly calendar")}>
             {wk.map((d) => <div key={d} className="bg-slate-50 py-2 text-center text-xs font-medium muted dark:bg-[#0f1218]">{d}</div>)}
             {days.map((d) => {
               const iso = toISODate(d);
@@ -130,7 +133,7 @@ export default function Calendar() {
               const inMonth = d.getMonth() === cursor.getMonth();
               return (
                 <div key={iso} role="gridcell" tabIndex={0}
-                  aria-label={`${displayDate(iso)}. ${ev.length} scheduled ${ev.length === 1 ? 'entry' : 'entries'}. ${keyboardMovingEvent ? `Press Enter to move ${keyboardMovingEvent.title} here.` : 'Press Enter to add an entry.'}`}
+                  aria-label={`${displayDate(iso, settings.language)}. ${ev.length} scheduled ${ev.length === 1 ? 'entry' : 'entries'}. ${keyboardMovingEvent ? `Press Enter to move ${keyboardMovingEvent.title} here.` : 'Press Enter to add an entry.'}`}
                   onClick={(event) => { if (!(event.target as HTMLElement).closest('[data-calendar-event]')) openAddEntry(iso); }}
                   onKeyDown={(event) => handleDayKeyDown(event, iso)}
                   onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; if (dragOverDate !== iso) setDragOverDate(iso); }}
@@ -170,16 +173,16 @@ export default function Calendar() {
 
       {tab === 'timeline' && (
         <div className="card p-6">
-          {timeline.length === 0 ? <p className="muted">No upcoming dated items. Add due dates to items, goals, and tasks.</p> : (
+          {timeline.length === 0 ? <p className="muted">{tr("No upcoming dated items. Add due dates to items, goals, and tasks.")}</p> : (
             <div className="relative border-l-2 border-indigo-500/30 pl-6">
               {Object.entries(byMonth).map(([m, evs]) => (
                 <div key={m} className="mb-8">
                   <div className="absolute -left-[9px] mt-1 h-4 w-4 rounded-full border-4 border-indigo-500 bg-white dark:bg-[#0b0d12]" />
-                  <h3 className="mb-3 font-semibold">{new Date(m + '-01T00:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h3>
+                  <h3 className="mb-3 font-semibold">{new Date(m + '-01T00:00:00').toLocaleDateString(localeForLanguage(settings.language), { month: 'long', year: 'numeric' })}</h3>
                   <div className="space-y-2">
                     {evs.map((e, i) => (
                       <div key={i} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/[.06]">
-                        <span className="w-14 shrink-0 text-xs font-semibold muted">{new Date(e.date + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+                        <span className="w-14 shrink-0 text-xs font-semibold muted">{new Date(e.date + 'T00:00:00').toLocaleDateString(localeForLanguage(settings.language), { day: 'numeric', month: 'short' })}</span>
                         <span className="h-2 w-2 rounded-full" style={{ background: e.color }} />
                         <span className="min-w-0 flex-1 break-words text-sm">{e.title}</span><span className="shrink-0 text-xs muted">{e.kind}</span>
                       </div>
@@ -198,7 +201,7 @@ export default function Calendar() {
             const list = items.filter((i) => i.horizon === h && i.status !== 'done' && i.status !== 'dropped');
             return (
               <div key={h} className="card p-4">
-                <div className="mb-1 text-xs uppercase tracking-wide muted">Horizon {idx + 1}</div>
+                <div className="mb-1 text-xs uppercase tracking-wide muted">{tr("Horizon")}{idx + 1}</div>
                 <h3 className="mb-3 font-semibold">{label} <span className="text-sm muted">· {list.length}</span></h3>
                 <div className="max-h-[60vh] space-y-1.5 overflow-y-auto">
                   {list.slice(0, 60).map((i) => (
@@ -206,7 +209,7 @@ export default function Calendar() {
                       <span>{catMap[i.categoryId]?.icon}</span><span className="truncate">{i.title}</span>
                     </div>
                   ))}
-                  {list.length > 60 && <div className="text-xs muted">+{list.length - 60} more</div>}
+                  {list.length > 60 && <div className="text-xs muted">+{list.length - 60} {tr("more")}</div>}
                 </div>
               </div>
             );
@@ -214,20 +217,20 @@ export default function Calendar() {
         </div>
       )}
 
-      <Modal open={!!selectedDate} onClose={() => setSelectedDate(null)} title="Add calendar entry">
+      <Modal open={!!selectedDate} onClose={() => setSelectedDate(null)} title={tr("Add calendar entry")}>
         <form onSubmit={createEntry}>
-          <p className="mb-4 text-sm muted">This item will be due <time dateTime={selectedDate ?? undefined} className="font-medium text-slate-700 dark:text-slate-200">{selectedDate && displayDate(selectedDate)}</time>.</p>
+          <p className="mb-4 text-sm muted">{tr("This item will be due")}<time dateTime={selectedDate ?? undefined} className="font-medium text-slate-700 dark:text-slate-200">{selectedDate && displayDate(selectedDate, settings.language)}</time>.</p>
           <div>
-            <label className="label" htmlFor="calendar-entry-title">Title</label>
-            <input id="calendar-entry-title" className="input" autoFocus required maxLength={200} value={entryTitle} onChange={(event) => setEntryTitle(event.target.value)} placeholder="What do you need to do?" />
+            <label className="label" htmlFor="calendar-entry-title">{tr("Title")}</label>
+            <input id="calendar-entry-title" className="input" autoFocus required maxLength={200} value={entryTitle} onChange={(event) => setEntryTitle(event.target.value)} placeholder={tr("What do you need to do?")} />
           </div>
           <div className="mt-3">
-            <label className="label" htmlFor="calendar-entry-details">Details <span className="normal-case">(optional)</span></label>
-            <textarea id="calendar-entry-details" className="input min-h-[96px]" value={entryDetails} onChange={(event) => setEntryDetails(event.target.value)} placeholder="Add notes or context" />
+            <label className="label" htmlFor="calendar-entry-details">{tr("Details")}<span className="normal-case">{tr("(optional)")}</span></label>
+            <textarea id="calendar-entry-details" className="input min-h-[96px]" value={entryDetails} onChange={(event) => setEntryDetails(event.target.value)} placeholder={tr("Add notes or context")} />
           </div>
           <div className="mt-5 flex justify-end gap-2">
-            <button type="button" className="btn-ghost" onClick={() => setSelectedDate(null)}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={!entryTitle.trim()}>Add entry</button>
+            <button type="button" className="btn-ghost" onClick={() => setSelectedDate(null)}>{tr("Cancel")}</button>
+            <button type="submit" className="btn-primary" disabled={!entryTitle.trim()}>{tr("Add entry")}</button>
           </div>
         </form>
       </Modal>

@@ -1,9 +1,11 @@
+import { translate as tr } from '../lib/locales';
 import { Plus, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays, fmtDate, today } from '../lib/utils';
 import { HORIZON_META, Modal } from './ui';
 import { toast } from './Toaster';
+import { playFeedback } from '../lib/sounds';
 import type { Horizon, Priority, ItemType } from '../lib/types';
 
 /**
@@ -86,59 +88,59 @@ export default function QuickAdd() {
       const cleanTitle = title.trim();
       if (!cleanTitle) { titleRef.current?.focus(); return; }
       addItems([{ title: cleanTitle, notes: notes.trim(), categoryId, type, status: 'next', priority: 2, horizon, tags: [], starred: false, ...(dueDate ? { dueDate } : {}) }]);
+      playFeedback('add');
       toast('Added to your library');
       setTitle(''); setNotes(''); setCategoryId(''); setDueDate(''); setType('other'); setHorizon('1-3y'); setOpen(false);
       return;
     }
     if (!parsed.length) return;
     addItems(parsed.map(({ dupe, tooLong, invalidDate, ...p }) => p));
+    playFeedback('add');
     toast(`Added ${parsed.length} item${parsed.length === 1 ? '' : 's'}`);
     setText(''); setOpen(false);
   };
   return (
     <>
-      <button onClick={() => setOpen(true)} title="Quick add (N)" aria-label="Add something to Life Circle" aria-haspopup="dialog"
+      <button onClick={() => setOpen(true)} title={tr("Quick add (N)")} aria-label={tr("Add something to Life Circle")} aria-haspopup="dialog"
         className="fixed bottom-[calc(5.6rem+env(safe-area-inset-bottom))] right-4 z-30 grid h-12 w-12 place-items-center rounded-full border border-indigo-500/30 bg-white/55 text-indigo-700 shadow-lg shadow-indigo-900/10 backdrop-blur-xl transition hover:scale-105 active:scale-95 dark:bg-slate-900/45 dark:text-indigo-200 lg:bottom-6 lg:right-6 lg:h-14 lg:w-14">
         <Plus size={26} />
       </button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Add to your Life Library">
+      <Modal open={open} onClose={() => setOpen(false)} title={tr("Add to your Life Library")}>
         {!advanced ? <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-          <label className="block text-sm font-medium">Title <span className="text-rose-500">*</span>
-            <input ref={titleRef} autoFocus aria-label="Entry title, required" required maxLength={200} className="input mt-1 w-full" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What would you like to add?" />
+          <label className="block text-sm font-medium">{tr("Title")}<span className="text-rose-500">*</span>
+            <input ref={titleRef} autoFocus aria-label={tr("Entry title, required")} required maxLength={200} className="input mt-1 w-full" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr("What would you like to add?")} />
           </label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block text-sm font-medium">Type
-              <select aria-label="Entry type" className="input mt-1 w-full" value={type} onChange={(e) => setType(e.target.value as ItemType)}>
+            <label className="block text-sm font-medium">{tr("Type")}<select aria-label={tr("Entry type")} className="input mt-1 w-full" value={type} onChange={(e) => setType(e.target.value as ItemType)}>
                 {(['other','goal','idea','experience','skill','place','book','habit'] as ItemType[]).map((v) => <option key={v} value={v}>{v === 'other' ? 'Item' : v[0].toUpperCase() + v.slice(1)}</option>)}
               </select>
             </label>
-            <label className="block text-sm font-medium">Category <span className="font-normal muted">(optional)</span>
-              <select aria-label="Category" className="input mt-1 w-full" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                <option value="">No category</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            <label className="block text-sm font-medium">{tr("Category")}<span className="font-normal muted">{tr("(optional)")}</span>
+              <select aria-label={tr("Category")} className="input mt-1 w-full" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <option value="">{tr("No category")}</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
               </select>
             </label>
-            <label className="block text-sm font-medium">Plan horizon
-              <select aria-label="Plan horizon" className="input mt-1 w-full" value={horizon} onChange={(e) => setHorizon(e.target.value as Horizon)}>
+            <label className="block text-sm font-medium">{tr("Plan horizon")}<select aria-label={tr("Plan horizon")} className="input mt-1 w-full" value={horizon} onChange={(e) => setHorizon(e.target.value as Horizon)}>
                 {Object.entries(HORIZON_META).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
           </div>
-          <label className="block text-sm font-medium">Due date <span className="font-normal muted">(optional)</span>
-            <input aria-label="Due date" type="date" className="input mt-1 w-full sm:max-w-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <label className="block text-sm font-medium">{tr("Due date")}<span className="font-normal muted">{tr("(optional)")}</span>
+            <input aria-label={tr("Due date")} type="date" className="input mt-1 w-full sm:max-w-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </label>
-          <label className="block text-sm font-medium">Notes <span className="font-normal muted">(optional)</span>
-            <textarea aria-label="Notes" className="input mt-1 min-h-20 w-full resize-y" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a little detail…" />
+          <label className="block text-sm font-medium">{tr("Notes")}<span className="font-normal muted">{tr("(optional)")}</span>
+            <textarea aria-label={tr("Notes")} className="input mt-1 min-h-20 w-full resize-y" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={tr("Add a little detail…")} />
           </label>
           <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-3 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-            <button type="button" className="btn-ghost self-start" onClick={() => setAdvanced(true)}>Add many / advanced</button>
-            <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button><button type="submit" className="btn-primary" disabled={!title.trim()}>Add item</button></div>
+            <button type="button" className="btn-ghost self-start" onClick={() => setAdvanced(true)}>{tr("Add many / advanced")}</button>
+            <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>{tr("Cancel")}</button><button type="submit" className="btn-primary" disabled={!title.trim()}>{tr("Add item")}</button></div>
           </div>
         </form> : <div>
-          <button type="button" className="btn-ghost mb-3" onClick={() => setAdvanced(false)}>← Simple add</button>
-          <textarea aria-label="Items to add, one per line" className="input min-h-[120px] w-full font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(); }} placeholder="One item per line" />
-          <details className="mt-3 rounded-xl bg-slate-100 p-3 text-xs muted dark:bg-white/[.04]"><summary className="flex cursor-pointer list-none items-center gap-1 font-medium"><Sparkles size={13} /> Legacy smart syntax help</summary><p className="mt-2"><code>#category</code> · <code>!1</code>–<code>!4</code> priority · <code>@date</code> due · <code>+today</code> pin · <code>~horizon</code> · <code>$type</code> · <code>*</code> star</p></details>
-          {dupes > 0 && <label className="mt-3 flex items-center gap-2 text-sm text-amber-500"><input type="checkbox" className="accent-indigo-600" checked={skipDupes} onChange={(e) => setSkipDupes(e.target.checked)} />Skip {dupes} duplicate{dupes === 1 ? '' : 's'}</label>}
-          <div className="mt-4 flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button><button type="button" className="btn-primary" disabled={!parsed.length} onClick={submit}>Add {parsed.length} item{parsed.length === 1 ? '' : 's'}</button></div>
+          <button type="button" className="btn-ghost mb-3" onClick={() => setAdvanced(false)}>{tr("← Simple add")}</button>
+          <textarea aria-label={tr("Items to add, one per line")} className="input min-h-[120px] w-full font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(); }} placeholder={tr("One item per line")} />
+          <details className="mt-3 rounded-xl bg-slate-100 p-3 text-xs muted dark:bg-white/[.04]"><summary className="flex cursor-pointer list-none items-center gap-1 font-medium"><Sparkles size={13} /> {tr("Legacy smart syntax help")}</summary><p className="mt-2"><code>#category</code> · <code>!1</code>–<code>!4</code> {tr("priority ·")}<code>@date</code> {tr("due ·")}<code>+today</code> {tr("pin ·")}<code>~horizon</code> · <code>$type</code> · <code>*</code> {tr("star")}</p></details>
+          {dupes > 0 && <label className="mt-3 flex items-center gap-2 text-sm text-amber-500"><input type="checkbox" className="accent-indigo-600" checked={skipDupes} onChange={(e) => setSkipDupes(e.target.checked)} />{tr("Skip")}{dupes} {tr("duplicate")}{dupes === 1 ? '' : 's'}</label>}
+          <div className="mt-4 flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>{tr("Cancel")}</button><button type="button" className="btn-primary" disabled={!parsed.length} onClick={submit}>{tr("Add")}{parsed.length} {tr("item")}{parsed.length === 1 ? '' : 's'}</button></div>
         </div>}
       </Modal>
     </>

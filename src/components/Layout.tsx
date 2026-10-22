@@ -1,3 +1,4 @@
+import { translate as tr } from '../lib/locales';
 import { BarChart3, Cloud, CloudOff, Crown, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Repeat, Search, Settings, Sunrise, Target, X, Images, Globe2 } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -8,9 +9,11 @@ import CommandPalette from './CommandPalette';
 import { APP_NAME, Logo } from './Brand';
 import Toaster from './Toaster';
 import { auth, syncNow, useAuth } from '../lib/auth';
-import { cloudEnabled } from '../lib/supabase';
+import { cloudEnabled, supabase } from '../lib/supabase';
 import { getPrivateImageUrl } from '../lib/media';
 import { useOwnerAdmin } from '../lib/admin';
+import { playFeedback } from '../lib/sounds';
+import { DEFAULT_NAVIGATION, NAVIGATION_ICONS, normalizeNavigationItems, type NavigationItem } from '../lib/navigation';
 
 function AccountBox() {
   const { user, sync, syncError, guest, setGuest } = useAuth();
@@ -42,11 +45,11 @@ function AccountBox() {
           : <span className="grid h-8 w-8 place-items-center rounded-full bg-indigo-500/15 text-sm font-semibold text-indigo-500">{name[0]?.toUpperCase()}</span>}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{name}</div>
-          <button title={syncError || 'Click to sync now'} onClick={() => void syncNow()} className={cx('flex items-center gap-1 text-[11px]', sync === 'error' ? 'text-rose-500' : 'muted')}>
+          <button title={syncError || 'Click to sync now'} onClick={() => { playFeedback('refresh'); void syncNow(); }} className={cx('flex items-center gap-1 text-[11px]', sync === 'error' ? 'text-rose-500' : 'muted')}>
             {sync === 'saving' || sync === 'loading' ? <RefreshCw size={11} className="animate-spin" /> : sync === 'error' || sync === 'offline' ? <CloudOff size={11} /> : <Cloud size={11} />} {label}
           </button>
         </div>
-        <button className="btn-ghost !p-1.5" title="Sign out" onClick={() => {
+        <button className="btn-ghost !p-1.5" title={tr("Sign out")} onClick={() => {
           if (confirm('Sign out? Your data stays safe in your account.'))
             void auth.signOut().catch((error) => alert(error?.message || 'Could not sign out safely. Please retry sync first.'));
         }}><LogOut size={15} /></button>
@@ -55,31 +58,36 @@ function AccountBox() {
   );
 }
 
-export const NAV = [
-  { to: '/', label: 'Overview', desc: 'Your current life at a glance', icon: LayoutDashboard },
-  { to: '/today', label: 'Today', desc: 'Immediate priorities and actions', icon: Sunrise },
-  { to: '/library', label: 'Life Library', desc: 'All goals, ideas, and experiences', icon: Library },
-  { to: '/goals', label: 'Goals', desc: 'Outcomes, milestones, and progress', icon: Target },
-  { to: '/projects', label: 'Projects', desc: 'Plans, tasks, and dependencies', icon: FolderKanban },
-  { to: '/calendar', label: 'Calendar & Timeline', desc: 'Deadlines and life horizons', icon: CalendarDays },
-  { to: '/habits', label: 'Habits', desc: 'Recurring actions and consistency', icon: Repeat },
-  { to: '/insights', label: 'Insights', desc: 'Progress and patterns over time', icon: BarChart3 },
-  { to: '/journal', label: 'Journal', desc: 'Reflections and memories', icon: BookOpen },
-  { to: '/albums', label: 'Albums', desc: 'Memory tree and life moments', icon: Images },
-  { to: '/public', label: 'Public Journal', desc: 'Read published reflections', icon: Globe2 },
-  { to: '/settings', label: 'Settings', desc: 'Templates, imports, exports, privacy', icon: Settings },
-];
-const PRIMARY_NAV = NAV.filter((item) => ['/', '/goals', '/today', '/habits', '/library'].includes(item.to));
+export const NAV = DEFAULT_NAVIGATION;
+const PRIMARY_ROUTES = ['/', '/today', '/library', '/goals', '/habits'];
 
 export default function Layout({ children }: { children: ReactNode }) {
   const ownerAdmin = useOwnerAdmin();
   const forestTheme = useStore((s) => s.settings.theme === 'forest');
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [navItems, setNavItems] = useState<NavigationItem[]>(() => DEFAULT_NAVIGATION.map(({ to, label, icon, visible }) => ({ to, label, icon, visible })));
   const loc = useLocation();
   const nav = useNavigate();
 
   useEffect(() => setMobile(false), [loc.pathname]);
+  useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+    const refreshMenu = async () => {
+      try {
+        const { data, error } = await client.from('lifeos_menu_config').select('value').eq('key', 'navigation').maybeSingle();
+        if (error || !data?.value) return;
+        const normalized = normalizeNavigationItems(data.value);
+        if (normalized) setNavItems(normalized);
+      } catch { /* Optional owner-managed navigation; keep the built-in menu. */ }
+    };
+    void refreshMenu();
+    const channel = client.channel('lifeos-global-navigation')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lifeos_menu_config', filter: 'key=eq.navigation' }, () => { void refreshMenu(); })
+      .subscribe();
+    return () => { void client.removeChannel(channel); };
+  }, []);
   useEffect(() => {
     if (!mobile) return;
     const root = document.documentElement;
@@ -128,24 +136,27 @@ export default function Layout({ children }: { children: ReactNode }) {
         <Logo size={34} />
         <div className="min-w-0">
           <div className="truncate font-bold leading-tight">{APP_NAME}</div>
-          <div className="text-[11px] leading-tight muted">A personal system for everything that matters</div>
+          <div className="text-[11px] leading-tight muted">{tr("A personal system for everything that matters")}</div>
         </div>
       </div>
       <button onClick={() => setPalette(true)} className="mb-3 flex min-h-10 items-center gap-2 rounded-xl border border-slate-200/90 bg-white/65 px-3 py-2 text-sm muted shadow-sm transition duration-200 hover:border-indigo-400/60 hover:bg-white dark:border-white/10 dark:bg-white/[.025] dark:hover:bg-white/[.06]">
-        <Search size={15} /> Search… <kbd className="ml-auto rounded bg-slate-100 px-1.5 text-[10px] dark:bg-white/10">⌘K</kbd>
+        <Search size={15} /> {tr("Search…")}<kbd className="ml-auto rounded bg-slate-100 px-1.5 text-[10px] dark:bg-white/10">⌘K</kbd>
       </button>
-      <nav aria-label="Main menu" className="min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto overscroll-contain py-1 pr-1">
-        <div className="mb-2 px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[.16em] muted">Main menu</div>
-        {NAV.map(({ to, label, icon: Icon }) => (
+      <nav aria-label={tr("Main menu")} className="min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto overscroll-contain py-1 pr-1">
+        <div className="mb-2 px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[.16em] muted">{tr("Main menu")}</div>
+        {navItems.filter((item) => item.visible).map(({ to, label, icon }) => {
+          const Icon = NAVIGATION_ICONS[icon];
+          return (
           <NavLink key={to} to={to} end={to === '/'}
             className={({ isActive }) => cx(
               'sidebar-link group flex min-h-10 items-center gap-2.5 rounded-xl px-2 py-1.5 text-[13px] font-medium leading-tight transition duration-200',
               isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:translate-x-0.5 hover:bg-slate-100/90 dark:text-slate-300 dark:hover:bg-white/[.055]',
             )}>
-            <span className="sidebar-icon grid h-8 w-8 shrink-0 place-items-center rounded-lg transition duration-200"><Icon size={17} className="transition-transform duration-200 group-hover:scale-110" /></span><span className="min-w-0">{label}</span>
+            <span className="sidebar-icon grid h-8 w-8 shrink-0 place-items-center rounded-lg transition duration-200"><Icon size={17} className="transition-transform duration-200 group-hover:scale-110" /></span><span className="min-w-0">{label === DEFAULT_NAVIGATION.find((item) => item.to === to)?.label ? tr(label) : label}</span>
           </NavLink>
-        ))}
-        {ownerAdmin && <NavLink to="/admin" className={({ isActive }) => cx('sidebar-link group mt-2 flex min-h-10 items-center gap-2.5 rounded-xl border border-amber-300/50 bg-gradient-to-r from-amber-100/70 to-emerald-100/70 px-2 py-1.5 text-[13px] font-medium text-slate-800 shadow-sm transition duration-200 hover:-translate-y-0.5 dark:border-amber-300/20 dark:from-amber-400/10 dark:to-emerald-400/10 dark:text-slate-100', isActive && 'ring-2 ring-amber-400/50')}><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400/10"><Crown size={17} className="text-amber-600 dark:text-amber-300" /></span><span>Owner system console</span></NavLink>}
+          );
+        })}
+        {ownerAdmin && <NavLink to="/admin" className={({ isActive }) => cx('sidebar-link group mt-2 flex min-h-10 items-center gap-2.5 rounded-xl border border-amber-300/50 bg-gradient-to-r from-amber-100/70 to-emerald-100/70 px-2 py-1.5 text-[13px] font-medium text-slate-800 shadow-sm transition duration-200 hover:-translate-y-0.5 dark:border-amber-300/20 dark:from-amber-400/10 dark:to-emerald-400/10 dark:text-slate-100', isActive && 'ring-2 ring-amber-400/50')}><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400/10"><Crown size={17} className="text-amber-600 dark:text-amber-300" /></span><span>{tr("Owner system console")}</span></NavLink>}
       </nav>
       <AccountBox />
     </div>
@@ -167,16 +178,16 @@ export default function Layout({ children }: { children: ReactNode }) {
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/80 lg:hidden">
           <button className="btn-ghost !p-2" aria-label={mobile ? 'Close menu' : 'Open menu'} aria-expanded={mobile} onClick={() => setMobile((open) => !open)}>{mobile ? <X size={18} /> : <Menu size={18} />}</button>
-          <Logo size={24} /><span className="font-bold">{APP_NAME}</span>{ownerAdmin && <span className="premium-pill"><Crown size={12} /> Owner</span>}
+          <Logo size={24} /><span className="font-bold">{APP_NAME}</span>{ownerAdmin && <span className="premium-pill"><Crown size={12} /> {tr("Owner")}</span>}
           <button className="btn-ghost ml-auto !p-2" onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>
         <main className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</main>
       </div>
-      <nav className="mobile-bottom-nav lg:hidden" aria-label="Primary navigation">
-        {PRIMARY_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} aria-label={label} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{label === 'Overview' ? 'Home' : label}</span></NavLink>)}
+      <nav className="mobile-bottom-nav lg:hidden" aria-label={tr("Primary navigation")}>
+        {navItems.filter((item) => item.visible && PRIMARY_ROUTES.includes(item.to)).map(({ to, label, icon }) => { const Icon = NAVIGATION_ICONS[icon]; const defaultLabel = DEFAULT_NAVIGATION.find((item) => item.to === to)?.label; const display = label === defaultLabel ? tr(label) : label; return <NavLink key={to} to={to} end={to === '/'} aria-label={display} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{to === '/' ? tr('Home') : display}</span></NavLink>; })}
       </nav>
       <QuickAdd />
-      <CommandPalette open={palette} onClose={() => setPalette(false)} />
+      <CommandPalette open={palette} onClose={() => setPalette(false)} navigation={navItems} />
       <Toaster />
     </div>
   );

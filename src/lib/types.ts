@@ -92,6 +92,8 @@ export interface JournalEntry {
   visibility: 'private' | 'public';
   coverImage?: string;
   location?: string;
+  relatedGoalId?: string;
+  relatedItemId?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -120,6 +122,8 @@ export interface AlbumMemory {
 
 export interface Settings {
   theme: 'dark' | 'light' | 'forest';
+  language?: 'en' | 'bn' | 'hi' | 'ar' | 'es';
+  sounds?: boolean;
   name: string;
   weekStartsMonday: boolean;
   birthday?: string;

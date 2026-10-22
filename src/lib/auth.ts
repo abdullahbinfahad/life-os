@@ -112,7 +112,7 @@ async function startSync(userId: string) {
   currentUserId = userId;
   changeRevision = 0;
   syncedRevision = 0;
-  useAuth.setState({ sync: 'loading' });
+  useAuth.setState({ sync: 'loading', syncError: undefined });
 
   let result;
   try {
@@ -140,7 +140,7 @@ async function startSync(userId: string) {
     applyingRemote = true;
     useStore.getState().importAll(data.data);
     applyingRemote = false;
-    useAuth.setState({ sync: 'saved', lastSynced: data.updated_at });
+    useAuth.setState({ sync: 'saved', lastSynced: data.updated_at, syncError: undefined });
   } else {
     // First sign-in for this account: keep guest data from this device (if it isn't someone else's).
     if (localOwner && localOwner !== userId) useStore.getState().resetAll();
@@ -185,13 +185,16 @@ function stopSync() {
 
 export function initAuth() {
   if (!supabase) return;
+  const bootTimeout = window.setTimeout(() => {
+    if (!useAuth.getState().ready) useAuth.setState({ ready: true, sync: 'error', syncError: 'Sign-in check is taking longer than expected. You can sign in or continue on this device.' });
+  }, 2500);
   supabase.auth.getSession().then(({ data, error }) => {
     if (error) useAuth.setState({ sync: 'error', syncError: syncErrorMessage(error) });
     useAuth.setState({ session: data.session, user: data.session?.user ?? null, ready: true });
     if (data.session) startSync(data.session.user.id);
   }).catch((error) => {
     useAuth.setState({ ready: true, sync: 'error', syncError: syncErrorMessage(error) });
-  });
+  }).finally(() => window.clearTimeout(bootTimeout));
   supabase.auth.onAuthStateChange((event, session) => {
     useAuth.setState({ session, user: session?.user ?? null, ready: true });
     if (event === 'PASSWORD_RECOVERY') useAuth.setState({ recovery: true });

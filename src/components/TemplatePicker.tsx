@@ -1,3 +1,4 @@
+import { translate as tr } from '../lib/locales';
 import { Check, Dices, Search, Sunrise } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../lib/store';
@@ -64,7 +65,7 @@ export default function TemplatePicker({ open, onClose }: { open: boolean; onClo
       <div className="flex flex-col gap-3 md:flex-row">
         <div className="flex gap-1 overflow-x-auto md:max-h-[60vh] md:w-56 md:flex-col md:overflow-y-auto">
           <button onClick={() => setCat('all')} className={cx('btn shrink-0 justify-start', cat === 'all' ? 'bg-indigo-600 text-white' : 'btn-ghost')}>
-            All ideas <span className="ml-auto text-xs opacity-60">{LIBRARY_COUNT}</span>
+            {tr("All ideas")}<span className="ml-auto text-xs opacity-60">{LIBRARY_COUNT}</span>
           </button>
           {categories.filter((c) => TEMPLATE_LIBRARY[c.id]).map((c) => {
             const have = TEMPLATE_LIBRARY[c.id].filter((t) => existing.has(t.toLowerCase())).length;
@@ -79,13 +80,12 @@ export default function TemplatePicker({ open, onClose }: { open: boolean; onClo
         <div className="min-w-0 flex-1">
           <div className="mb-3 flex flex-wrap gap-2">
             <div className="relative min-w-[180px] flex-1"><Search size={15} className="absolute left-3 top-2.5 muted" /><input className="input pl-9" placeholder={`Search ${list.length} ideas…`} value={q} onChange={(e) => setQ(e.target.value)} /></div>
-            <button className="btn-outline" onClick={surprise} title="Pick 5 random ideas"><Dices size={15} /> Surprise me</button>
-            <button className="btn-outline" onClick={selectAllVisible}>Select all</button>
-            {sel.size > 0 && <button className="btn-ghost" onClick={() => setSel(new Set())}>Clear</button>}
+            <button className="btn-outline" onClick={surprise} title={tr("Pick 5 random ideas")}><Dices size={15} /> {tr("Surprise me")}</button>
+            <button className="btn-outline" onClick={selectAllVisible}>{tr("Select all")}</button>
+            {sel.size > 0 && <button className="btn-ghost" onClick={() => setSel(new Set())}>{tr("Clear")}</button>}
           </div>
           <label className="mb-2 flex items-center gap-2 text-xs muted">
-            <input type="checkbox" className="accent-indigo-600" checked={hideHave} onChange={(e) => setHideHave(e.target.checked)} /> Hide ideas already in my library
-          </label>
+            <input type="checkbox" className="accent-indigo-600" checked={hideHave} onChange={(e) => setHideHave(e.target.checked)} /> {tr("Hide ideas already in my library")}</label>
           <div className="grid max-h-[50vh] grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
             {list.slice(0, limit).map((x) => {
               const has = existing.has(x.title.toLowerCase());
@@ -103,15 +103,15 @@ export default function TemplatePicker({ open, onClose }: { open: boolean; onClo
               );
             })}
             {list.length > limit && (
-              <button className="btn-outline sm:col-span-2" onClick={() => setLimit(limit + STEP * 2)}>Show more ({list.length - limit} more)</button>
+              <button className="btn-outline sm:col-span-2" onClick={() => setLimit(limit + STEP * 2)}>{tr("Show more (")}{list.length - limit} {tr("more)")}</button>
             )}
-            {list.length === 0 && <div className="py-10 text-center text-sm muted sm:col-span-2">No ideas match. Try another search.</div>}
+            {list.length === 0 && <div className="py-10 text-center text-sm muted sm:col-span-2">{tr("No ideas match. Try another search.")}</div>}
           </div>
         </div>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-4 dark:border-white/10">
-        <span className="mr-2 text-sm font-medium">{sel.size} selected</span>
-        <span className="text-xs muted">Add as:</span>
+        <span className="mr-2 text-sm font-medium">{sel.size} {tr("selected")}</span>
+        <span className="text-xs muted">{tr("Add as:")}</span>
         <select className="input !w-auto !py-1.5 text-xs" value={opts.status} onChange={(e) => setOpts({ ...opts, status: e.target.value as Status })}>
           {Object.entries(STATUS_META).filter(([k]) => k !== 'dropped').map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
@@ -121,8 +121,8 @@ export default function TemplatePicker({ open, onClose }: { open: boolean; onClo
         <select className="input !w-auto !py-1.5 text-xs" value={opts.horizon} onChange={(e) => setOpts({ ...opts, horizon: e.target.value as Horizon })}>
           {Object.entries(HORIZON_META).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <button className={cx('btn-outline !py-1.5 text-xs', opts.today && '!border-amber-400 text-amber-500')} onClick={() => setOpts({ ...opts, today: !opts.today })}><Sunrise size={13} /> Today</button>
-        <button className="btn-primary ml-auto" disabled={!sel.size} onClick={add}>Add {sel.size} to my library</button>
+        <button className={cx('btn-outline !py-1.5 text-xs', opts.today && '!border-amber-400 text-amber-500')} onClick={() => setOpts({ ...opts, today: !opts.today })}><Sunrise size={13} /> {tr("Today")}</button>
+        <button className="btn-primary ml-auto" disabled={!sel.size} onClick={add}>{tr("Add")}{sel.size} {tr("to my library")}</button>
       </div>
     </Modal>
   );

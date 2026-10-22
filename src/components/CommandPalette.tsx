@@ -1,11 +1,12 @@
+import { translate as tr } from '../lib/locales';
 import { Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
 import { cx } from '../lib/utils';
-import { NAV } from './Layout';
+import { DEFAULT_NAVIGATION, navigationDescription, type NavigationItem } from '../lib/navigation';
 
-export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function CommandPalette({ open, onClose, navigation = DEFAULT_NAVIGATION }: { open: boolean; onClose: () => void; navigation?: NavigationItem[] }) {
   const [q, setQ] = useState('');
   const [idx, setIdx] = useState(0);
   const nav = useNavigate();
@@ -17,7 +18,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     const lq = q.toLowerCase();
     const r: { label: string; sub: string; go: () => void }[] = [];
     r.push({ label: 'Quick add item…', sub: 'Action', go: () => window.dispatchEvent(new Event('lifeos:quickadd')) });
-    NAV.forEach((n) => r.push({ label: n.label, sub: n.desc, go: () => nav(n.to) }));
+    navigation.filter((item) => item.visible).forEach((n) => r.push({ label: tr(n.label), sub: navigationDescription(n.to), go: () => nav(n.to) }));
     if (lq) {
       items.filter((i) => i.title.toLowerCase().includes(lq)).slice(0, 8).forEach((i) => r.push({ label: i.title, sub: 'Library item', go: () => nav(`/library?q=${encodeURIComponent(i.title)}`) }));
       goals.filter((g) => g.title.toLowerCase().includes(lq)).slice(0, 5).forEach((g) => r.push({ label: g.title, sub: 'Goal', go: () => nav('/goals') }));
@@ -25,7 +26,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       journal.filter((j) => (j.title + j.content).toLowerCase().includes(lq)).slice(0, 5).forEach((j) => r.push({ label: j.title || j.date, sub: 'Journal', go: () => nav('/journal') }));
     }
     return r.filter((x) => !lq || x.label.toLowerCase().includes(lq) || x.sub !== 'Action' && x.sub.toLowerCase().includes(lq) || ['Library item', 'Goal', 'Project', 'Journal'].includes(x.sub));
-  }, [q, items, goals, projects, journal, nav]);
+  }, [q, items, goals, projects, journal, nav, navigation]);
 
   if (!open) return null;
   const run = (i: number) => { results[i]?.go(); onClose(); };
@@ -41,7 +42,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               if (e.key === 'Enter') run(idx);
               if (e.key === 'Escape') onClose();
             }}
-            placeholder="Search everything or jump to…" className="w-full bg-transparent py-4 text-sm outline-none" />
+            placeholder={tr("Search everything or jump to…")} className="w-full bg-transparent py-4 text-sm outline-none" />
         </div>
         <div className="max-h-[50vh] overflow-y-auto p-2">
           {results.map((r, i) => (
@@ -51,7 +52,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               <span className={cx('ml-3 shrink-0 text-xs', i === idx ? 'text-white/70' : 'muted')}>{r.sub}</span>
             </button>
           ))}
-          {!results.length && <div className="p-6 text-center text-sm muted">No results</div>}
+          {!results.length && <div className="p-6 text-center text-sm muted">{tr("No results")}</div>}
         </div>
       </div>
     </div>

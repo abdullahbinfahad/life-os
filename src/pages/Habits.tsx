@@ -1,3 +1,4 @@
+import { translate as tr } from '../lib/locales';
 import { Archive, CheckCircle2, Circle, Flame, Pencil, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { CatBadge, Empty, Modal, PageHeader } from '../components/ui';
@@ -66,14 +67,14 @@ export default function Habits() {
 
   return (
     <div>
-      <PageHeader title="Habits" subtitle="Small repeatable actions, with daily or weekly goals" actions={<>
+      <PageHeader title={tr("Habits")} subtitle={tr("Small repeatable actions, with daily or weekly goals")} actions={<>
         <button className="btn-ghost" onClick={() => setShowArchived(!showArchived)}><Archive size={16} /> {showArchived ? 'Active' : 'Archived'}</button>
-        <button className="btn-primary" onClick={() => openNew()}><Plus size={16} /> New habit</button></>} />
+        <button className="btn-primary" onClick={() => openNew()}><Plus size={16} /> {tr("New habit")}</button></>} />
 
       {active.length > 0 && <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="card p-4"><div className="text-xs muted">Active habits</div><div className="mt-1 text-2xl font-bold">{active.length}</div></div>
-        <div className="card p-4"><div className="text-xs muted">Checked in today</div><div className="mt-1 text-2xl font-bold">{checkedToday}<span className="ml-1 text-sm font-normal muted">/ {active.length}</span></div></div>
-        <div className="card col-span-2 p-4 sm:col-span-1"><div className="mb-2 flex items-center justify-between text-xs muted"><span>Today’s progress</span><span>{pct(checkedToday, active.length)}%</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct(checkedToday, active.length)}%` }} /></div></div>
+        <div className="card p-4"><div className="text-xs muted">{tr("Active habits")}</div><div className="mt-1 text-2xl font-bold">{active.length}</div></div>
+        <div className="card p-4"><div className="text-xs muted">{tr("Checked in today")}</div><div className="mt-1 text-2xl font-bold">{checkedToday}<span className="ml-1 text-sm font-normal muted">/ {active.length}</span></div></div>
+        <div className="card col-span-2 p-4 sm:col-span-1"><div className="mb-2 flex items-center justify-between text-xs muted"><span>{tr("Today’s progress")}</span><span>{pct(checkedToday, active.length)}%</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct(checkedToday, active.length)}%` }} /></div></div>
       </div>}
 
       {list.length === 0 ? (
@@ -92,9 +93,9 @@ export default function Habits() {
                     <span className="mt-1 flex flex-wrap items-center gap-1.5"><CatBadge cat={catMap[h.categoryId]} /><span className="chip bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-300">{h.frequency === 'daily' ? 'Daily' : `${h.targetPerWeek}× / week`}</span></span>
                   </button>
                   <div className="flex shrink-0 gap-1">
-                    <button className="btn-ghost !p-2" title="Edit habit" aria-label={`Edit ${h.title}`} onClick={() => openEdit(h)}><Pencil size={15} /></button>
+                    <button className="btn-ghost !p-2" title={tr("Edit habit")} aria-label={`Edit ${h.title}`} onClick={() => openEdit(h)}><Pencil size={15} /></button>
                     <button className="btn-ghost !p-2" title={showArchived ? 'Restore habit' : 'Archive habit'} aria-label={showArchived ? 'Restore habit' : 'Archive habit'} onClick={() => updateHabit(h.id, { archived: !h.archived })}><Archive size={15} /></button>
-                    <button className="btn-ghost !p-2 text-rose-500" title="Move habit to Trash" aria-label="Move habit to Trash" onClick={() => remove(h)}><Trash2 size={15} /></button>
+                    <button className="btn-ghost !p-2 text-rose-500" title={tr("Move habit to Trash")} aria-label={tr("Move habit to Trash")} onClick={() => remove(h)}><Trash2 size={15} /></button>
                   </div>
                 </div>
                 {h.why && <p className="mt-2 break-words text-sm muted">{h.why}</p>}
@@ -110,7 +111,7 @@ export default function Habits() {
                   })}
                 </div>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-3 text-xs dark:border-white/[.08]">
-                  {h.frequency === 'daily' ? <span className="inline-flex items-center gap-1 font-semibold text-orange-500"><Flame size={14} />{streak(h.log)} day streak</span> : <span className="font-semibold text-indigo-600 dark:text-indigo-300">{weekDone}/{h.targetPerWeek} this week</span>}
+                  {h.frequency === 'daily' ? <span className="inline-flex items-center gap-1 font-semibold text-orange-500"><Flame size={14} />{streak(h.log)} {tr("day streak")}</span> : <span className="font-semibold text-indigo-600 dark:text-indigo-300">{weekDone}/{h.targetPerWeek} {tr("this week")}</span>}
                   <span className="inline-flex items-center gap-1 muted"><Trophy size={13} />{h.frequency === 'daily' ? `${bestStreak(h.log)} best days` : `${adherence(h)}% of ${days} active days`}</span>
                   <button className={cx('rounded-lg px-2.5 py-1.5 font-medium transition', on ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-200')} onClick={() => toggleHabit(h.id, t)}>{on ? 'Undo today' : 'Check in today'}</button>
                 </div>
@@ -122,16 +123,16 @@ export default function Habits() {
             <div className="card overflow-hidden">
               <table className="w-full min-w-[820px] text-sm">
                 <thead><tr className="border-b border-slate-200 dark:border-white/[.06]">
-                  <th className="p-4 text-left font-medium muted">Habit</th>
+                  <th className="p-4 text-left font-medium muted">{tr("Habit")}</th>
                   {week.map((d) => <th key={d} className={cx('w-12 p-2 text-center text-xs font-medium', d === t ? 'text-indigo-600 dark:text-indigo-300' : 'muted')}>{new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' })}<div>{d.slice(8)}</div></th>)}
-                  <th className="p-2 text-center text-xs font-medium muted">Current</th><th className="p-2 text-center text-xs font-medium muted">Best</th><th className="p-2 text-center text-xs font-medium muted">30d</th><th />
+                  <th className="p-2 text-center text-xs font-medium muted">{tr("Current")}</th><th className="p-2 text-center text-xs font-medium muted">{tr("Best")}</th><th className="p-2 text-center text-xs font-medium muted">{tr("30d")}</th><th />
                 </tr></thead>
                 <tbody>{list.map((h) => <tr key={h.id} className="group border-b border-slate-100 last:border-0 dark:border-white/[.04]">
                   <td className="min-w-0 p-4"><button className="block max-w-[220px] break-words text-left font-medium" onClick={() => openEdit(h)}>{h.title}</button><div className="mt-1 flex flex-wrap items-center gap-1"><CatBadge cat={catMap[h.categoryId]} /><span className="chip bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-300">{h.frequency === 'daily' ? 'Daily' : `${h.targetPerWeek}× / week`}</span></div></td>
                   {week.map((d) => { const logged = h.log.includes(d); return <td key={d} className="p-2 text-center"><button onClick={() => toggleHabit(h.id, d)} aria-label={`${logged ? 'Uncheck' : 'Check'} ${h.title} for ${d}`} className={cx('h-8 w-8 rounded-lg transition', logged ? 'shadow-md' : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[.05] dark:hover:bg-white/10')} style={logged ? { background: catMap[h.categoryId]?.color ?? '#22c55e' } : {}}>{logged && <span className="text-white">✓</span>}</button></td>; })}
                   <td className="p-2 text-center">{h.frequency === 'daily' ? <span className="inline-flex items-center gap-1 font-semibold text-orange-500"><Flame size={14} />{streak(h.log)}</span> : <span className="font-semibold text-indigo-600 dark:text-indigo-300">{weekCount(h.log, t, settings.weekStartsMonday)}/{h.targetPerWeek}</span>}</td>
                   <td className="p-2 text-center text-xs muted">{h.frequency === 'daily' ? bestStreak(h.log) : 'weekly goal'}</td><td className="p-2 text-center text-xs font-semibold">{adherence(h)}%</td>
-                  <td className="p-2"><div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button className="btn-ghost !p-1.5" title="Edit" onClick={() => openEdit(h)}><Pencil size={14} /></button><button className="btn-ghost !p-1.5" title={showArchived ? 'Restore' : 'Archive'} onClick={() => updateHabit(h.id, { archived: !h.archived })}><Archive size={14} /></button><button className="btn-ghost !p-1.5 text-rose-500" title="Move to Trash" onClick={() => remove(h)}><Trash2 size={14} /></button></div></td>
+                  <td className="p-2"><div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button className="btn-ghost !p-1.5" title={tr("Edit")} onClick={() => openEdit(h)}><Pencil size={14} /></button><button className="btn-ghost !p-1.5" title={showArchived ? 'Restore' : 'Archive'} onClick={() => updateHabit(h.id, { archived: !h.archived })}><Archive size={14} /></button><button className="btn-ghost !p-1.5 text-rose-500" title={tr("Move to Trash")} onClick={() => remove(h)}><Trash2 size={14} /></button></div></td>
                 </tr>)}</tbody>
               </table>
             </div>
@@ -141,21 +142,21 @@ export default function Habits() {
 
       {list.length > 0 && <div className="mt-6 grid min-w-0 gap-4 md:grid-cols-2">
         {list.map((h) => <div key={h.id} className="card min-w-0 p-4">
-          <div className="mb-3 break-words text-sm font-medium">{h.title} · last 12 weeks</div>
+          <div className="mb-3 break-words text-sm font-medium">{h.title} {tr("· last 12 weeks")}</div>
           <div className="grid grid-flow-col grid-rows-7 gap-1">{heat.map((d) => <div key={d} title={d} className="aspect-square min-w-0 rounded-sm" style={{ background: h.log.includes(d) ? catMap[h.categoryId]?.color ?? '#22c55e' : 'rgb(148 163 184 / .15)' }} />)}</div>
         </div>)}
       </div>}
 
       <Modal open={formOpen} onClose={() => setFormOpen(false)} title={form.id ? 'Edit habit' : 'New habit'}>
         <div className="space-y-3">
-          <div><label className="label" htmlFor="habit-title">Habit</label><input id="habit-title" autoFocus className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Read 20 pages" /></div>
+          <div><label className="label" htmlFor="habit-title">{tr("Habit")}</label><input id="habit-title" autoFocus className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={tr("e.g. Read 20 pages")} /></div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div><label className="label">Life area</label><select className="input" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
-            <div><label className="label">Schedule</label><select className="input" value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value as HabitForm['frequency'], targetPerWeek: e.target.value === 'daily' ? 7 : 3 })}><option value="daily">Daily</option><option value="weekly">Times per week</option></select></div>
-            {form.frequency === 'weekly' && <div><label className="label">Target per week</label><input type="number" min={1} max={7} className="input" value={form.targetPerWeek} onChange={(e) => setForm({ ...form, targetPerWeek: Number(e.target.value) })} /></div>}
+            <div><label className="label">{tr("Life area")}</label><select className="input" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
+            <div><label className="label">{tr("Schedule")}</label><select className="input" value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value as HabitForm['frequency'], targetPerWeek: e.target.value === 'daily' ? 7 : 3 })}><option value="daily">{tr("Daily")}</option><option value="weekly">{tr("Times per week")}</option></select></div>
+            {form.frequency === 'weekly' && <div><label className="label">{tr("Target per week")}</label><input type="number" min={1} max={7} className="input" value={form.targetPerWeek} onChange={(e) => setForm({ ...form, targetPerWeek: Number(e.target.value) })} /></div>}
           </div>
-          <div><label className="label">Why this matters <span className="font-normal normal-case tracking-normal muted">(optional)</span></label><textarea className="input min-h-20 resize-y" value={form.why} onChange={(e) => setForm({ ...form, why: e.target.value })} placeholder="A short reminder for the days motivation is low…" /></div>
-          <div className="flex justify-end gap-2 pt-2"><button className="btn-ghost" onClick={() => setFormOpen(false)}>Cancel</button><button className="btn-primary" disabled={!form.title.trim()} onClick={save}>{form.id ? 'Save habit' : 'Create habit'}</button></div>
+          <div><label className="label">{tr("Why this matters")}<span className="font-normal normal-case tracking-normal muted">{tr("(optional)")}</span></label><textarea className="input min-h-20 resize-y" value={form.why} onChange={(e) => setForm({ ...form, why: e.target.value })} placeholder={tr("A short reminder for the days motivation is low…")} /></div>
+          <div className="flex justify-end gap-2 pt-2"><button className="btn-ghost" onClick={() => setFormOpen(false)}>{tr("Cancel")}</button><button className="btn-primary" disabled={!form.title.trim()} onClick={save}>{form.id ? 'Save habit' : 'Create habit'}</button></div>
         </div>
       </Modal>
     </div>

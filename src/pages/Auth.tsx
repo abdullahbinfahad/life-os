@@ -1,3 +1,4 @@
+import { translate as tr } from '../lib/locales';
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, Phone, ShieldCheck } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { APP_NAME, Logo } from '../components/Brand';
@@ -18,6 +19,7 @@ const GoogleIcon = () => (
 
 export default function AuthPage() {
   const setGuest = useAuth((s) => s.setGuest);
+  const startupIssue = useAuth((s) => s.syncError?.startsWith('Sign-in check is taking longer') ? s.syncError : '');
   const [mode, setMode] = useState<Mode>('signin');
   const [method, setMethod] = useState<Method>('email');
   const [name, setName] = useState('');
@@ -26,6 +28,7 @@ export default function AuthPage() {
   const [pw2, setPw2] = useState('');
   const [code, setCode] = useState('');
   const [show, setShow] = useState(false);
+  const [adminAccessAck, setAdminAccessAck] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [info, setInfo] = useState('');
@@ -47,6 +50,7 @@ export default function AuthPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if ((mode === 'signin' || mode === 'signup') && !adminAccessAck) return setErr('Please read and acknowledge the account privacy notice to continue.');
     if (mode === 'reset') {
       if (!isEmail(id)) return setErr('Enter a valid email address.');
       const r = await run(() => auth.resetPassword(id.trim()));
@@ -80,20 +84,25 @@ export default function AuthPage() {
         <div className="mb-6 flex flex-col items-center text-center">
           <Logo size={64} />
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight">{APP_NAME}</h1>
-          <p className="mt-1 text-sm muted">A personal system for everything that matters</p>
+          <p className="mt-1 text-sm muted">{tr("A personal system for everything that matters")}</p>
         </div>
         <div className="card p-6">
+          {startupIssue && <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-100" role="status"><span>{startupIssue}</span><button type="button" className="underline underline-offset-2" onClick={() => window.location.reload()}>{tr("Retry check")}</button></div>}
+          {(mode === 'signin' || mode === 'signup') && <label className="mb-4 flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs leading-5 dark:border-white/10 dark:bg-white/[.025]">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600" checked={adminAccessAck} onChange={(event) => setAdminAccessAck(event.target.checked)} />
+            <span><strong className="font-semibold">{tr("Account privacy notice.")}</strong> {tr("Your records are isolated from other users. A verified system owner can access and edit account records for service administration. Do not store passwords, payment details, government-ID numbers, or other secrets here.")}</span>
+          </label>}
           {mode === 'check-email' ? (
             <div className="space-y-4 text-center">
               <Mail className="mx-auto text-indigo-500" size={36} />
-              <h2 className="text-lg font-semibold">Confirm your email</h2>
-              <p className="text-sm muted">We sent a confirmation link to <b>{id}</b>. Open it to activate your account, then sign in.</p>
-              <button className="btn-outline w-full" onClick={() => go('signin')}>Back to sign in</button>
+              <h2 className="text-lg font-semibold">{tr("Confirm your email")}</h2>
+              <p className="text-sm muted">{tr("We sent a confirmation link to")}<b>{id}</b>{tr(". Open it to activate your account, then sign in.")}</p>
+              <button className="btn-outline w-full" onClick={() => go('signin')}>{tr("Back to sign in")}</button>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4" noValidate>
               {(mode === 'reset' || mode === 'verify-phone') && (
-                <button type="button" className="btn-ghost -ml-2 !px-2" onClick={() => go('signin')}><ArrowLeft size={16} /> Back</button>
+                <button type="button" className="btn-ghost -ml-2 !px-2" onClick={() => go('signin')}><ArrowLeft size={16} /> {tr("Back")}</button>
               )}
               {(mode === 'signin' || mode === 'signup') && (
                 <>
@@ -105,11 +114,10 @@ export default function AuthPage() {
                       </button>
                     ))}
                   </div>
-                  <button type="button" disabled={busy} onClick={() => run(() => auth.google())}
+                  <button type="button" disabled={busy || !adminAccessAck} onClick={() => run(() => auth.google())}
                     className="btn w-full border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[.04] dark:text-slate-100 dark:hover:bg-white/[.08]">
-                    <GoogleIcon /> Continue with Google
-                  </button>
-                  <div className="flex items-center gap-3 text-xs muted"><span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />or<span className="h-px flex-1 bg-slate-200 dark:bg-white/10" /></div>
+                    <GoogleIcon /> {tr("Continue with Google")}</button>
+                  <div className="flex items-center gap-3 text-xs muted"><span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />{tr("or")}<span className="h-px flex-1 bg-slate-200 dark:bg-white/10" /></div>
                   <div className="flex gap-2">
                     {(['email', 'phone'] as const).map((m) => (
                       <button key={m} type="button" onClick={() => { setMethod(m); setId(''); setErr(''); }}
@@ -120,10 +128,10 @@ export default function AuthPage() {
                   </div>
                 </>
               )}
-              {mode === 'reset' && <div><h2 className="text-lg font-semibold">Reset your password</h2><p className="text-sm muted">Enter your account email and we'll send you a secure link.</p></div>}
-              {mode === 'verify-phone' && <div><h2 className="text-lg font-semibold">Verify your phone</h2><p className="text-sm muted">Enter the 6-digit code we sent to <b>{normalizePhone(id)}</b>.</p></div>}
+              {mode === 'reset' && <div><h2 className="text-lg font-semibold">{tr("Reset your password")}</h2><p className="text-sm muted">{tr("Enter your account email and we'll send you a secure link.")}</p></div>}
+              {mode === 'verify-phone' && <div><h2 className="text-lg font-semibold">{tr("Verify your phone")}</h2><p className="text-sm muted">{tr("Enter the 6-digit code we sent to")}<b>{normalizePhone(id)}</b>.</p></div>}
               {mode === 'signup' && (
-                <div><label className="label">Your name</label><input className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Abdullah" /></div>
+                <div><label className="label">{tr("Your name")}</label><input className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("Abdullah")} /></div>
               )}
               {mode !== 'verify-phone' && (
                 <div>
@@ -142,23 +150,23 @@ export default function AuthPage() {
               {(mode === 'signin' || mode === 'signup') && (
                 <div>
                   <div className="flex items-center justify-between">
-                    <label className="label">Password</label>
-                    {mode === 'signin' && method === 'email' && <button type="button" className="mb-1 text-xs text-indigo-500 hover:underline" onClick={() => go('reset')}>Forgot password?</button>}
+                    <label className="label">{tr("Password")}</label>
+                    {mode === 'signin' && method === 'email' && <button type="button" className="mb-1 text-xs text-indigo-500 hover:underline" onClick={() => go('reset')}>{tr("Forgot password?")}</button>}
                   </div>
                   <div className="relative">
                     <input className="input pr-10" type={show ? 'text' : 'password'} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" />
-                    <button type="button" className="absolute right-2 top-2 muted" onClick={() => setShow(!show)} aria-label="Show password">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                    <button type="button" className="absolute right-2 top-2 muted" onClick={() => setShow(!show)} aria-label={tr("Show password")}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                   </div>
                   {mode === 'signup' && pw && (
                     <div className="mt-2">
                       <div className="flex gap-1">{[0, 1, 2, 3].map((i) => <span key={i} className={cx('h-1.5 flex-1 rounded-full', i < score ? ['bg-rose-500', 'bg-orange-500', 'bg-amber-400', 'bg-emerald-500'][score - 1] : 'bg-slate-200 dark:bg-white/10')} />)}</div>
-                      {issues.length > 0 && <p className="mt-1 text-xs muted">Needs {issues.join(', ')}.</p>}
+                      {issues.length > 0 && <p className="mt-1 text-xs muted">{tr("Needs")}{issues.join(', ')}.</p>}
                     </div>
                   )}
                 </div>
               )}
               {mode === 'signup' && (
-                <div><label className="label">Confirm password</label><input className={cx('input', pw2 && pw2 !== pw && '!border-rose-400')} type={show ? 'text' : 'password'} autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="••••••••" /></div>
+                <div><label className="label">{tr("Confirm password")}</label><input className={cx('input', pw2 && pw2 !== pw && '!border-rose-400')} type={show ? 'text' : 'password'} autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="••••••••" /></div>
               )}
               {err && <div className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-600 dark:text-rose-400">{err}</div>}
               {info && <div className="rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">{info}</div>}
@@ -171,12 +179,11 @@ export default function AuthPage() {
         </div>
         <div className="mt-4 flex items-start gap-2 px-2 text-xs muted">
           <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-500" />
-          <span>Your data is private to your account. It's encrypted in transit (HTTPS) and at rest, and database rules make sure only you can read or change it.</span>
+          <span>{tr("Your data is private to your account. It's encrypted in transit (HTTPS) and at rest, and database rules make sure only you can read or change it.")}</span>
         </div>
         <button className="mx-auto mt-4 block text-xs muted underline-offset-2 hover:underline" onClick={() => setGuest(true)}>
-          <Lock size={11} className="mr-1 inline" />Continue without an account (saved on this device only)
-        </button>
-        <a href="#/public" className="mx-auto mt-2 block text-center text-xs text-indigo-500 hover:underline">Read public journals</a>
+          <Lock size={11} className="mr-1 inline" />{tr("Continue without an account (saved on this device only)")}</button>
+        <a href="#/public" className="mx-auto mt-2 block text-center text-xs text-indigo-500 hover:underline">{tr("Read public journals")}</a>
       </div>
     </div>
   );
@@ -199,11 +206,11 @@ export function SetNewPassword() {
   return (
     <div className="grid min-h-screen place-items-center px-4">
       <form onSubmit={save} className="card w-full max-w-sm space-y-4 p-6">
-        <div className="text-center"><Logo size={48} /><h2 className="mt-2 text-lg font-semibold">Choose a new password</h2></div>
-        <input className="input" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="New password" autoFocus />
-        {pw && issues.length > 0 && <p className="text-xs muted">Needs {issues.join(', ')}.</p>}
+        <div className="text-center"><Logo size={48} /><h2 className="mt-2 text-lg font-semibold">{tr("Choose a new password")}</h2></div>
+        <input className="input" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder={tr("New password")} autoFocus />
+        {pw && issues.length > 0 && <p className="text-xs muted">{tr("Needs")}{issues.join(', ')}.</p>}
         {err && <div className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-500">{err}</div>}
-        <button className="btn-primary w-full" disabled={busy}>Save password</button>
+        <button className="btn-primary w-full" disabled={busy}>{tr("Save password")}</button>
       </form>
     </div>
   );

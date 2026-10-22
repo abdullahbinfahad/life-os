@@ -1,3 +1,4 @@
+import { translate as tr } from '../lib/locales';
 import { CheckSquare, Copy, ExternalLink, Plus, Square, Star, Sunrise, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../lib/store';
@@ -77,7 +78,7 @@ export default function ItemEditor({ item, onClose }: { item: LifeItem | null; o
   };
 
   return (
-    <Modal open={!!item} onClose={close} title="Edit item" wide>
+    <Modal open={!!item} onClose={close} title={tr("Edit item")} wide>
       <div className="grid gap-5 md:grid-cols-[1fr_280px]">
         <div className="space-y-4">
           <div>
@@ -85,15 +86,15 @@ export default function ItemEditor({ item, onClose }: { item: LifeItem | null; o
               <input className="input !text-base font-semibold" value={d.title} maxLength={200} autoFocus
                 onChange={(e) => { f({ title: e.target.value }); setErr(''); }}
                 onKeyDown={(e) => e.key === 'Enter' && (e.metaKey || e.ctrlKey) && save()} />
-              <button className={cx('btn-ghost !p-2', d.starred && 'text-amber-400')} onClick={() => f({ starred: !d.starred })} title="Star"><Star size={18} fill={d.starred ? 'currentColor' : 'none'} /></button>
+              <button className={cx('btn-ghost !p-2', d.starred && 'text-amber-400')} onClick={() => f({ starred: !d.starred })} title={tr("Star")}><Star size={18} fill={d.starred ? 'currentColor' : 'none'} /></button>
             </div>
-            {dupTitle && <p className="mt-1 text-xs text-amber-500">You already have an item with this title.</p>}
+            {dupTitle && <p className="mt-1 text-xs text-amber-500">{tr("You already have an item with this title.")}</p>}
           </div>
-          <div><label className="label">Notes</label><textarea className="input min-h-[90px]" value={d.notes} onChange={(e) => f({ notes: e.target.value })} placeholder="Why does this matter? How will you do it?" /></div>
+          <div><label className="label">{tr("Notes")}</label><textarea className="input min-h-[90px]" value={d.notes} onChange={(e) => f({ notes: e.target.value })} placeholder={tr("Why does this matter? How will you do it?")} /></div>
 
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <label className="label !mb-0">Steps / checklist {checklist.length > 0 && <span className="normal-case">· {doneSteps}/{checklist.length}</span>}</label>
+              <label className="label !mb-0">{tr("Steps / checklist")}{checklist.length > 0 && <span className="normal-case">· {doneSteps}/{checklist.length}</span>}</label>
               {checklist.length > 0 && <button className="text-xs text-indigo-500 hover:underline" onClick={() => f({ checklist: checklist.map((c) => ({ ...c, done: doneSteps !== checklist.length })) })}>{doneSteps === checklist.length ? 'Uncheck all' : 'Check all'}</button>}
             </div>
             {checklist.length > 0 && <Progress value={(doneSteps / checklist.length) * 100} className="mb-2" color="#22c55e" />}
@@ -111,82 +112,82 @@ export default function ItemEditor({ item, onClose }: { item: LifeItem | null; o
               ))}
             </div>
             <div className="mt-1.5 flex gap-2">
-              <input className="input !py-1.5" placeholder="Add a step (paste many lines at once)" value={step} onChange={(e) => setStep(e.target.value)}
+              <input className="input !py-1.5" placeholder={tr("Add a step (paste many lines at once)")} value={step} onChange={(e) => setStep(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addStep())}
                 onPaste={(e) => { const t = e.clipboardData.getData('text'); if (t.includes('\n')) { e.preventDefault(); setStep(t); setTimeout(() => {}, 0); } }} />
               <button className="btn-outline !py-1.5" onClick={addStep}><Plus size={15} /></button>
             </div>
           </div>
 
-          <div><label className="label">Tags</label><TagInput tags={d.tags} onChange={(tags) => f({ tags })} suggestions={allTags} /></div>
+          <div><label className="label">{tr("Tags")}</label><TagInput tags={d.tags} onChange={(tags) => f({ tags })} suggestions={allTags} /></div>
           <div>
-            <label className="label">Link (optional)</label>
+            <label className="label">{tr("Link (optional)")}</label>
             <div className="flex gap-2">
-              <input className="input" type="url" placeholder="https://…" value={d.url ?? ''} onChange={(e) => f({ url: e.target.value || undefined })} />
+              <input className="input" type="url" placeholder={tr("https://…")} value={d.url ?? ''} onChange={(e) => f({ url: e.target.value || undefined })} />
               {d.url && /^https?:\/\//.test(d.url) && <a className="btn-outline" href={d.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={15} /></a>}
             </div>
           </div>
         </div>
 
         <div className="space-y-3">
-          <div><label className="label">Status</label>
+          <div><label className="label">{tr("Status")}</label>
             <div className="grid grid-cols-2 gap-1">
               {Object.entries(STATUS_META).map(([k, v]) => (
                 <button key={k} onClick={() => f({ status: k as any })} className={cx('rounded-lg border px-2 py-1.5 text-xs font-medium transition', d.status === k ? 'border-transparent text-white' : 'border-slate-200 dark:border-white/10')}
                   style={d.status === k ? { background: v.color } : { color: v.color }}>{v.label}</button>
               ))}
             </div></div>
-          <div><label className="label">Priority</label>
+          <div><label className="label">{tr("Priority")}</label>
             <div className="grid grid-cols-4 gap-1">
               {Object.entries(PRIORITY_META).map(([k, v]) => (
                 <button key={k} title={v.label} onClick={() => f({ priority: Number(k) as any })} className={cx('rounded-lg border py-1.5 text-xs font-semibold', d.priority === Number(k) ? 'border-transparent text-white' : 'border-slate-200 dark:border-white/10')}
-                  style={d.priority === Number(k) ? { background: v.color } : { color: v.color }}>P{k}</button>
+                  style={d.priority === Number(k) ? { background: v.color } : { color: v.color }}>{tr("P")}{k}</button>
               ))}
             </div></div>
-          <div><label className="label">Category</label>
+          <div><label className="label">{tr("Category")}</label>
             <select className="input" value={d.categoryId} onChange={(e) => f({ categoryId: e.target.value })}>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
             </select></div>
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="label">Type</label>
+            <div><label className="label">{tr("Type")}</label>
               <select className="input" value={d.type} onChange={(e) => f({ type: e.target.value as any })}>
                 {Object.entries(TYPE_META).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select></div>
-            <div><label className="label">Horizon</label>
+            <div><label className="label">{tr("Horizon")}</label>
               <select className="input" value={d.horizon} onChange={(e) => f({ horizon: e.target.value as any })}>
                 {Object.entries(HORIZON_META).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select></div>
           </div>
-          <div><label className="label">Due date</label>
+          <div><label className="label">{tr("Due date")}</label>
             <input type="date" className="input" value={d.dueDate ?? ''} onChange={(e) => f({ dueDate: e.target.value || undefined })} />
             <div className="mt-1 flex flex-wrap gap-1">
               {[['Today', 0], ['Tomorrow', 1], ['+1 week', 7], ['+1 month', 30], ['+1 year', 365]].map(([l, n]) => (
                 <button key={l} className="chip bg-slate-200/70 dark:bg-white/[.06]" onClick={() => f({ dueDate: addDays(today(), n as number) })}>{l}</button>
               ))}
-              {d.dueDate && <button className="chip text-rose-500" onClick={() => f({ dueDate: undefined })}>Clear</button>}
+              {d.dueDate && <button className="chip text-rose-500" onClick={() => f({ dueDate: undefined })}>{tr("Clear")}</button>}
             </div></div>
-          <div><label className="label">Progress · {d.progress ?? 0}%</label>
+          <div><label className="label">{tr("Progress ·")}{d.progress ?? 0}%</label>
             <input type="range" min={0} max={100} step={5} className="w-full accent-indigo-600" value={d.progress ?? 0} onChange={(e) => f({ progress: Number(e.target.value) })} /></div>
-          <div><label className="label">Linked goal</label>
+          <div><label className="label">{tr("Linked goal")}</label>
             <select className="input" value={d.goalId ?? ''} onChange={(e) => f({ goalId: e.target.value || undefined })}>
-              <option value="">— None —</option>
+              <option value="">{tr("— None —")}</option>
               {goals.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
             </select></div>
           <button className={cx('btn-outline w-full', d.todayDate === today() && '!border-amber-400 text-amber-500')}
             onClick={() => f(d.todayDate === today() ? { todayDate: undefined } : { todayDate: today(), status: d.status === 'someday' ? 'next' : d.status })}>
             <Sunrise size={15} /> {d.todayDate === today() ? 'On Today ✓' : 'Add to Today'}
           </button>
-          <p className="text-[11px] muted">Created {fmtDate(d.createdAt)}{d.updatedAt ? ` · edited ${fmtDate(d.updatedAt)}` : ''}{d.completedAt ? ` · done ${fmtDate(d.completedAt)}` : ''}</p>
+          <p className="text-[11px] muted">{tr("Created")}{fmtDate(d.createdAt)}{d.updatedAt ? ` · edited ${fmtDate(d.updatedAt)}` : ''}{d.completedAt ? ` · done ${fmtDate(d.completedAt)}` : ''}</p>
         </div>
       </div>
 
       {err && <div className="mt-4 rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-500">{err}</div>}
       <div className="mt-5 flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-white/10">
         <div className="flex gap-2">
-          <button className="btn-ghost text-rose-500" onClick={remove}><Trash2 size={15} /> Delete</button>
-          <button className="btn-ghost" onClick={() => { duplicateItems([d.id]); onClose(); toast('Item duplicated'); }}><Copy size={15} /> Duplicate</button>
+          <button className="btn-ghost text-rose-500" onClick={remove}><Trash2 size={15} /> {tr("Delete")}</button>
+          <button className="btn-ghost" onClick={() => { duplicateItems([d.id]); onClose(); toast('Item duplicated'); }}><Copy size={15} /> {tr("Duplicate")}</button>
         </div>
-        <div className="flex gap-2"><button className="btn-ghost" onClick={close}>Cancel</button><button className="btn-primary" onClick={save}>Save <kbd className="text-[10px] opacity-70">⌘↵</kbd></button></div>
+        <div className="flex gap-2"><button className="btn-ghost" onClick={close}>{tr("Cancel")}</button><button className="btn-primary" onClick={save}>{tr("Save")}<kbd className="text-[10px] opacity-70">⌘↵</kbd></button></div>
       </div>
     </Modal>
   );

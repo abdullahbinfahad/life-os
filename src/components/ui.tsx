@@ -1,3 +1,4 @@
+import { translate as tr } from '../lib/locales';
 import { X } from 'lucide-react';
 import { ReactNode, useEffect } from 'react';
 import { cx } from '../lib/utils';
@@ -30,7 +31,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <button className="btn-ghost !p-1.5" onClick={onClose} aria-label="Close"><X size={18} /></button>
+          <button className="btn-ghost !p-1.5" onClick={onClose} aria-label={tr("Close")}><X size={18} /></button>
         </div>
         {children}
       </div>

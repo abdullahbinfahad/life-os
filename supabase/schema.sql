@@ -2,8 +2,9 @@
 -- Run once in Supabase: Dashboard → SQL Editor → New query → paste → Run.
 --
 -- Each user's whole Life Circle lives in one JSON document, keyed by their
--- auth user id. Row Level Security guarantees a signed-in user can only
--- see, create, change or delete THEIR OWN row — nobody else's, ever.
+-- auth user id. Ordinary signed-in users can only see and change their own row.
+-- The optional owner-admin migration adds separately verified, audited
+-- cross-account administrative access; it never exposes auth secrets.
 
 create table if not exists public.life_data (
   user_id    uuid primary key references auth.users (id) on delete cascade,
@@ -134,6 +135,11 @@ create policy "verified owner may moderate public comments"
 -- Enable realtime comment inserts where Supabase Realtime is installed.
 do $$ begin
   alter publication supabase_realtime add table public.public_journal_comments;
+exception when duplicate_object then null;
+when undefined_object then null;
+end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.public_journals;
 exception when duplicate_object then null;
 when undefined_object then null;
 end $$;
