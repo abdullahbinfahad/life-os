@@ -1,6 +1,6 @@
 import { translate as tr } from '../lib/locales';
 import { BookOpen, Globe2, Lock, Plus, Search, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Empty, PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
@@ -21,9 +21,42 @@ export default function Journal() {
   const [draft, setDraft] = useState<Partial<JournalEntry> | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [publishing, setPublishing] = useState(false);
+  const publishingIds = useRef(new Set<string>());
   const entry = journal.find((j) => j.id === sel);
   const current = draft ?? entry;
   const list = journal.filter((j) => !q || (j.title + j.content + j.tags.join(' ')).toLowerCase().includes(q.toLowerCase())).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+
+  useEffect(() => {
+    if (!user || !supabase) return;
+    const candidates = journal.filter((item) => item.visibility === 'public' && item.id && !publishingIds.current.has(item.id));
+    if (!candidates.length) return;
+    let active = true;
+    void (async () => {
+      try {
+        const slugs = candidates.map((item) => `${user.id.slice(0, 8)}-${item.id}`);
+        const { data: existing, error: lookupError } = await supabase.from('public_journals').select('slug').in('slug', slugs);
+        if (lookupError) throw lookupError;
+        const existingSlugs = new Set((existing ?? []).map((row) => row.slug));
+        const missing = candidates.filter((item) => !existingSlugs.has(`${user.id.slice(0, 8)}-${item.id}`));
+        if (!missing.length) return;
+        const publishedAt = new Date().toISOString();
+        const { error } = await supabase.from('public_journals').upsert(missing.map((item) => ({
+          slug: `${user.id.slice(0, 8)}-${item.id}`,
+          owner_id: user.id,
+          title: item.title || 'Journal entry',
+          excerpt: (item.content ?? '').slice(0, 180),
+          content: item.content ?? '',
+          published_at: publishedAt,
+          updated_at: publishedAt,
+        })), { onConflict: 'slug' });
+        if (error) throw error;
+        if (active) setStatusMessage(`${missing.length} existing public journal ${missing.length === 1 ? 'entry was' : 'entries were'} added to the public page.`);
+      } catch {
+        if (active) setStatusMessage('Some entries marked Public could not be added to the public page. Open one and choose Update public link to retry.');
+      }
+    })();
+    return () => { active = false; };
+  }, [journal, user?.id]);
 
   const newEntry = (prompt?: string) => { setSel(null); setStatusMessage(''); setDraft({ id: uid(), date: today(), title: '', content: prompt ? prompt + '\n\n' : '', mood: 3, tags: [], visibility: 'private' }); };
   const publish = async (value: Partial<JournalEntry>, confirmPublic = true) => {
@@ -31,6 +64,7 @@ export default function Journal() {
     if (confirmPublic && !confirm('Publish this journal entry publicly? Anyone with the link may read it.')) return false;
     const slug = `${user.id.slice(0, 8)}-${value.id}`;
     const content = value.content ?? '';
+    publishingIds.current.add(value.id);
     setPublishing(true);
     try {
       const { error } = await supabase.from('public_journals').upsert({ slug, owner_id: user.id, title: value.title || 'Journal entry', excerpt: content.slice(0, 180), content, published_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: 'slug' });
@@ -43,7 +77,7 @@ export default function Journal() {
     } catch {
       setStatusMessage('Saved privately on this device, but publishing failed. Check your connection and public-journal database setup, then try again.');
       return false;
-    } finally { setPublishing(false); }
+    } finally { publishingIds.current.delete(value.id); setPublishing(false); }
   };
   const save = async () => {
     if (!draft) return;

@@ -347,11 +347,11 @@ function ProfilePhotoControl({ settings, userId, updateSettings }: { settings: S
     setBusy(false);
   };
 
-  return <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 p-4 dark:border-white/[.08]">
+  return <div className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)] items-center gap-4 rounded-2xl border border-slate-200 p-4 dark:border-white/[.08] sm:flex">
     <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-500/15 text-indigo-500">{preview && !imageFailed ? <img src={preview} alt={tr("Profile preview")} onError={() => { setImageFailed(true); setStatusIsError(true); setStatus('Photo could not be displayed. Check your connection, reload the page, or upload again.'); }} className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : <ImagePlus size={24} />}</div>
-    <div className="min-w-0 flex-1"><div className="font-medium">{tr("Profile photo")}</div><p className="mt-1 text-sm muted">{tr("Choose a photo from your phone. JPEG, PNG, WebP, and browser-supported HEIC/HEIF are compressed on this device, then stored privately in your account.")}</p>{status && <p className={`mt-2 break-words text-xs ${statusIsError ? 'text-rose-600 dark:text-rose-400' : 'muted'}`} role={statusIsError ? 'alert' : 'status'}>{status}</p>}</div>
+    <div className="min-w-0 sm:flex-1"><div className="font-medium">{tr("Profile photo")}</div><p className="mt-1 text-sm leading-5 muted">{tr("Choose a photo from your phone. JPEG, PNG, WebP, and browser-supported HEIC/HEIF are compressed on this device, then stored privately in your account.")}</p>{status && <p className={`mt-2 break-words text-xs ${statusIsError ? 'text-rose-600 dark:text-rose-400' : 'muted'}`} role={statusIsError ? 'alert' : 'status'}>{status}</p>}</div>
     <input ref={input} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => upload(e.target.files?.[0])} />
-    <button type="button" className="btn-outline" disabled={busy} onClick={() => input.current?.click()}><Upload size={16} /> {busy ? 'Saving…' : 'Save profile photo'}</button>
-    {(settings.avatarPath || settings.avatarUrl) && <button type="button" className="btn-ghost text-rose-600 dark:text-rose-400" disabled={busy} onClick={remove} title={tr("Remove profile photo")}><Trash2 size={16} /> <span>{tr("Remove")}</span></button>}
+    <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-2 sm:col-auto"><button type="button" className="btn-outline" disabled={busy} onClick={() => input.current?.click()}><Upload size={16} /> {busy ? 'Saving…' : 'Save profile photo'}</button>
+    {(settings.avatarPath || settings.avatarUrl) && <button type="button" className="btn-ghost text-rose-600 dark:text-rose-400" disabled={busy} onClick={remove} title={tr("Remove profile photo")}><Trash2 size={16} /> <span>{tr("Remove")}</span></button>}</div>
   </div>;
 }

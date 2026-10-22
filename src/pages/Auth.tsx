@@ -88,10 +88,9 @@ export default function AuthPage() {
         </div>
         <div className="card p-6">
           {startupIssue && <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-100" role="status"><span>{startupIssue}</span><button type="button" className="underline underline-offset-2" onClick={() => window.location.reload()}>{tr("Retry check")}</button></div>}
-          {(mode === 'signin' || mode === 'signup') && <label className="mb-4 flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs leading-5 dark:border-white/10 dark:bg-white/[.025]">
-            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600" checked={adminAccessAck} onChange={(event) => setAdminAccessAck(event.target.checked)} />
-            <span><strong className="font-semibold">{tr("Account privacy notice.")}</strong> {tr("Your records are isolated from other users. A verified system owner can access and edit account records for service administration. Do not store passwords, payment details, government-ID numbers, or other secrets here.")}</span>
-          </label>}
+          {(mode === 'signin' || mode === 'signup') && <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs leading-5 dark:border-white/10 dark:bg-white/[.025]">
+            <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" className="h-4 w-4 shrink-0 accent-emerald-600" checked={adminAccessAck} onChange={(event) => setAdminAccessAck(event.target.checked)} /><span>{tr("I understand the account-access details.")}</span></label>
+          </div>}
           {mode === 'check-email' ? (
             <div className="space-y-4 text-center">
               <Mail className="mx-auto text-indigo-500" size={36} />
@@ -177,9 +176,10 @@ export default function AuthPage() {
             </form>
           )}
         </div>
+        {(mode === 'signin' || mode === 'signup') && <details className="mt-3 px-2 text-xs leading-5 muted"><summary className="cursor-pointer text-indigo-600 dark:text-indigo-300">{tr("Account access details")}</summary><p className="mt-1">{tr("Your records are isolated from other users. A verified system owner can access and edit account records for service administration. Do not store passwords, payment details, government-ID numbers, or other secrets here.")}</p></details>}
         <div className="mt-4 flex items-start gap-2 px-2 text-xs muted">
           <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-500" />
-          <span>{tr("Your data is private to your account. It's encrypted in transit (HTTPS) and at rest, and database rules make sure only you can read or change it.")}</span>
+          <span>{tr("Your data is protected by account-level database rules and encrypted in transit. A verified system owner may also access account records for service administration.")}</span>
         </div>
         <button className="mx-auto mt-4 block text-xs muted underline-offset-2 hover:underline" onClick={() => setGuest(true)}>
           <Lock size={11} className="mr-1 inline" />{tr("Continue without an account (saved on this device only)")}</button>
