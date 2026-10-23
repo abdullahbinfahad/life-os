@@ -171,7 +171,6 @@ export default function AuthPage() {
             </form>
           )}
         </div>
-        {mode === 'signup' && <details className="mt-3 px-2 text-xs leading-5 muted"><summary className="cursor-pointer text-indigo-600 dark:text-indigo-300">{tr("Account access details")}</summary><p className="mt-1">{tr("Your records are isolated from other users. A verified system owner can access and edit account records for service administration. Do not store passwords, payment details, government-ID numbers, or other secrets here.")}</p></details>}
         <button className="mx-auto mt-4 block text-xs muted underline-offset-2 hover:underline" onClick={() => setGuest(true)}>
           <Lock size={11} className="mr-1 inline" />{tr("Continue without an account (saved on this device only)")}</button>
         <a href="#/public" className="mx-auto mt-2 block text-center text-xs text-indigo-500 hover:underline">{tr("Read public journals")}</a>
