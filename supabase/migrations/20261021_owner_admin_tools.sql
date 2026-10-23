@@ -345,6 +345,8 @@ values (
       {"label":"Life Library","to":"/library","icon":"library","visible":true},
       {"label":"Goals","to":"/goals","icon":"target","visible":true},
       {"label":"Projects","to":"/projects","icon":"folder-kanban","visible":true},
+      {"label":"Productivity","to":"/productivity","icon":"timer","visible":true},
+      {"label":"Reminders","to":"/notifications","icon":"bell","visible":true},
       {"label":"Calendar & Timeline","to":"/calendar","icon":"calendar-days","visible":true},
       {"label":"Habits","to":"/habits","icon":"repeat","visible":true},
       {"label":"Insights","to":"/insights","icon":"bar-chart-3","visible":true},
@@ -419,13 +421,13 @@ begin
       or pg_catalog.jsonb_typeof(e.item -> 'to') <> 'string'
       or (e.item ->> 'to') not in (
         '/', '/today', '/library', '/goals', '/projects', '/calendar',
-        '/habits', '/insights', '/journal', '/albums', '/public', '/settings'
+        '/habits', '/insights', '/journal', '/albums', '/public', '/settings', '/productivity', '/notifications'
       )
       or pg_catalog.jsonb_typeof(e.item -> 'icon') <> 'string'
       or (e.item ->> 'icon') not in (
         'layout-dashboard', 'sunrise', 'library', 'target', 'folder-kanban',
         'calendar-days', 'repeat', 'bar-chart-3', 'book-open', 'images',
-        'globe-2', 'settings'
+        'globe-2', 'settings', 'timer', 'bell'
       )
       or pg_catalog.jsonb_typeof(e.item -> 'visible') <> 'boolean'
   ) then

@@ -1,18 +1,33 @@
 import { translate as tr } from '../lib/locales';
 import { CheckCircle2, Circle, Flame, Pencil, Plus, Star, Sunrise, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CatBadge, Empty, PageHeader, PRIORITY_META, Ring } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
 import { cx, pct, streak, today, weekCount } from '../lib/utils';
 import ItemEditor from '../components/ItemEditor';
+import { useAuth } from '../lib/auth';
+import { cloudEnabled } from '../lib/supabase';
+import { fetchMyAssignedSharedTasks, subscribeToSharedWorkspace, updateSharedTask, type AssignedSharedTask } from '../lib/sharedProjects';
 
 export default function Today() {
   const { items, habits, projects, settings, toggleItemDone, updateItem, addItems, toggleHabit, updateTask } = useStore();
   const catMap = useCategoryMap();
+  const { user } = useAuth();
+  const [sharedTasks, setSharedTasks] = useState<AssignedSharedTask[]>([]);
+  const [sharedError, setSharedError] = useState('');
   const t = today();
   const [text, setText] = useState('');
   const [suggest, setSuggest] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user || !cloudEnabled) { setSharedTasks([]); return; }
+    let alive = true;
+    const load = () => void fetchMyAssignedSharedTasks(user.id).then((tasks) => { if (alive) { setSharedTasks(tasks); setSharedError(''); } }).catch((error) => { if (alive) setSharedError(error instanceof Error ? error.message : tr('Shared tasks are temporarily unavailable.')); });
+    load();
+    const unsubscribe = subscribeToSharedWorkspace(user.id, load);
+    return () => { alive = false; unsubscribe(); };
+  }, [user?.id]);
 
   const todays = items.filter((i) => i.todayDate === t || (i.dueDate === t && i.status !== 'dropped')).sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done') || a.priority - b.priority);
   const overdue = items.filter((i) => i.dueDate && i.dueDate < t && i.status !== 'done' && i.status !== 'dropped' && i.todayDate !== t);
@@ -79,6 +94,12 @@ export default function Today() {
               ))}
             </div>
           )}
+
+          {user && <section className="card min-w-0 p-5" aria-labelledby="assigned-shared-heading">
+            <div className="mb-3 flex items-center justify-between gap-2"><h3 id="assigned-shared-heading" className="font-semibold">{tr('Team tasks assigned to you')}</h3><span className="chip bg-indigo-500/10 text-indigo-700 dark:text-indigo-200">{sharedTasks.length}</span></div>
+            {sharedError && <p className="mb-2 break-words text-xs text-rose-600 dark:text-rose-300">{sharedError}</p>}
+            {sharedTasks.length ? <div className="space-y-1">{sharedTasks.map((task) => <div key={task.id} className="flex min-w-0 items-start gap-3 rounded-lg py-2"><button type="button" aria-label={`${tr('Mark task done')}: ${task.title}`} className="mt-0.5 shrink-0 text-slate-500 hover:text-emerald-600" onClick={() => void updateSharedTask(task.id, { status: 'done' }).then(() => setSharedTasks((current) => current.filter((item) => item.id !== task.id))).catch((error) => setSharedError(error instanceof Error ? error.message : tr('Could not update shared task.')))}><Circle size={19} /></button><div className="min-w-0 flex-1"><p className="break-words text-sm">{task.title}</p><p className="break-words text-xs muted">{task.project_title}{task.due_date ? ` · ${task.due_date}` : ''}</p></div></div>)}</div> : <p className="text-sm muted">{tr('Tasks assigned to you in shared projects will appear here.')}</p>}
+          </section>}
 
           {overdue.length > 0 && (
             <div className="card border-rose-500/30 p-5">

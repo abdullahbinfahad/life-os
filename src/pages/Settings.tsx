@@ -6,23 +6,69 @@ import { useStore } from '../lib/store';
 import { syncNow, useAuth } from '../lib/auth';
 import { compressImage, deletePrivateImage, formatBytes, getPrivateImageUrl, uploadPrivateImage } from '../lib/media';
 import type { Album, AlbumMemory, Settings as SettingsData, TrashRecord } from '../lib/types';
-import { cloudEnabled } from '../lib/supabase';
-import { csvEscape, download, parseCSV, today } from '../lib/utils';
+import { cloudEnabled, supabase } from '../lib/supabase';
+import { csvEscape, download, localeForLanguage, parseCSV, today } from '../lib/utils';
 import { APP_LANGUAGES } from '../lib/locales';
 import { playFeedback } from '../lib/sounds';
 
 export default function Settings() {
   const s = useStore();
   const { user, sync, syncError, lastSynced } = useAuth();
+  const rewardPoints = s.rewardEvents.reduce((sum, event) => sum + event.points, 0);
   const fileRef = useRef<HTMLInputElement>(null);
   const csvRef = useRef<HTMLInputElement>(null);
   const [newCat, setNewCat] = useState({ name: '', icon: '⭐', color: '#6366f1' });
   const [msg, setMsg] = useState('');
   const [trashBusy, setTrashBusy] = useState(false);
+  const [backupAction, setBackupAction] = useState<'json-export' | 'csv-export' | 'json-import' | 'csv-import' | null>(null);
+  const [backupPassword, setBackupPassword] = useState('');
+  const [backupOtp, setBackupOtp] = useState('');
+  const [backupCodeSent, setBackupCodeSent] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [importPreview, setImportPreview] = useState<{ format: 'json' | 'csv'; data: any; counts: Record<string, number> } | null>(null);
 
   const exportJSON = () => {
-    const { categories, items, goals, projects, habits, journal, albums, settings, trash } = useStore.getState();
-    download(`life-circle-backup-${today()}.json`, JSON.stringify({ version: 4, categories, items, goals, projects, habits, journal, albums, settings, trash }, null, 2));
+    const { categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents } = useStore.getState();
+    download(`life-circle-backup-${today()}.json`, JSON.stringify({ version: 5, categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents }, null, 2));
+  };
+  const beginBackup = (action: NonNullable<typeof backupAction>) => {
+    if (!user) { setMsg('Sign in before importing or exporting private account data.'); return; }
+    setBackupPassword(''); setBackupOtp(''); setBackupCodeSent(false); setBackupAction(action);
+  };
+  const finishBackup = () => {
+    const action = backupAction; setBackupAction(null); setBackupPassword(''); setBackupOtp(''); setBackupCodeSent(false);
+    if (action === 'json-export') exportJSON();
+    else if (action === 'csv-export') exportCSV();
+    else if (action === 'json-import') fileRef.current?.click();
+    else if (action === 'csv-import') csvRef.current?.click();
+  };
+  const verifyBackupIdentity = async () => {
+    if (!supabase || !user) { setMsg('Sign in with a verified account before handling backups.'); return; }
+    setBackupBusy(true);
+    try {
+      const providers = (user.app_metadata?.providers as string[] | undefined) ?? [];
+      const hasPassword = (providers.includes('email') || providers.includes('phone')) && Boolean(user.email || user.phone);
+      if (hasPassword && backupPassword) {
+        const result = user.email
+          ? await supabase.auth.signInWithPassword({ email: user.email, password: backupPassword })
+          : await supabase.auth.signInWithPassword({ phone: user.phone!, password: backupPassword });
+        if (result.error) throw result.error;
+        finishBackup(); return;
+      }
+      if (!backupCodeSent) {
+        const { error } = await supabase.auth.reauthenticate();
+        if (error) throw error;
+        setBackupCodeSent(true); setMsg('A fresh verification code was sent to your confirmed account contact.');
+        return;
+      }
+      if (!backupOtp.trim()) { setMsg('Enter the verification code to continue.'); return; }
+      const verified = user.email
+        ? await supabase.auth.verifyOtp({ email: user.email, token: backupOtp.trim(), type: 'reauthentication' })
+        : await supabase.auth.verifyOtp({ phone: user.phone!, token: backupOtp.trim(), type: 'reauthentication' });
+      if (verified.error) throw verified.error;
+      finishBackup();
+    } catch (error) { setMsg(error instanceof Error ? error.message : 'Fresh account verification failed.'); }
+    finally { setBackupBusy(false); }
   };
   const exportCSV = () => {
     const head = ['title', 'category', 'status', 'priority', 'horizon', 'type', 'dueDate', 'tags', 'notes'];
@@ -32,9 +78,12 @@ export default function Settings() {
   const importJSON = async (f: File) => {
     try {
       const data = JSON.parse(await f.text());
-      if (!confirm('This will REPLACE all current data. Continue?')) return;
-      s.importAll(data);
-      setMsg('Backup restored.');
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Backup must be a JSON object.');
+      const supported = ['categories', 'items', 'goals', 'projects', 'habits', 'journal', 'albums', 'settings', 'trash', 'focusSessions', 'rewardEvents'];
+      const present = supported.filter((key) => key in data);
+      if (!present.length || present.some((key) => Array.isArray(data[key]) === false && key !== 'settings')) throw new Error('Backup has no valid Life OS collections.');
+      const counts = Object.fromEntries(present.map((key) => [key, Array.isArray(data[key]) ? data[key].length : 1]));
+      setImportPreview({ format: 'json', data, counts });
     } catch { setMsg('Invalid backup file.'); }
   };
   const importCSV = async (f: File) => {
@@ -59,8 +108,34 @@ export default function Settings() {
         notes: g('notes') ?? '',
       };
     }).filter((i) => i.title).map((i) => Object.fromEntries(Object.entries(i).filter(([, v]) => v !== undefined)) as any);
-    s.addItems(items);
-    setMsg(`Imported ${items.length} items.`);
+    if (!items.length) { setMsg('No importable rows were found in that CSV.'); return; }
+    setImportPreview({ format: 'csv', data: items, counts: { items: items.length } });
+  };
+
+  const applyImport = (mode: 'merge' | 'replace') => {
+    if (!importPreview) return;
+    if (importPreview.format === 'csv') {
+      if (mode === 'replace') useStore.getState().importAll({ ...useStore.getState(), items: [] });
+      useStore.getState().addItems(importPreview.data);
+      setMsg(`${mode === 'merge' ? 'Merged' : 'Replaced library with'} ${importPreview.data.length} CSV items.`);
+    } else {
+      const incoming = importPreview.data as Record<string, unknown>;
+      if (mode === 'replace') useStore.getState().importAll(incoming);
+      else {
+        const current = useStore.getState() as unknown as Record<string, unknown>;
+        const arrayKeys = ['categories', 'items', 'goals', 'projects', 'habits', 'journal', 'albums', 'trash', 'focusSessions', 'rewardEvents'];
+        const merged: Record<string, unknown> = { ...current, ...incoming };
+        for (const key of arrayKeys) if (Array.isArray(incoming[key])) {
+          const byId = new Map<string, Record<string, unknown>>();
+          for (const row of [...(Array.isArray(current[key]) ? current[key] as Record<string, unknown>[] : []), ...(incoming[key] as Record<string, unknown>[])]) if (row && typeof row.id === 'string') byId.set(row.id, row);
+          merged[key] = [...byId.values()];
+        }
+        merged.settings = { ...(current.settings as object ?? {}), ...(incoming.settings as object ?? {}) };
+        useStore.getState().importAll(merged);
+      }
+      setMsg(`Backup ${mode === 'merge' ? 'merged' : 'restored'}.`);
+    }
+    setImportPreview(null);
   };
 
   const purgeRecord = async (record: TrashRecord, ask = true) => {
@@ -122,12 +197,13 @@ export default function Settings() {
             <div className="grid gap-3 sm:grid-cols-3">
               {([
                 { value: 'dark', title: 'Night glass', detail: 'Your original dark theme', preview: 'linear-gradient(135deg,#182131,#0b0d12 62%,#253344)' },
-                { value: 'forest', title: 'Emerald night', detail: 'Green-glass surfaces and soft ambient motion', preview: 'radial-gradient(ellipse at 78% 4%,rgba(52,211,153,.42),transparent 55%),linear-gradient(140deg,#13291f,#07100c 76%)' },
+                { value: 'forest', title: 'Emerald night', detail: `Earned reward · ${Math.min(rewardPoints, 50000).toLocaleString(localeForLanguage(s.settings.language))} / 50,000 points`, preview: 'radial-gradient(ellipse at 78% 4%,rgba(52,211,153,.42),transparent 55%),linear-gradient(140deg,#13291f,#07100c 76%)' },
                 { value: 'light', title: 'Clean light', detail: 'Your original bright theme', preview: 'linear-gradient(135deg,#dbeafe,#ffffff 52%,#d1fae5)' },
               ] as const).map((choice) => {
                 const selected = s.settings.theme === choice.value;
-                return <button key={choice.value} type="button" aria-pressed={selected} onClick={() => s.updateSettings({ theme: choice.value as SettingsData['theme'] })}
-                  className={`theme-choice min-w-0 rounded-2xl border p-3 text-left transition duration-200 ${selected ? 'is-selected border-emerald-500 ring-2 ring-emerald-500/25' : 'border-slate-200 hover:border-emerald-400/70 dark:border-white/10'}`}>
+                const locked = choice.value === 'forest' && rewardPoints < 50000 && !selected;
+                return <button key={choice.value} type="button" aria-pressed={selected} aria-disabled={locked} title={locked ? tr('Earn 50,000 points to unlock Emerald Night') : undefined} disabled={locked} onClick={() => s.updateSettings({ theme: choice.value as SettingsData['theme'] })}
+                  className={`theme-choice min-w-0 rounded-2xl border p-3 text-left transition duration-200 disabled:cursor-not-allowed disabled:opacity-65 ${selected ? 'is-selected border-emerald-500 ring-2 ring-emerald-500/25' : 'border-slate-200 hover:border-emerald-400/70 dark:border-white/10'}`}>
                   <span className="theme-preview relative mb-3 flex h-14 items-end gap-1.5 overflow-hidden rounded-xl border border-black/5 p-2 dark:border-white/10" style={{ background: choice.preview }} aria-hidden="true">
                     <span className="h-2/3 w-[17%] rounded-t bg-white/15 backdrop-blur-sm" />
                     <span className="h-full w-[17%] rounded-t bg-emerald-400/65" />
@@ -171,10 +247,10 @@ export default function Settings() {
         <h3 className="mb-1 font-semibold">{tr("Import & export")}</h3>
         <p className="mb-4 text-sm muted">{tr("CSV import accepts a header row with:")}<code>title, category, status, priority, horizon, dueDate, tags, notes</code> {tr("— or just one title per line.")}</p>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-outline" onClick={exportJSON}><Download size={16} /> {tr("Full backup (JSON)")}</button>
-          <button className="btn-outline" onClick={exportCSV}><Download size={16} /> {tr("Library (CSV)")}</button>
-          <button className="btn-outline" onClick={() => fileRef.current?.click()}><Upload size={16} /> {tr("Restore backup")}</button>
-          <button className="btn-outline" onClick={() => csvRef.current?.click()}><Upload size={16} /> {tr("Import CSV")}</button>
+          <button className="btn-outline" onClick={() => beginBackup('json-export')}><Download size={16} /> {tr("Full backup (JSON)")}</button>
+          <button className="btn-outline" onClick={() => beginBackup('csv-export')}><Download size={16} /> {tr("Library (CSV)")}</button>
+          <button className="btn-outline" onClick={() => beginBackup('json-import')}><Upload size={16} /> {tr("Restore backup")}</button>
+          <button className="btn-outline" onClick={() => beginBackup('csv-import')}><Upload size={16} /> {tr("Import CSV")}</button>
           <button className="btn-outline" onClick={() => { s.loadDemo(); setMsg('Demo data added.'); }}>{tr("Load demo data")}</button>
           <input ref={fileRef} type="file" accept=".json" hidden onChange={(e) => e.target.files?.[0] && importJSON(e.target.files[0])} />
           <input ref={csvRef} type="file" accept=".csv,.txt" hidden onChange={(e) => e.target.files?.[0] && importCSV(e.target.files[0])} />
@@ -190,7 +266,7 @@ export default function Settings() {
           <div className="space-y-2">
             {[...s.trash].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt)).map((record) => (
               <div key={record.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-white/[.08]">
-                <div className="min-w-0 flex-1"><div className="truncate font-medium">{record.title}</div><div className="mt-0.5 text-xs muted">{record.entityType[0].toUpperCase() + record.entityType.slice(1)} {tr("· deleted")}{new Date(record.deletedAt).toLocaleString()}</div></div>
+                <div className="min-w-0 flex-1"><div className="truncate font-medium">{record.title}</div><div className="mt-0.5 text-xs muted">{record.entityType[0].toUpperCase() + record.entityType.slice(1)} {tr("· deleted")}{new Date(record.deletedAt).toLocaleString(localeForLanguage(s.settings.language))}</div></div>
                 <button className="btn-outline !px-2.5 !py-1.5" disabled={trashBusy} onClick={() => { if (s.restoreFromTrash(record.id)) setMsg(`“${record.title}” restored.`); else setMsg('Restore the parent project or album first, then restore this record.'); }}><RotateCcw size={14} /> {tr("Restore")}</button>
                 <button className="btn-ghost !px-2.5 !py-1.5 text-rose-500" disabled={trashBusy} onClick={() => void purgeRecord(record)}><Trash2 size={14} /> {tr("Delete forever")}</button>
               </div>
@@ -207,7 +283,7 @@ export default function Settings() {
             ? 'Your data is saved on this device until you sign in. Cloud records are isolated by account, but a verified system owner can access and edit account records. Direct photo uploads require sign-in so they are never embedded in local JSON. Do not store passwords, payment details, government-ID numbers, or other secrets here.'
             : 'Your data is stored only in this browser. Configure cloud authentication to protect it in an account and sync across devices. Direct photo uploads require a private signed-in cloud account; external image URLs still work. Export a backup regularly.'}</p>
         {cloudEnabled && user && <div className={`mt-3 text-xs ${sync === 'error' ? 'text-rose-500' : 'muted'}`} role="status">
-          {sync === 'error' ? `Cloud sync failed: ${syncError || 'Please retry.'}` : sync === 'saved' ? `Synced${lastSynced ? ` · ${new Date(lastSynced).toLocaleString()}` : ''}` : sync === 'offline' ? 'Offline · changes remain on this device and will sync when connected.' : sync === 'saving' ? 'Saving to your private cloud account…' : sync === 'loading' ? 'Loading your private cloud data…' : 'Cloud sync is ready.'}
+          {sync === 'error' ? `Cloud sync failed: ${syncError || 'Please retry.'}` : sync === 'saved' ? `Synced${lastSynced ? ` · ${new Date(lastSynced).toLocaleString(localeForLanguage(s.settings.language))}` : ''}` : sync === 'offline' ? 'Offline · changes remain on this device and will sync when connected.' : sync === 'saving' ? 'Saving to your private cloud account…' : sync === 'loading' ? 'Loading your private cloud data…' : 'Cloud sync is ready.'}
         </div>}
         <div className="mt-3 text-xs muted">{s.items.length} {tr("items ·")}{s.goals.length} {tr("goals ·")}{s.projects.length} {tr("projects ·")}{s.habits.length} {tr("habits ·")}{s.journal.length} {tr("journal entries ·")}{s.albums.length} {tr("albums")}</div>
         <button className="btn-danger mt-4" onClick={() => { if (confirm('Erase ALL data permanently? Export a backup first!') && confirm('Are you absolutely sure?')) { s.resetAll(); setMsg('All data erased.'); } }}><Trash2 size={16} /> {tr("Erase all data")}</button>
@@ -221,6 +297,25 @@ export default function Settings() {
           ))}
         </div>
       </section>
+      {backupAction && <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setBackupAction(null); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="backup-verify-title" className="card w-full max-w-md p-5 shadow-2xl">
+          <h2 id="backup-verify-title" className="text-lg font-semibold">{tr('Verify it is you')}</h2>
+          <p className="mt-1 text-sm muted">{tr('Fresh account verification is required before private data import or export.')}</p>
+          {(user?.app_metadata?.providers?.includes('email') || user?.app_metadata?.providers?.includes('phone')) && <label className="mt-4 block"><span className="label">{tr('Account password')}</span><input className="input" type="password" autoComplete="current-password" value={backupPassword} onChange={(event) => setBackupPassword(event.target.value)} /></label>}
+          {(!user?.app_metadata?.providers?.includes('email') || backupCodeSent) && <div className="mt-4"><button className="btn-outline mb-3 w-full" type="button" disabled={backupBusy || backupCodeSent} onClick={() => void verifyBackupIdentity()}>{backupCodeSent ? tr('Verification code sent') : tr('Send fresh verification code')}</button>{backupCodeSent && <label className="block"><span className="label">{tr('Verification code')}</span><input className="input" inputMode="numeric" autoComplete="one-time-code" value={backupOtp} onChange={(event) => setBackupOtp(event.target.value)} /></label>}</div>}
+          {msg && <p className="mt-3 break-words text-sm muted" role="status">{msg}</p>}
+          <div className="mt-5 flex flex-wrap justify-end gap-2"><button className="btn-outline" type="button" disabled={backupBusy} onClick={() => setBackupAction(null)}>{tr('Cancel')}</button>{(user?.app_metadata?.providers?.includes('email') || user?.app_metadata?.providers?.includes('phone')) && <button className="btn-primary" type="button" disabled={backupBusy || !backupPassword} onClick={() => void verifyBackupIdentity()}>{backupBusy ? tr('Verifying…') : tr('Verify and continue')}</button>}{(!(user?.app_metadata?.providers?.includes('email') || user?.app_metadata?.providers?.includes('phone')) || backupCodeSent) && <button className="btn-primary" type="button" disabled={backupBusy || !backupOtp.trim()} onClick={() => void verifyBackupIdentity()}>{backupBusy ? tr('Verifying…') : tr('Verify and continue')}</button>}</div>
+        </section>
+      </div>}
+      {importPreview && <div className="fixed inset-0 z-[110] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setImportPreview(null); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="import-preview-title" className="card w-full max-w-lg p-5 shadow-2xl">
+          <h2 id="import-preview-title" className="text-lg font-semibold">{tr('Review backup before import')}</h2>
+          <p className="mt-1 break-words text-sm muted">{importPreview.format === 'json' ? tr('JSON backup') : tr('CSV library import')} · {tr('Choose merge to keep current records, or replace to replace the matching data.')}</p>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{Object.entries(importPreview.counts).map(([key, count]) => <div key={key} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/[.03]"><span className="block break-words capitalize muted">{key}</span><strong className="tabular-nums">{count}</strong></div>)}</div>
+          <p className="mt-4 rounded-lg bg-amber-500/10 p-3 text-xs leading-5 text-amber-900 dark:text-amber-200">{importPreview.format === 'csv' ? tr('Replace affects only the Life Library items. Other account data stays unchanged.') : tr('Replace overwrites the listed account collections. Merge combines records by ID, with imported values taking precedence for matching IDs.')}</p>
+          <div className="mt-5 flex flex-wrap justify-end gap-2"><button className="btn-outline" type="button" onClick={() => setImportPreview(null)}>{tr('Cancel')}</button><button className="btn-outline" type="button" onClick={() => applyImport('merge')}>{tr('Merge')}</button><button className="btn-primary" type="button" onClick={() => { if (confirm(importPreview.format === 'csv' ? 'Replace all current Life Library items with this CSV?' : 'Replace all listed account data with this backup?')) applyImport('replace'); }}>{tr('Replace')}</button></div>
+        </section>
+      </div>}
     </div>
   );
 }

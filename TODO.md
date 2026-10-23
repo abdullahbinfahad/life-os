@@ -1,0 +1,53 @@
+# Life OS collaboration and UX TODO
+
+## Pending outcomes
+
+### Repair production Pages delivery
+- [x] The public GitHub Pages site serves the built Vite application and static assets from the repository’s existing Actions artifact workflow, not the unbuilt source `index.html`.
+- [x] Deep public-journal URLs return the 404 app shell with bundled assets, and the Actions deployment is verified successful.
+
+### Make Projects status-first and phone-readable
+- [ ] Planning, Active, On hold, and Done are selectable at the top; each status count remains visible; the main view shows the selected status instead of forcing all statuses into competing columns.
+- [ ] Project status can be changed with a clear non-drag selector and by accessible mouse/touch drag where meaningful.
+- [ ] Opening a project on a phone keeps text horizontal, readable, wrapped inside the viewport, and controls reachable without zooming or page-wide horizontal overflow.
+- [ ] Project details use progressive disclosure and responsive single-column phone structure without breaking current private project data or task dependencies.
+
+### Add secure shared projects and non-destructive portfolios
+- [ ] A user can create a private project or explicitly share one; multiple accounts can work in one shared project using separate accounts.
+- [ ] Roles include Lead, Admin, Member, Guest, and Viewer; multiple leaders are allowed; creation/audit attribution does not require one exclusive project owner; all members can collaborate on tasks when configured as members.
+- [ ] Membership checks and role permissions are enforced in the database for every operation; hiding UI controls is never treated as authorization.
+- [ ] Invitations are revocable and expire; secrets are not stored in cleartext; member email addresses are not exposed in public queries.
+- [ ] Users retain their own account, personal task list, routines, and private projects; personal data is not copied into team records or exposed to teammates by default.
+- [ ] Existing projects can be connected in a portfolio without duplicating project/task IDs, history, or permissions. Destructive merge/split is deferred until conflict handling and data recovery are designed.
+
+### Connect team execution to personal work safely
+- [ ] Shared tasks support assignee(s), due dates, estimates, dependency/blocker links, status, and comments/activity.
+- [ ] Shared tasks assigned to the signed-in user appear in that user’s Today/task view; task changes remain in shared storage and do not overwrite the personal JSON snapshot.
+- [ ] Optional links from a team task to the current user’s own goals/habits remain private to that user; routine logs and unrelated tasks are never shared automatically.
+- [ ] Project work includes comments/mentions, a scoped activity feed, decisions/meeting notes, milestones, and a per-user notification inbox; only relevant people receive assignment, mention, blocker, and due-date notifications.
+- [ ] Realtime subscriptions are membership-scoped and server-side writes preserve an activity history suitable for auditing.
+
+### Improve project views, Journal, and movable content
+- [ ] Project list and board can show the same underlying tasks; due-date calendar and contextual task details do not create duplicate task records.
+- [ ] The Journal editor is a structured in-platform workspace with drafts/publication, search/filter, clear organization, and links to relevant projects/goals; public journal URLs and public/private visibility remain compatible.
+- [ ] Mouse, touch, and keyboard drag/reorder is available on objects with a meaningful order (projects, tasks, journal entries, menu rows, and explicitly sortable cards), with dedicated handles and non-drag alternatives. Inputs and arbitrary decorative elements are not made draggable.
+
+### Update navigation, notifications, languages, themes, and loading
+- [ ] The mobile bottom navigation shows Projects instead of Today; Today remains available from the main/desktop navigation.
+- [ ] On iPhone, including an installed PWA, the top menu button remains visible below the status bar, has a reliable touch target, and opens/closes the drawer by touch.
+- [ ] In-app notifications highlight due, overdue, and unfinished/assigned work. Browser notifications are opt-in and only promise delivery while the app is open unless push infrastructure is separately configured.
+- [ ] Add Chinese, Japanese, and Korean system-language choices and complete Arabic coverage while retaining English, Bengali, Hindi, and Spanish; language selection changes all visible app text, dates, accessibility labels, project UI, and empty/error/loading states; Arabic remains right-to-left.
+- [ ] Apply semantic design tokens consistently across the whole app. Light mode uses white canvas, `#F6F7F9` app shell, `#E5E7EB` borders, `#171923` text, and `#635BFF` interaction accent, plus restrained semantic status colors; dark mode preserves accessible contrast.
+- [ ] The loading animation is clearly visible and centered on desktop and mobile, smooth but non-blocking, and respects reduced-motion preferences.
+- [ ] Preserve existing routes, integrations, and stored user data; do not add production mock collaboration records or expose private account records.
+
+### Add private productivity tracking and earned rewards
+- [ ] Track in-app focus sessions, completed work against due dates, and optional self-reported distraction time in the user's private account only. Clearly state that a web app cannot see iPhone system-wide Screen Time or other apps.
+- [ ] Award points and badges only for recorded task/project completion and recorded focus sessions; prevent duplicate point awards for the same completion and show how points were earned.
+- [ ] Allow earned points to unlock optional decorative themes, including a 50,000-point milestone; rewards do not grant privileges or affect other accounts.
+- [ ] Keep focus logs and reward history out of shared project data and outside admin cross-account records.
+
+### Protect data import/export
+- [ ] Require fresh authentication using the existing account provider (password re-entry for password accounts; Google reauthentication for Google accounts); do not add or store a second app-specific password.
+- [ ] Export only after successful reauthentication, and import only after reauthentication plus validation, preview, and an explicit merge-or-replace choice.
+- [ ] Import writes are atomic or recoverable, preserve privacy boundaries, and never leave the user’s current data partially replaced on validation failure.

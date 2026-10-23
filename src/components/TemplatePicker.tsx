@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../lib/store';
 import { LIBRARY_COUNT, TEMPLATE_LIBRARY } from '../lib/library';
 import type { Horizon, Priority, Status } from '../lib/types';
-import { cx, today } from '../lib/utils';
+import { cx, localeForLanguage, today } from '../lib/utils';
 import { toast } from './Toaster';
 import { HORIZON_META, Modal, PRIORITY_META, STATUS_META } from './ui';
 
@@ -14,6 +14,7 @@ const STEP = 150;
 /** Browse 1,000+ ready-made life ideas, with multi-select and bulk options */
 export default function TemplatePicker({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { categories, items, addItems } = useStore();
+  const language = useStore((state) => state.settings.language ?? 'en');
   const [cat, setCat] = useState<string>('all');
   const [q, setQ] = useState('');
   const [hideHave, setHideHave] = useState(false);
@@ -61,7 +62,7 @@ export default function TemplatePicker({ open, onClose }: { open: boolean; onClo
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Browse ${LIBRARY_COUNT.toLocaleString()}+ life ideas`} wide>
+    <Modal open={open} onClose={onClose} title={`Browse ${LIBRARY_COUNT.toLocaleString(localeForLanguage(language))}+ life ideas`} wide>
       <div className="flex flex-col gap-3 md:flex-row">
         <div className="flex gap-1 overflow-x-auto md:max-h-[60vh] md:w-56 md:flex-col md:overflow-y-auto">
           <button onClick={() => setCat('all')} className={cx('btn shrink-0 justify-start', cat === 'all' ? 'bg-indigo-600 text-white' : 'btn-ghost')}>

@@ -4,7 +4,6 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Logo } from '../components/Brand';
 import { useAuth } from '../lib/auth';
-import { useOwnerAdmin } from '../lib/admin';
 import { supabase } from '../lib/supabase';
 import { playFeedback } from '../lib/sounds';
 import { useStore } from '../lib/store';
@@ -12,7 +11,7 @@ import { localeForLanguage } from '../lib/utils';
 
 type PublicEntry = { title: string; excerpt: string; content: string; published_at: string };
 type LoadState = 'loading' | 'ready' | 'not-found' | 'offline' | 'missing-table' | 'error' | 'unavailable';
-type Comment = { id: string; author_name: string; content: string; created_at: string; author_id?: string };
+type Comment = { id: string; author_name: string; content: string; created_at: string; can_delete: boolean };
 
 function formatDate(value: string, language = 'en') {
   const date = new Date(value);
@@ -36,7 +35,6 @@ export default function PublicJournal() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { user, setGuest } = useAuth();
-  const canModerate = useOwnerAdmin();
   const [entry, setEntry] = useState<PublicEntry | null>(null);
   const [state, setState] = useState<LoadState>('loading');
   const [comments, setComments] = useState<Comment[]>([]);
@@ -93,16 +91,20 @@ export default function PublicJournal() {
     if (!slug) return;
     if (!navigator.onLine) { setCommentState('offline'); return; }
     if (!supabase) { setCommentState('error'); return; }
-    const columns = user?.id ? 'id,author_id,author_name,content,created_at' : 'id,author_name,content,created_at';
     const { data, error } = await supabase.from('public_journal_comments')
-      .select(columns as any)
+      .select('id,author_name,content,created_at')
       .eq('journal_slug', slug).order('created_at', { ascending: true }).limit(100);
     if (error) {
       const message = `${error.code ?? ''} ${error.message ?? ''}`;
       setCommentState(/42P01|PGRST205|schema cache|does not exist/i.test(message) ? 'missing' : !navigator.onLine ? 'offline' : 'error');
       return;
     }
-    setComments((data ?? []) as unknown as Comment[]);
+    let deletableIds = new Set<string>();
+    if (user?.id) {
+      const { data: deletable } = await supabase.rpc('lifeos_deletable_public_comment_ids', { p_journal_slug: slug });
+      if (Array.isArray(deletable)) deletableIds = new Set(deletable.map((row: { comment_id: string }) => row.comment_id));
+    }
+    setComments((data ?? []).map((comment: Omit<Comment, 'can_delete'>) => ({ ...comment, can_delete: deletableIds.has(comment.id) })));
     setCommentState('ready');
   }, [slug, user?.id]);
 
@@ -139,7 +141,7 @@ export default function PublicJournal() {
   };
 
   const removeComment = async (id: string) => {
-    if (!supabase || !user?.id || !confirm(canModerate ? 'Remove this public comment?' : 'Remove your comment?')) return;
+    if (!supabase || !user?.id || !confirm(`${tr('Delete')}?`)) return;
     const { error } = await supabase.from('public_journal_comments').delete().eq('id', id);
     if (error) setCommentNotice('Could not remove that comment.'); else { setCommentNotice('Comment removed.'); await loadComments(); }
   };
@@ -174,7 +176,7 @@ export default function PublicJournal() {
               {commentState === 'ready' && <div className="mt-4 space-y-3">
                 {comments.length === 0 && <p className="rounded-xl border border-slate-200 p-4 text-sm muted dark:border-white/10">{tr("No comments yet. Start a thoughtful conversation.")}</p>}
                 {comments.map((comment) => <article key={comment.id} className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[.03]">
-                  <div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="break-words text-sm font-semibold">{comment.author_name || 'Reader'}</p><time className="text-xs muted" dateTime={comment.created_at}>{formatDate(comment.created_at, language)}</time></div>{user && (comment.author_id === user.id || canModerate) && <button className="btn-ghost !min-h-9 !p-2 text-rose-500" onClick={() => void removeComment(comment.id)} aria-label={canModerate ? 'Remove comment' : 'Remove your comment'}><Trash2 size={14} /></button>}</div>
+                  <div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="break-words text-sm font-semibold">{comment.author_name || 'Reader'}</p><time className="text-xs muted" dateTime={comment.created_at}>{formatDate(comment.created_at, language)}</time></div>{user && comment.can_delete && <button className="btn-ghost !min-h-9 !p-2 text-rose-500" onClick={() => void removeComment(comment.id)} aria-label={tr('Delete')}><Trash2 size={14} /></button>}</div>
                   <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{comment.content}</p>
                 </article>)}
               </div>}

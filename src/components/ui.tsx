@@ -1,6 +1,6 @@
 import { translate as tr } from '../lib/locales';
 import { X } from 'lucide-react';
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useId } from 'react';
 import { cx } from '../lib/utils';
 import type { Category } from '../lib/types';
 
@@ -17,6 +17,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 }
 
 export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
+  const titleId = useId();
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', h);
@@ -24,13 +25,16 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   }, [onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm md:p-10" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm md:p-10" role="presentation" onMouseDown={onClose}>
       <div
         className={cx('card w-full !bg-white p-6 dark:!bg-[#12151c]', wide ? 'max-w-4xl' : 'max-w-lg')}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 id={titleId} className="text-lg font-semibold">{title}</h2>
           <button className="btn-ghost !p-1.5" onClick={onClose} aria-label={tr("Close")}><X size={18} /></button>
         </div>
         {children}

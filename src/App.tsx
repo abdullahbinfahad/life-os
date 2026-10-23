@@ -1,6 +1,6 @@
 import { translate as tr } from './lib/locales';
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { BrowserRouter, HashRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { LoadingLogo } from './components/Brand';
 import Layout from './components/Layout';
 import { useAuth } from './lib/auth';
@@ -20,6 +20,8 @@ const Journal = lazy(() => import('./pages/Journal'));
 const Library = lazy(() => import('./pages/Library'));
 const Overview = lazy(() => import('./pages/Overview'));
 const Projects = lazy(() => import('./pages/Projects'));
+const Productivity = lazy(() => import('./pages/Productivity'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 const PublicJournal = lazy(() => import('./pages/PublicJournal'));
 const PublicJournalIndex = lazy(() => import('./pages/PublicJournalIndex'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -51,6 +53,8 @@ function PrivateRoutes() {
     <Route path="/library" element={<Library />} />
     <Route path="/goals" element={<Goals />} />
     <Route path="/projects" element={<Projects />} />
+    <Route path="/productivity" element={<Productivity />} />
+    <Route path="/notifications" element={<Notifications />} />
     <Route path="/calendar" element={<Calendar />} />
     <Route path="/habits" element={<Habits />} />
     <Route path="/insights" element={<Insights />} />
@@ -63,7 +67,15 @@ function PrivateRoutes() {
 }
 
 function RouteContent() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const { session } = useAuth();
+  useEffect(() => {
+    const invite = new URLSearchParams(search).get('invite');
+    if (invite) { try { sessionStorage.setItem('lifeos:pending-shared-invite', invite); } catch { /* continue in URL */ } }
+  }, [search]);
+  let pendingInvite = false;
+  try { pendingInvite = Boolean(sessionStorage.getItem('lifeos:pending-shared-invite')); } catch { /* session storage unavailable */ }
+  if (session && pendingInvite && pathname !== '/projects') return <Navigate to="/projects" replace />;
   const publicRoute = pathname === '/public' || pathname.startsWith('/public/');
   return <Suspense fallback={<RouteFallback />}>{publicRoute ? <Routes>
     <Route path="/public" element={<PublicJournalIndex />} />

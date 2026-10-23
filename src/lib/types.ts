@@ -94,6 +94,8 @@ export interface JournalEntry {
   location?: string;
   relatedGoalId?: string;
   relatedItemId?: string;
+  relatedProjectId?: string;
+  sortOrder?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -122,8 +124,10 @@ export interface AlbumMemory {
 
 export interface Settings {
   theme: 'dark' | 'light' | 'forest';
-  language?: 'en' | 'bn' | 'hi' | 'ar' | 'es';
+  language?: 'en' | 'bn' | 'hi' | 'ar' | 'es' | 'zh' | 'ja' | 'ko';
   sounds?: boolean;
+  /** Optional browser notifications while the app is open; never enabled without permission. */
+  browserNotifications?: boolean;
   name: string;
   weekStartsMonday: boolean;
   birthday?: string;
@@ -146,4 +150,24 @@ export interface TrashRecord {
   parentId?: string;
   data: unknown;
   metadata?: { linkedItemIds?: string[]; linkedProjectIds?: string[]; affectedItemIds?: string[]; fallbackCategoryId?: string };
+}
+
+/** Personal productivity records only; these are kept in the user's private account snapshot. */
+export interface FocusSession {
+  id: string;
+  startedAt: string;
+  endedAt: string;
+  focusMinutes: number;
+  distractionMinutes: number;
+  note?: string;
+  pointsAwarded: number;
+}
+
+export interface RewardEvent {
+  id: string;
+  uniqueKey: string;
+  title: string;
+  kind: 'focus' | 'task' | 'project' | 'goal' | 'habit';
+  points: number;
+  createdAt: string;
 }

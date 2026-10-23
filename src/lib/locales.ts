@@ -4,6 +4,9 @@ import { useStore } from './store';
 export type AppLanguage = NonNullable<Settings['language']>;
 export const APP_LANGUAGES: Array<{ code: AppLanguage; label: string; native: string; direction?: 'rtl' }> = [
   { code: 'en', label: 'English', native: 'English' },
+  { code: 'zh', label: 'Chinese', native: '简体中文' },
+  { code: 'ja', label: 'Japanese', native: '日本語' },
+  { code: 'ko', label: 'Korean', native: '한국어' },
   { code: 'bn', label: 'Bengali', native: 'বাংলা' },
   { code: 'hi', label: 'Hindi', native: 'हिन्दी' },
   { code: 'ar', label: 'Arabic', native: 'العربية', direction: 'rtl' },
@@ -17,6 +20,9 @@ const loaders: Record<Exclude<AppLanguage, 'en'>, () => Promise<{ default: Dicti
   hi: () => import('./locales/hi'),
   ar: () => import('./locales/ar'),
   es: () => import('./locales/es'),
+  zh: () => import('./locales/zh'),
+  ja: () => import('./locales/ja'),
+  ko: () => import('./locales/ko'),
 };
 
 export async function preloadAppLanguage(language: AppLanguage): Promise<void> {

@@ -40,6 +40,14 @@
   .mobile-bottom-nav { @apply fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200/90 bg-white/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:border-white/[.10] dark:bg-[#0b0d12]/95; padding-left: max(.25rem, env(safe-area-inset-left)); padding-right: max(.25rem, env(safe-area-inset-right)); }
 }
 
+html:not(.dark) body { background-color: #F6F7F9; color: #171923; }
+html:not(.dark) .card { border-color: #E5E7EB; background-color: #FFFFFF; box-shadow: 0 1px 2px rgba(15,23,42,.035), 0 8px 24px rgba(15,23,42,.035); }
+html:not(.dark) .btn-primary { background-color: #635BFF; box-shadow: 0 5px 16px rgba(99,91,255,.17); }
+html:not(.dark) .btn-primary:hover { background-color: #5148EC; }
+html:not(.dark) .input { border-color: #E5E7EB; color: #171923; }
+html:not(.dark) :focus-visible { outline-color: #635BFF; }
+html:not(.dark) .project-status-tab[aria-pressed="true"] { border-color: #635BFF; background-color: #635BFF; }
+
 html.theme-forest { color-scheme: dark; }
 html.theme-forest #root { position: relative; isolation: isolate; }
 html.theme-forest #root::before {
@@ -130,9 +138,9 @@ html.theme-forest .theme-choice:not(.is-selected):hover { border-color: rgba(110
 }
 .loading-mark { position: relative; isolation: isolate; display: inline-grid; place-items: center; }
 .loading-halo { position: absolute; inset: 20%; z-index: -1; border-radius: 9999px; background: currentColor; filter: blur(16px); animation: loader-aura 2.7s ease-in-out infinite; }
-.loading-orbit { position: absolute; inset: 5%; border: 1.5px solid transparent; border-radius: 9999px; background: conic-gradient(from 0deg, transparent 0deg 205deg, currentColor 270deg, rgba(255,255,255,.06) 320deg, transparent 360deg); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px)); animation: loader-orbit 2.8s linear infinite; }
+.loading-orbit { position: absolute; inset: 5%; border: 2px solid rgba(100,116,139,.34); border-block-start-color: currentColor; border-inline-end-color: color-mix(in srgb, currentColor 72%, transparent); border-radius: 9999px; box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 10%, transparent); animation: loader-orbit 1.9s cubic-bezier(.4,0,.2,1) infinite; }
 .loading-glyph { position: relative; z-index: 1; width: 65%; height: 65%; filter: drop-shadow(0 4px 8px color-mix(in srgb, currentColor 22%, transparent)); animation: loader-float 3.2s cubic-bezier(.22, .8, .24, 1) infinite; }
-.loading-stage { display: grid; min-height: 45vh; place-items: center; padding: 1.5rem 1rem; }
+.loading-stage { display: grid; min-height: 100vh; min-height: 100dvh; place-items: center; padding: 1.5rem 1rem; }
 .loading-stage-full { min-height: 100vh; min-height: 100dvh; }
 .loading-card { display: flex; width: min(100%, 22rem); flex-direction: column; align-items: center; gap: 1rem; border: 1px solid rgba(148,163,184,.18); border-radius: 1.6rem; background: rgba(255,255,255,.68); padding: 1.75rem 1.5rem; text-align: center; box-shadow: 0 24px 70px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.58); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
 html.dark .loading-card { border-color: rgba(255,255,255,.09); background: rgba(17,23,34,.72); box-shadow: 0 28px 80px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.035); }
@@ -169,6 +177,10 @@ html.dark .loading-copy p { color: rgb(203 213 225); }
 }
 @media (max-width: 1023px) {
   main.app-main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+  .mobile-app-header { min-height: calc(3.5rem + env(safe-area-inset-top)); padding-top: max(.625rem, env(safe-area-inset-top)); -webkit-transform: translateZ(0); transform: translateZ(0); }
+  .mobile-menu-trigger { position: relative; z-index: 2; touch-action: manipulation; -webkit-appearance: none; appearance: none; }
+  .mobile-drawer { z-index: 60; }
+  .mobile-drawer-panel { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 }
 @media (max-width: 640px) {
   input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px !important; }
@@ -195,3 +207,7 @@ html.dark .loading-copy p { color: rgb(203 213 225); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+.project-status-rail { display: flex; max-width: 100%; gap: .5rem; overflow-x: auto; overscroll-behavior-inline: contain; padding: .125rem .125rem .5rem; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.project-status-rail > * { flex: 0 0 auto; scroll-snap-align: start; }
+.project-detail { max-width: 100%; overflow-wrap: anywhere; }
+.project-card { touch-action: manipulation; }

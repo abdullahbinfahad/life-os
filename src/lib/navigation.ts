@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BookOpen,
+  Bell,
   CalendarDays,
   FolderKanban,
   Globe2,
@@ -11,6 +12,7 @@ import {
   Settings,
   Sunrise,
   Target,
+  Timer,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -26,7 +28,9 @@ export type NavigationIconName =
   | 'book-open'
   | 'images'
   | 'globe-2'
-  | 'settings';
+  | 'settings'
+  | 'timer'
+  | 'bell';
 
 export interface NavigationItem {
   to: string;
@@ -53,6 +57,8 @@ export const NAVIGATION_ICONS: Record<NavigationIconName, LucideIcon> = {
   images: Images,
   'globe-2': Globe2,
   settings: Settings,
+  timer: Timer,
+  bell: Bell,
 };
 
 export const NAVIGATION_ICON_NAMES = Object.keys(NAVIGATION_ICONS) as NavigationIconName[];
@@ -64,6 +70,8 @@ export const DEFAULT_NAVIGATION: DefaultNavigationItem[] = [
   { to: '/library', label: 'Life Library', desc: 'All goals, ideas, and experiences', icon: 'library', visible: true },
   { to: '/goals', label: 'Goals', desc: 'Outcomes, milestones, and progress', icon: 'target', visible: true },
   { to: '/projects', label: 'Projects', desc: 'Plans, tasks, and dependencies', icon: 'folder-kanban', visible: true },
+  { to: '/productivity', label: 'Productivity', desc: 'Focus sessions and personal progress', icon: 'timer', visible: true },
+  { to: '/notifications', label: 'Reminders', desc: 'Due and unfinished personal work', icon: 'bell', visible: true },
   { to: '/calendar', label: 'Calendar & Timeline', desc: 'Deadlines and life horizons', icon: 'calendar-days', visible: true },
   { to: '/habits', label: 'Habits', desc: 'Recurring actions and consistency', icon: 'repeat', visible: true },
   { to: '/insights', label: 'Insights', desc: 'Progress and patterns over time', icon: 'bar-chart-3', visible: true },

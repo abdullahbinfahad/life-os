@@ -59,7 +59,7 @@ function AccountBox() {
 }
 
 export const NAV = DEFAULT_NAVIGATION;
-const PRIMARY_ROUTES = ['/', '/today', '/library', '/goals', '/habits'];
+const PRIMARY_ROUTES = ['/', '/projects', '/library', '/goals', '/habits'];
 
 export default function Layout({ children }: { children: ReactNode }) {
   const ownerAdmin = useOwnerAdmin();
@@ -79,7 +79,10 @@ export default function Layout({ children }: { children: ReactNode }) {
         const { data, error } = await client.from('lifeos_menu_config').select('value').eq('key', 'navigation').maybeSingle();
         if (error || !data?.value) return;
         const normalized = normalizeNavigationItems(data.value);
-        if (normalized) setNavItems(normalized);
+        if (normalized) {
+          const alwaysAvailable = DEFAULT_NAVIGATION.filter((item) => ['/productivity', '/notifications'].includes(item.to) && !normalized.some((entry) => entry.to === item.to));
+          setNavItems([...normalized, ...alwaysAvailable]);
+        }
       } catch { /* Optional owner-managed navigation; keep the built-in menu. */ }
     };
     void refreshMenu();
@@ -171,13 +174,13 @@ export default function Layout({ children }: { children: ReactNode }) {
       <aside className="app-sidebar fixed inset-y-0 left-0 hidden h-[100dvh] w-64 overflow-hidden border-r border-slate-200/80 bg-white/75 p-4 backdrop-blur-2xl dark:border-white/[.07] dark:bg-[#0b0d12]/75 lg:block">
         {sidebar}
       </aside>
-      <div className={cx('mobile-drawer fixed inset-0 z-40 lg:hidden', mobile ? 'is-open' : 'is-closed')} aria-hidden={!mobile} onClick={() => setMobile(false)}>
+      <div id="mobile-navigation-drawer" className={cx('mobile-drawer fixed inset-0 z-[60] lg:hidden', mobile ? 'is-open' : 'is-closed')} aria-hidden={!mobile} onClick={() => setMobile(false)}>
         <div className="mobile-drawer-backdrop absolute inset-0 bg-black/50" />
         <aside className="mobile-drawer-panel absolute inset-y-0 left-0 w-72 max-w-[min(85vw,22rem)] overflow-hidden bg-white p-4 pt-[max(1rem,env(safe-area-inset-top))] dark:bg-[#0f1218]" onClick={(e) => e.stopPropagation()}>{sidebar}</aside>
       </div>
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/80 lg:hidden">
-          <button className="btn-ghost !p-2" aria-label={mobile ? 'Close menu' : 'Open menu'} aria-expanded={mobile} onClick={() => setMobile((open) => !open)}>{mobile ? <X size={18} /> : <Menu size={18} />}</button>
+        <header className="mobile-app-header sticky top-0 z-50 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-3 py-2.5 pt-[max(.625rem,env(safe-area-inset-top))] backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/90 lg:hidden">
+          <button type="button" className="btn-ghost mobile-menu-trigger !h-12 !w-12 !shrink-0 !rounded-xl !p-0" aria-label={mobile ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobile} aria-controls="mobile-navigation-drawer" onClick={() => setMobile((open) => !open)}><span className="grid h-full w-full place-items-center rounded-xl border border-slate-300/80 bg-white/80 text-slate-800 shadow-sm dark:border-white/15 dark:bg-white/[.06] dark:text-slate-100">{mobile ? <X size={23} strokeWidth={2.4} /> : <Menu size={23} strokeWidth={2.4} />}</span></button>
           <Logo size={24} /><span className="font-bold">{APP_NAME}</span>{ownerAdmin && <span className="premium-pill"><Crown size={12} /> {tr("Owner")}</span>}
           <button className="btn-ghost ml-auto !p-2" onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>

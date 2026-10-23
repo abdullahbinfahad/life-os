@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Album, AlbumMemory, Category, Goal, Habit, JournalEntry, LifeItem, Project, Settings, Task, TrashRecord } from './types';
+import type { Album, AlbumMemory, Category, FocusSession, Goal, Habit, JournalEntry, LifeItem, Project, RewardEvent, Settings, Task, TrashRecord } from './types';
 import { DEFAULT_CATEGORIES } from './library';
 import { addDays, today, uid } from './utils';
 
@@ -16,6 +16,8 @@ interface State {
   albums: Album[];
   settings: Settings;
   trash: TrashRecord[];
+  focusSessions: FocusSession[];
+  rewardEvents: RewardEvent[];
 
   // items
   addItems: (items: NewItem[]) => void;
@@ -49,6 +51,7 @@ interface State {
   toggleHabit: (id: string, date: string) => void;
   // journal
   saveEntry: (e: Partial<JournalEntry> & { id?: string }) => void;
+  reorderJournal: (ids: string[]) => void;
   deleteEntry: (id: string) => void;
   addAlbum: (a: Partial<Album> & { title: string }) => string;
   updateAlbum: (id: string, patch: Partial<Album>) => void;
@@ -61,6 +64,8 @@ interface State {
   restoreFromTrash: (id: string) => boolean;
   permanentlyDeleteFromTrash: (id: string) => TrashRecord | undefined;
   emptyTrash: () => TrashRecord[];
+  addFocusSession: (session: Omit<FocusSession, 'id' | 'pointsAwarded'>) => number;
+  awardReward: (uniqueKey: string, title: string, kind: RewardEvent['kind'], points: number) => void;
   importAll: (data: Partial<State>) => void;
   resetAll: () => void;
   loadDemo: () => void;
@@ -95,6 +100,8 @@ const initial = {
   journal: [] as JournalEntry[],
   albums: [] as Album[],
   trash: [] as TrashRecord[],
+  focusSessions: [] as FocusSession[],
+  rewardEvents: [] as RewardEvent[],
   settings: { theme: 'dark', name: '', weekStartsMonday: true } as Settings,
 };
 
@@ -164,15 +171,19 @@ export const useStore = create<State>()(
         set((s) => ({ items: s.items.map((i) => (s_.has(i.id) ? { ...i, tags: i.tags.filter((x) => x !== t), updatedAt: now() } : i)) }));
       },
       toggleItemDone: (id) =>
-        set((s) => ({
-          items: s.items.map((i) =>
-            i.id === id
-              ? i.status === 'done'
-                ? { ...i, status: 'active', completedAt: undefined }
-                : { ...i, status: 'done', completedAt: now() }
-              : i,
-          ),
-        })),
+        set((s) => {
+          const item = s.items.find((row) => row.id === id);
+          const uniqueKey = `item:${id}`;
+          const rewardEvents = item && item.status !== 'done' && !s.rewardEvents.some((event) => event.uniqueKey === uniqueKey)
+            ? [...s.rewardEvents, { id: uid(), uniqueKey, title: item.title, kind: 'task' as const, points: item.dueDate && item.dueDate >= today() ? 25 : 15, createdAt: now() }]
+            : s.rewardEvents;
+          return {
+            items: s.items.map((i) => i.id === id
+              ? i.status === 'done' ? { ...i, status: 'active', completedAt: undefined } : { ...i, status: 'done', completedAt: now() }
+              : i),
+            rewardEvents,
+          };
+        }),
 
       addCategory: (c) => set((s) => ({ categories: [...s.categories, { ...c, id: uid() }] })),
       updateCategory: (id, patch) => set((s) => ({ categories: s.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
@@ -200,13 +211,17 @@ export const useStore = create<State>()(
         return id;
       },
       updateGoal: (id, patch) =>
-        set((s) => ({
-          goals: s.goals.map((g) =>
-            g.id === id
-              ? { ...g, ...patch, completedAt: patch.status === 'done' ? now() : patch.status ? undefined : g.completedAt }
-              : g,
-          ),
-        })),
+        set((s) => {
+          const goal = s.goals.find((g) => g.id === id);
+          const key = `goal:${id}`;
+          const rewards = goal && patch.status === 'done' && goal.status !== 'done' && !s.rewardEvents.some((event) => event.uniqueKey === key)
+            ? [...s.rewardEvents, { id: uid(), uniqueKey: key, title: goal.title, kind: 'goal' as const, points: 50, createdAt: now() }]
+            : s.rewardEvents;
+          return {
+            goals: s.goals.map((g) => g.id === id ? { ...g, ...patch, completedAt: patch.status === 'done' ? now() : patch.status ? undefined : g.completedAt } : g),
+            rewardEvents: rewards,
+          };
+        }),
       deleteGoal: (id) =>
         set((s) => {
           const goal = s.goals.find((g) => g.id === id);
@@ -231,7 +246,14 @@ export const useStore = create<State>()(
         }));
         return id;
       },
-      updateProject: (id, patch) => set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
+      updateProject: (id, patch) => set((s) => {
+        const project = s.projects.find((p) => p.id === id);
+        const key = `project:${id}`;
+        const rewards = project && patch.status === 'done' && project.status !== 'done' && !s.rewardEvents.some((event) => event.uniqueKey === key)
+          ? [...s.rewardEvents, { id: uid(), uniqueKey: key, title: project.title, kind: 'project' as const, points: 100, createdAt: now() }]
+          : s.rewardEvents;
+        return { projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)), rewardEvents: rewards };
+      }),
       deleteProject: (id) => set((s) => {
         const project = s.projects.find((p) => p.id === id);
         return project ? { projects: s.projects.filter((p) => p.id !== id), trash: [...s.trash, trashEntry('project', project.title, project)] } : s;
@@ -243,20 +265,17 @@ export const useStore = create<State>()(
           ),
         })),
       updateTask: (projectId, taskId, patch) =>
-        set((s) => ({
-          projects: s.projects.map((p) =>
-            p.id === projectId
-              ? {
-                  ...p,
-                  tasks: p.tasks.map((t) =>
-                    t.id === taskId
-                      ? { ...t, ...patch, completedAt: patch.done === true ? now() : patch.done === false ? undefined : t.completedAt }
-                      : t,
-                  ),
-                }
-              : p,
-          ),
-        })),
+        set((s) => {
+          const task = s.projects.find((p) => p.id === projectId)?.tasks.find((row) => row.id === taskId);
+          const key = `project-task:${taskId}`;
+          const rewards = task && patch.done === true && !task.done && !s.rewardEvents.some((event) => event.uniqueKey === key)
+            ? [...s.rewardEvents, { id: uid(), uniqueKey: key, title: task.title, kind: 'task' as const, points: task.dueDate && task.dueDate >= today() ? 25 : 20, createdAt: now() }]
+            : s.rewardEvents;
+          return {
+            projects: s.projects.map((p) => p.id === projectId ? { ...p, tasks: p.tasks.map((t) => t.id === taskId ? { ...t, ...patch, completedAt: patch.done === true ? now() : patch.done === false ? undefined : t.completedAt } : t) } : p),
+            rewardEvents: rewards,
+          };
+        }),
       deleteTask: (projectId, taskId) =>
         set((s) => {
           const project = s.projects.find((p) => p.id === projectId);
@@ -281,11 +300,17 @@ export const useStore = create<State>()(
         return habit ? { habits: s.habits.filter((h) => h.id !== id), trash: [...s.trash, trashEntry('habit', habit.title, habit)] } : s;
       }),
       toggleHabit: (id, date) =>
-        set((s) => ({
-          habits: s.habits.map((h) =>
-            h.id === id ? { ...h, log: h.log.includes(date) ? h.log.filter((d) => d !== date) : [...h.log, date] } : h,
-          ),
-        })),
+        set((s) => {
+          const habit = s.habits.find((row) => row.id === id);
+          const uniqueKey = `habit:${id}:${date}`;
+          const rewards = habit && !habit.log.includes(date) && !s.rewardEvents.some((event) => event.uniqueKey === uniqueKey)
+            ? [...s.rewardEvents, { id: uid(), uniqueKey, title: habit.title, kind: 'habit' as const, points: 5, createdAt: now() }]
+            : s.rewardEvents;
+          return {
+            habits: s.habits.map((h) => h.id === id ? { ...h, log: h.log.includes(date) ? h.log.filter((d) => d !== date) : [...h.log, date] } : h),
+            rewardEvents: rewards,
+          };
+        }),
 
       saveEntry: (e) =>
         set((s) => {
@@ -298,6 +323,10 @@ export const useStore = create<State>()(
             ],
           };
         }),
+      reorderJournal: (ids) => set((s) => {
+        const position = new Map(ids.map((id, index) => [id, index]));
+        return { journal: s.journal.map((entry) => position.has(entry.id) ? { ...entry, sortOrder: position.get(entry.id)! } : entry) };
+      }),
       deleteEntry: (id) => set((s) => {
         const entry = s.journal.find((j) => j.id === id);
         return entry ? { journal: s.journal.filter((j) => j.id !== id), trash: [...s.trash, trashEntry('journal', entry.title || 'Journal entry', entry)] } : s;
@@ -325,7 +354,19 @@ export const useStore = create<State>()(
         };
       }),
 
-      updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+      updateSettings: (patch) => set((s) => {
+        if (patch.theme === 'forest' && s.settings.theme !== 'forest' && s.rewardEvents.reduce((sum, event) => sum + event.points, 0) < 50000) return s;
+        return { settings: { ...s.settings, ...patch } };
+      }),
+      addFocusSession: (session) => {
+        const focusMinutes = Math.max(0, Math.min(720, Math.round(session.focusMinutes)));
+        const distractionMinutes = Math.max(0, Math.min(720, Math.round(session.distractionMinutes)));
+        const points = focusMinutes;
+        const id = uid();
+        set((s) => ({ focusSessions: [{ ...session, id, focusMinutes, distractionMinutes, pointsAwarded: points }, ...s.focusSessions].slice(0, 10000), rewardEvents: points ? [...s.rewardEvents, { id: uid(), uniqueKey: `focus:${id}`, title: `${focusMinutes} min focus`, kind: 'focus', points, createdAt: now() }] : s.rewardEvents }));
+        return points;
+      },
+      awardReward: (uniqueKey, title, kind, points) => set((s) => s.rewardEvents.some((event) => event.uniqueKey === uniqueKey) ? s : ({ rewardEvents: [...s.rewardEvents, { id: uid(), uniqueKey, title, kind, points: Math.max(0, Math.floor(points)), createdAt: now() }] })),
       restoreFromTrash: (id) => {
         let restored = false;
         set((s) => {
@@ -400,6 +441,8 @@ export const useStore = create<State>()(
           journal: data.journal ?? [],
           albums: data.albums ?? [],
           trash: data.trash ?? [],
+          focusSessions: data.focusSessions ?? [],
+          rewardEvents: data.rewardEvents ?? [],
           settings: { ...initial.settings, ...(data.settings ?? {}) },
         })),
       resetAll: () => set(() => ({ ...initial })),
