@@ -28,7 +28,6 @@ export default function AuthPage() {
   const [pw2, setPw2] = useState('');
   const [code, setCode] = useState('');
   const [show, setShow] = useState(false);
-  const [adminAccessAck, setAdminAccessAck] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [info, setInfo] = useState('');
@@ -50,7 +49,6 @@ export default function AuthPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (mode === 'signup' && !adminAccessAck) return setErr('Please review and acknowledge the account-access details to continue.');
     if (mode === 'reset') {
       if (!isEmail(id)) return setErr('Enter a valid email address.');
       const r = await run(() => auth.resetPassword(id.trim()));
@@ -88,9 +86,6 @@ export default function AuthPage() {
         </div>
         <div className="card p-6">
           {startupIssue && <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-100" role="status"><span>{startupIssue}</span><button type="button" className="underline underline-offset-2" onClick={() => window.location.reload()}>{tr("Retry check")}</button></div>}
-          {mode === 'signup' && <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs leading-5 dark:border-white/10 dark:bg-white/[.025]">
-            <label className="flex cursor-pointer items-start gap-2"><input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600" checked={adminAccessAck} onChange={(event) => setAdminAccessAck(event.target.checked)} /><span>{tr("I understand that a verified system owner may access or edit account records for service administration.")}</span></label>
-          </div>}
           {mode === 'check-email' ? (
             <div className="space-y-4 text-center">
               <Mail className="mx-auto text-indigo-500" size={36} />
@@ -113,7 +108,7 @@ export default function AuthPage() {
                       </button>
                     ))}
                   </div>
-                  <button type="button" disabled={busy || (mode === 'signup' && !adminAccessAck)} onClick={() => run(() => auth.google())}
+                  <button type="button" disabled={busy} onClick={() => run(() => auth.google())}
                     className="btn w-full border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[.04] dark:text-slate-100 dark:hover:bg-white/[.08]">
                     <GoogleIcon /> {tr("Continue with Google")}</button>
                   <div className="flex items-center gap-3 text-xs muted"><span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />{tr("or")}<span className="h-px flex-1 bg-slate-200 dark:bg-white/10" /></div>
