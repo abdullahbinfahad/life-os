@@ -87,23 +87,44 @@ export default function Layout({ children }: { children: ReactNode }) {
   }, [soundsEnabled]);
   useEffect(() => {
     setHeaderHidden(false);
-    if (mobile || window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.innerWidth >= 1024) return;
+    if (mobile || window.innerWidth >= 1024) return;
     let frame = 0;
     let previousY = window.scrollY;
-    const onScroll = () => {
+    const onScroll = (event: Event) => {
       if (frame) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
-        const y = Math.max(0, window.scrollY);
-        const atEnd = y + window.innerHeight >= document.documentElement.scrollHeight - 2;
+        const target = event.target;
+        const root = target === document || target === document.documentElement || target === document.body;
+        const scroller = root ? (document.scrollingElement ?? document.documentElement) : target instanceof HTMLElement ? target : document.scrollingElement ?? document.documentElement;
+        const y = Math.max(0, root ? window.scrollY || scroller.scrollTop : scroller.scrollTop);
+        const clientHeight = root ? window.innerHeight : scroller.clientHeight;
+        const scrollHeight = Math.max(scroller.scrollHeight, root ? document.documentElement.scrollHeight : scroller.scrollHeight);
+        const atEnd = y + clientHeight >= scrollHeight - 3;
         if (y <= 8 || atEnd) setHeaderHidden(false);
         else if (y - previousY > 8 && y > 24) setHeaderHidden(true);
         else if (previousY - y > 5) setHeaderHidden(false);
         previousY = y;
       });
     };
+    let touchStartY: number | null = null;
+    const onTouchStart = (event: TouchEvent) => { touchStartY = event.touches[0]?.clientY ?? null; };
+    const onTouchEnd = (event: TouchEvent) => {
+      const endY = event.changedTouches[0]?.clientY;
+      if (touchStartY !== null && endY !== undefined && endY - touchStartY > 18) setHeaderHidden(false);
+      touchStartY = null;
+    };
+    document.addEventListener('scroll', onScroll, { passive: true, capture: true });
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame); };
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchend', onTouchEnd);
+      cancelAnimationFrame(frame);
+    };
   }, [mobile]);
   useEffect(() => {
     if (!supabase) return;
@@ -216,7 +237,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <header className={cx('mobile-app-header sticky top-0 z-50 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-3 py-2.5 pt-[max(.625rem,env(safe-area-inset-top))] backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/90 lg:hidden', headerHidden && !mobile && 'is-scroll-hidden')}>
           <button type="button" className="btn-ghost mobile-menu-trigger !h-12 !w-12 !shrink-0 !rounded-xl !p-0" aria-label={mobile ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobile} aria-controls="mobile-navigation-drawer" onClick={() => setMobile((open) => !open)}><span className="grid h-full w-full place-items-center rounded-xl border border-slate-300/80 bg-white/80 text-slate-800 shadow-sm dark:border-white/15 dark:bg-white/[.06] dark:text-slate-100">{mobile ? <X size={23} strokeWidth={2.4} /> : <Menu size={23} strokeWidth={2.4} />}</span></button>
           <Logo size={24} /><span className="font-bold">{APP_NAME}</span>{ownerAdmin && <span className="premium-pill"><Crown size={12} /> {tr("Owner")}</span>}
-          <button className="btn-ghost ml-auto !p-2" onClick={() => setPalette(true)}><Search size={18} /></button>
+          <button type="button" className="btn-ghost ml-auto !p-2" aria-label={tr('Search')} title={tr('Search')} onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>
         <div className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</div>
       </div>
