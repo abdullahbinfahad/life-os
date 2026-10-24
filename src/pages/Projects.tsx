@@ -66,6 +66,7 @@ export default function Projects() {
   const catMap = useCategoryMap();
   const [selectedStatus, setSelectedStatus] = useState<Project['status']>('active');
   const [workspaceMode, setWorkspaceMode] = useState<'private' | 'shared'>('private');
+  const [sharedDetailOpen, setSharedDetailOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', categoryId: categories[0]?.id ?? '', goalId: '', dueDate: '' });
@@ -111,11 +112,11 @@ export default function Projects() {
     {workspaceMode === 'private' && <button className="btn-primary shrink-0" onClick={() => setCreating(true)}><Plus size={16} /> {tr('New project')}</button>}
   </div>;
 
-  if (workspaceMode === 'shared') return <div className="min-w-0"><PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} /><Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace /></Suspense></div>;
+  if (workspaceMode === 'shared') return <div className="min-w-0">{!sharedDetailOpen && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
 
   return (
     <div className="min-w-0">
-      <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />
+      {!open && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}
       {!open && <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <section aria-label={tr('Project status views')} className="card mb-5 min-w-0 p-3 sm:p-4">
           <div className="mb-3 flex min-w-0 flex-wrap items-end justify-between gap-2">
@@ -173,21 +174,20 @@ export default function Projects() {
                   const isBlocked = !task.done && blocked(open, task.dependsOn);
                   const dependencyNames = task.dependsOn.map((id) => open.tasks.find((other) => other.id === id)?.title).filter(Boolean).join(', ');
                   return (
-                    <article key={task.id} className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-start gap-2 rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-white/[.03] sm:grid-cols-[2rem_minmax(0,1fr)_10rem_2.5rem]">
+                    <article key={task.id} className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-2 gap-y-3 rounded-xl border border-slate-200 bg-white/70 p-3 transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-white/[.025] dark:hover:bg-white/[.045] sm:gap-x-3">
                       <button type="button" disabled={isBlocked} aria-label={task.done ? tr('Mark task active') : tr('Mark task done')} onClick={() => updateTask(open.id, task.id, { done: !task.done })} className={cx('mt-1', task.done ? 'text-emerald-600' : 'muted', isBlocked && 'text-amber-500')}>
                         {isBlocked ? <Lock size={18} /> : task.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                       </button>
                       <div className="min-w-0">
                         <span className={cx('block break-words text-sm leading-5', task.done && 'line-through muted')}>{task.title}</span>
                         {dependencyNames && <span className="mt-1 inline-flex max-w-full items-center gap-1 break-words text-xs text-amber-700 dark:text-amber-300"><Link2 size={12} className="shrink-0" />{tr('After')} {dependencyNames}</span>}
-                        <label className="mt-2 block text-[11px] muted sm:hidden">{tr('Due date')}<input type="date" className="input mt-1 min-w-0 !py-1.5" value={task.dueDate ?? ''} onChange={(event) => updateTask(open.id, task.id, { dueDate: event.target.value || undefined })} /></label>
                       </div>
-                      <input aria-label={`${tr('Due date')}: ${task.title}`} type="date" className="hidden min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 dark:border-white/10 dark:bg-white/[.04] dark:text-slate-200 sm:block" value={task.dueDate ?? ''} onChange={(event) => updateTask(open.id, task.id, { dueDate: event.target.value || undefined })} />
-                      <div className="col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] gap-2 sm:col-span-1 sm:block">
+                      <div className="col-start-2 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_2.5rem] sm:items-end">
+                        <label className="min-w-0"><span className="label">{tr('Due date')}</span><input aria-label={`${tr('Due date')}: ${task.title}`} type="date" className="input min-w-0 !py-1.5" value={task.dueDate ?? ''} onChange={(event) => updateTask(open.id, task.id, { dueDate: event.target.value || undefined })} /></label>
                         <select className="input min-w-0 !py-1.5 text-xs" value="" aria-label={`${tr('Add dependency')}: ${task.title}`} onChange={(event) => { const id = event.target.value; if (id) updateTask(open.id, task.id, { dependsOn: task.dependsOn.includes(id) ? task.dependsOn.filter((dependency) => dependency !== id) : [...task.dependsOn, id] }); }}>
                           <option value="">{tr('+ depends on…')}</option>{open.tasks.filter((other) => other.id !== task.id).map((other) => <option key={other.id} value={other.id}>{task.dependsOn.includes(other.id) ? '✓ ' : ''}{other.title}</option>)}
                         </select>
-                        <button type="button" className="grid min-h-9 place-items-center rounded-lg text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10" aria-label={`${tr('Delete task')}: ${task.title}`} onClick={() => deleteTask(open.id, task.id)}><Trash2 size={15} /></button>
+                        <button type="button" className="grid min-h-11 min-w-11 place-items-center rounded-lg text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10" aria-label={`${tr('Delete task')}: ${task.title}`} onClick={() => deleteTask(open.id, task.id)}><Trash2 size={15} /></button>
                       </div>
                     </article>
                   );

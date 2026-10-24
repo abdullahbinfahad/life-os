@@ -65,54 +65,12 @@ export default function Layout({ children }: { children: ReactNode }) {
   const ownerAdmin = useOwnerAdmin();
   const forestTheme = useStore((s) => s.settings.theme === 'forest');
   const [mobile, setMobile] = useState(false);
-  const [headerHidden, setHeaderHidden] = useState(false);
   const [palette, setPalette] = useState(false);
   const [navItems, setNavItems] = useState<NavigationItem[]>(() => DEFAULT_NAVIGATION.map(({ to, label, icon, visible }) => ({ to, label, icon, visible })));
   const loc = useLocation();
   const nav = useNavigate();
 
-  useEffect(() => { setMobile(false); setHeaderHidden(false); }, [loc.pathname]);
-  useEffect(() => {
-    setHeaderHidden(false);
-    if (mobile || window.innerWidth >= 1024) return;
-    let frame = 0;
-    let previousY = window.scrollY;
-    const onScroll = (event: Event) => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const target = event.target;
-        const root = target === document || target === document.documentElement || target === document.body;
-        const scroller = root ? (document.scrollingElement ?? document.documentElement) : target instanceof HTMLElement ? target : document.scrollingElement ?? document.documentElement;
-        const y = Math.max(0, root ? window.scrollY || scroller.scrollTop : scroller.scrollTop);
-        const clientHeight = root ? window.innerHeight : scroller.clientHeight;
-        const scrollHeight = Math.max(scroller.scrollHeight, root ? document.documentElement.scrollHeight : scroller.scrollHeight);
-        const atEnd = y + clientHeight >= scrollHeight - 3;
-        if (y <= 8 || atEnd) setHeaderHidden(false);
-        else if (y - previousY > 8 && y > 24) setHeaderHidden(true);
-        else if (previousY - y > 5) setHeaderHidden(false);
-        previousY = y;
-      });
-    };
-    let touchStartY: number | null = null;
-    const onTouchStart = (event: TouchEvent) => { touchStartY = event.touches[0]?.clientY ?? null; };
-    const onTouchEnd = (event: TouchEvent) => {
-      const endY = event.changedTouches[0]?.clientY;
-      if (touchStartY !== null && endY !== undefined && endY - touchStartY > 18) setHeaderHidden(false);
-      touchStartY = null;
-    };
-    document.addEventListener('scroll', onScroll, { passive: true, capture: true });
-    window.addEventListener('scroll', onScroll, { passive: true });
-    document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchend', onTouchEnd, { passive: true });
-    return () => {
-      document.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('scroll', onScroll);
-      document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchend', onTouchEnd);
-      cancelAnimationFrame(frame);
-    };
-  }, [mobile]);
+  useEffect(() => { setMobile(false); }, [loc.pathname]);
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
@@ -221,11 +179,12 @@ export default function Layout({ children }: { children: ReactNode }) {
         <aside className="mobile-drawer-panel absolute inset-y-0 left-0 w-72 max-w-[min(85vw,22rem)] overflow-hidden bg-white p-4 pt-[max(1rem,env(safe-area-inset-top))] dark:bg-[#0f1218]" onClick={(e) => e.stopPropagation()}>{sidebar}</aside>
       </div>
       <div className="lg:pl-64">
-        <header className={cx('mobile-app-header sticky top-0 z-50 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-3 py-2.5 pt-[max(.625rem,env(safe-area-inset-top))] backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/90 lg:hidden', headerHidden && !mobile && 'is-scroll-hidden')}>
+        <header className="mobile-app-header fixed inset-x-0 top-0 z-50 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-3 py-2.5 pt-[max(.625rem,env(safe-area-inset-top))] backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/90 lg:hidden">
           <button type="button" className="btn-ghost mobile-menu-trigger !h-12 !w-12 !shrink-0 !rounded-xl !p-0" aria-label={mobile ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobile} aria-controls="mobile-navigation-drawer" onClick={() => setMobile((open) => !open)}><span className="grid h-full w-full place-items-center rounded-xl border border-slate-300/80 bg-white/80 text-slate-800 shadow-sm dark:border-white/15 dark:bg-white/[.06] dark:text-slate-100">{mobile ? <X size={23} strokeWidth={2.4} /> : <Menu size={23} strokeWidth={2.4} />}</span></button>
           <Logo size={24} /><span className="font-bold">{APP_NAME}</span>{ownerAdmin && <span className="premium-pill"><Crown size={12} /> {tr("Owner")}</span>}
           <button type="button" className="btn-ghost ml-auto !p-2" aria-label={tr('Search')} title={tr('Search')} onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>
+        <div className="mobile-header-spacer lg:hidden" aria-hidden="true" />
         <div className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</div>
       </div>
       <nav className="mobile-bottom-nav lg:hidden" aria-label={tr("Primary navigation")}>

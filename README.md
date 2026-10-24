@@ -54,11 +54,12 @@ npm run build
 3. For an existing installation that already ran the main schema, run `supabase/migrations/20261021_public_journal_comments.sql` if it has not already been applied. It adds public journal comments and the database-verified owner metrics function without changing existing account rows.
 4. Run `supabase/migrations/20261021_owner_admin_tools.sql` to install the audited owner account directory, selected-account workspace viewer/editor, private-media read policy, and global navigation configuration. It depends on `lifeos_is_owner_admin()` from the comments migration (or the matching current `schema.sql`). The migration never changes user snapshots by itself.
 5. Run `supabase/migrations/20261023_shared_projects.sql` to install member-scoped collaboration tables, project roles, one-use expiring invitation tokens, private goal/habit links, activity and recipient notifications. This migration is additive and does not copy or alter private `life_data`.
-6. Run `supabase/migrations/20261024_private_productivity_admin_shield.sql` after the owner-admin migration. It keeps focus-session and reward history out of cross-account admin snapshots and preserves those fields during other admin snapshot edits.
-7. Run `supabase/migrations/20261024_productivity_navigation.sql` after the owner-admin migration. It extends the audited global-menu validator and appends the two new routes without overwriting existing menu labels, order, or visibility choices.
-8. Confirm Google and email providers are enabled in Auth settings. Phone/password sign-up also requires enabling Phone and configuring an SMS provider; the app sends an SMS verification code when a phone account is created.
-9. Add the public URL to the Auth redirect allow-list.
-10. Add the two `VITE_SUPABASE_*` values to GitHub Actions variables.
+6. Run `supabase/migrations/20261024_shared_workspace_upgrade.sql` after the shared-project migration. It adds project-member display names, per-message read receipts, sticky-note styling, and permits portfolio leads to link projects they can already access; it does not grant portfolio members access to linked projects.
+7. Run `supabase/migrations/20261024_private_productivity_admin_shield.sql` after the owner-admin migration. It keeps focus-session and reward history out of cross-account admin snapshots and preserves those fields during other admin snapshot edits.
+8. Run `supabase/migrations/20261024_productivity_navigation.sql` after the owner-admin migration. It extends the audited global-menu validator and appends the two new routes without overwriting existing menu labels, order, or visibility choices.
+9. Confirm Google and email providers are enabled in Auth settings. Phone/password sign-up also requires enabling Phone and configuring an SMS provider; the app sends an SMS verification code when a phone account is created.
+10. Add the public URL to the Auth redirect allow-list.
+11. Add the two `VITE_SUPABASE_*` values to GitHub Actions variables.
 
 If the app shows `Cloud storage is not installed yet`, open the Supabase SQL Editor for the same project and run `supabase/schema.sql`. This creates the private per-user data table, public journal table, private media bucket and row-level security policies. Do not disable RLS or use a service-role key in the browser. Never treat the collaboration schema as installed until the migration has been applied to the same Supabase project used by the app.
 

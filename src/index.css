@@ -187,9 +187,8 @@ html.dark .loading-copy p { color: rgb(203 213 225); }
 }
 @media (max-width: 1023px) {
   .app-main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
-  .mobile-app-header { min-height: calc(3.5rem + env(safe-area-inset-top)); padding-top: max(.625rem, env(safe-area-inset-top)); -webkit-transform: translateZ(0); transform: translate3d(0, 0, 0); transition: transform .24s cubic-bezier(.22,1,.36,1); will-change: transform; }
-  .mobile-app-header.is-scroll-hidden { transform: translate3d(0, -100%, 0); }
-  .mobile-app-header:focus-within { transform: translate3d(0, 0, 0); }
+  .mobile-app-header { position: fixed; inset-inline: 0; top: 0; width: 100%; min-height: calc(4rem + env(safe-area-inset-top)); padding-top: max(.625rem, env(safe-area-inset-top)); }
+  .mobile-header-spacer { height: calc(4rem + env(safe-area-inset-top)); }
   .mobile-menu-trigger { position: relative; z-index: 2; touch-action: manipulation; -webkit-appearance: none; appearance: none; }
   .mobile-drawer { z-index: 60; }
   .mobile-drawer-panel { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
@@ -223,3 +222,18 @@ html.dark .loading-copy p { color: rgb(203 213 225); }
 .project-status-rail > * { flex: 0 0 auto; scroll-snap-align: start; }
 .project-detail { max-width: 100%; overflow-wrap: anywhere; }
 .project-card { touch-action: manipulation; }
+
+.shared-project-layout { display: grid; grid-template-columns: 13rem minmax(0, 1fr); align-items: start; gap: 1rem; min-width: 0; }
+.shared-project-tabs { position: sticky; top: calc(4.5rem + env(safe-area-inset-top)); display: flex; min-width: 0; flex-direction: column; gap: .5rem; }
+.shared-project-tab { width: 100%; justify-content: flex-start; text-align: start; white-space: normal; }
+.timeline-item { animation: shared-rise .28s ease-out both; }
+.timeline-item:nth-child(2) { animation-delay: 35ms; }
+.timeline-item:nth-child(3) { animation-delay: 70ms; }
+.timeline-item:nth-child(4) { animation-delay: 105ms; }
+@keyframes shared-rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1023px) {
+  .shared-project-layout { grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+  .shared-project-tabs { position: relative; top: auto; z-index: 1; flex-direction: row; overflow-x: auto; overscroll-behavior-inline: contain; padding: .125rem .125rem .5rem; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .shared-project-tabs::-webkit-scrollbar { display: none; }
+  .shared-project-tab { width: auto; flex: 0 0 auto; scroll-snap-align: start; }
+}
