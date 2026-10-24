@@ -3,8 +3,10 @@ import { Award, CheckCircle2, TrendingUp, Zap } from 'lucide-react';
 import { PageHeader, Progress, Stat, STATUS_META } from '../components/ui';
 import { useStore } from '../lib/store';
 import { addDays, daysBetween, pct, today } from '../lib/utils';
+import { useState } from 'react';
 
 export default function Insights() {
+  const [shareStatus, setShareStatus] = useState('');
   const { items, goals, habits, projects, journal, categories } = useStore();
   const t = today();
   const done = items.filter((i) => i.status === 'done');
@@ -37,10 +39,24 @@ export default function Insights() {
   const dowCounts = [0, 0, 0, 0, 0, 0, 0];
   done.forEach((d) => d.completedAt && dowCounts[new Date(d.completedAt).getDay()]++);
   const bestDow = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dowCounts.indexOf(Math.max(...dowCounts))];
+  const shareInsights = async () => {
+    const payload = `${tr('Life insights')}\n${tr('Period')}: ${tr('All time')} / ${tr('last 30 days')}\n${tr('Completed (all time)')}: ${done.length}\n${tr('Habit consistency')}: ${habitRate}%\n${tr('Goals achieved')}: ${goals.filter((g) => g.status === 'done').length}`;
+    setShareStatus('');
+    if (typeof navigator.share === 'function') {
+      try { await navigator.share({ text: payload }); setShareStatus(tr('Shared successfully.')); return; }
+      catch (error) { if (error instanceof DOMException && error.name === 'AbortError') { setShareStatus(tr('Sharing canceled.')); return; } }
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(payload);
+      setShareStatus(tr('Share is unavailable; summary copied to clipboard.'));
+    } catch { setShareStatus(tr('Sharing and clipboard are unavailable.')); }
+  };
 
   return (
     <div>
-      <PageHeader title={tr("Insights")} subtitle={tr("Progress and patterns over time")} />
+      <PageHeader title={tr("Insights")} subtitle={tr("Progress and patterns over time")} actions={<button type="button" className="btn-outline min-h-10" onClick={shareInsights}>{tr('Share')}</button>} />
+      {shareStatus && <p className="mb-4 text-sm muted" role="status" aria-live="polite">{shareStatus}</p>}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label={tr("Completed (all time)")} value={done.length} sub={`${pct(done.length, items.length)}% of library`} icon={<CheckCircle2 size={18} />} color="#22c55e" />
         <Stat label={tr("This month")} value={thisMonth} sub={tr("items completed")} icon={<TrendingUp size={18} />} />

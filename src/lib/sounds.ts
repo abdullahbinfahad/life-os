@@ -1,10 +1,14 @@
 import { useStore } from './store';
 
 type Feedback = 'confirm' | 'add' | 'refresh';
+let lastFeedbackAt = 0;
 
 /** Soft synthesized UI cue; never creates audio or plays anything until the user opts in. */
 export function playFeedback(kind: Feedback) {
   if (typeof window === 'undefined' || !useStore.getState().settings.sounds) return;
+  const nowMs = Date.now();
+  if (nowMs - lastFeedbackAt < 120) return;
+  lastFeedbackAt = nowMs;
   try {
     const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextCtor) return;

@@ -1,6 +1,6 @@
 import { translate as tr } from '../lib/locales';
-import { CheckCircle2, Circle, Flame, Pencil, Plus, Star, Sunrise, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CheckCircle2, Circle, Flame, GripVertical, Pencil, Plus, Star, Sunrise, X } from 'lucide-react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { CatBadge, Empty, PageHeader, PRIORITY_META, Ring } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
 import { cx, pct, streak, today, weekCount } from '../lib/utils';
@@ -19,6 +19,9 @@ export default function Today() {
   const [text, setText] = useState('');
   const [suggest, setSuggest] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const dragIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user || !cloudEnabled) { setSharedTasks([]); return; }
@@ -29,7 +32,7 @@ export default function Today() {
     return () => { alive = false; unsubscribe(); };
   }, [user?.id]);
 
-  const todays = items.filter((i) => i.todayDate === t || (i.dueDate === t && i.status !== 'dropped')).sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done') || a.priority - b.priority);
+  const todays = items.filter((i) => i.todayDate === t || (i.dueDate === t && i.status !== 'dropped')).map((item, index) => ({ item, index })).sort((a, b) => Number(a.item.status === 'done') - Number(b.item.status === 'done') || a.index - b.index).map(({ item }) => item);
   const overdue = items.filter((i) => i.dueDate && i.dueDate < t && i.status !== 'done' && i.status !== 'dropped' && i.todayDate !== t);
   const projectTasks = projects.filter((p) => p.status !== 'done').flatMap((p) => p.tasks.filter((x) => x.dueDate && x.dueDate <= t && !x.done).map((x) => ({ ...x, project: p })));
   const activeHabits = habits.filter((h) => !h.archived);
@@ -38,6 +41,34 @@ export default function Today() {
   const total = todays.length + activeHabits.length;
 
   const add = () => { if (!text.trim()) return; addItems([{ title: text, todayDate: t, status: 'next', priority: 2 }]); setText(''); };
+
+  const moveItem = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= todays.length || to >= todays.length) return;
+    const ids = [...todays.map((item) => item.id)];
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
+    useStore.setState((state) => {
+      const selected = new Set(todays.map((item) => item.id));
+      let nextIndex = 0;
+      const reordered = [...state.items];
+      state.items.forEach((item, index) => {
+        if (selected.has(item.id)) reordered[index] = state.items.find((candidate) => candidate.id === ids[nextIndex++]) ?? item;
+      });
+      return { items: reordered };
+    });
+  };
+  const finishDrag = (to: number) => {
+    const from = dragIndexRef.current;
+    if (from !== null) moveItem(from, to);
+    dragIndexRef.current = null;
+    setDragIndex(null);
+    setDropIndex(null);
+  };
+  const trackPointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (dragIndexRef.current === null) return;
+    const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-personal-index]');
+    if (row) setDropIndex(Number(row.dataset.personalIndex));
+  };
 
   return (
     <div>
@@ -67,8 +98,9 @@ export default function Today() {
               <Empty icon={<Sunrise size={28} />} title={tr("Nothing planned yet")} text="Add a few priorities or pick from your library. Keep it to 3–5 important things." />
             ) : (
               <div className="space-y-1">
-                {todays.map((i) => (
-                  <div key={i.id} className="group flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-50 dark:hover:bg-white/[.03]">
+                {todays.map((i, index) => (
+                  <div key={i.id} data-personal-index={index} onPointerMove={trackPointer} onPointerUp={(event) => { if (dragIndexRef.current === null) return; const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-personal-index]'); finishDrag(row ? Number(row.dataset.personalIndex) : dragIndexRef.current); }} className={cx('group flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-50 dark:hover:bg-white/[.03]', dropIndex === index && dragIndex !== index && 'bg-indigo-500/10', dragIndex === index && 'opacity-50')}>
+                    <button type="button" aria-label={`${tr('Reorder item')}: ${i.title}`} title={tr('Drag to reorder')} onPointerDown={(event) => { if (event.button !== 0) return; dragIndexRef.current = index; setDragIndex(index); setDropIndex(index); event.currentTarget.setPointerCapture(event.pointerId); }} onPointerCancel={() => finishDrag(dragIndexRef.current ?? index)} onKeyDown={(event) => { if (event.key === 'ArrowUp' && index > 0) { event.preventDefault(); moveItem(index, index - 1); } else if (event.key === 'ArrowDown' && index < todays.length - 1) { event.preventDefault(); moveItem(index, index + 1); } else if (event.key === 'Home') { event.preventDefault(); moveItem(index, 0); } else if (event.key === 'End') { event.preventDefault(); moveItem(index, todays.length - 1); } }} className="touch-none cursor-grab text-slate-400 hover:text-indigo-500 active:cursor-grabbing" onClick={(event) => event.preventDefault()}><GripVertical size={18} /></button>
                     <button onClick={() => toggleItemDone(i.id)} className={i.status === 'done' ? 'text-emerald-500' : 'muted hover:text-emerald-500'}>{i.status === 'done' ? <CheckCircle2 size={22} /> : <Circle size={22} />}</button>
                     <span className="h-6 w-1 rounded-full" style={{ background: PRIORITY_META[i.priority].color }} />
                     <span className={cx('flex-1', i.status === 'done' && 'line-through muted')}>{i.title}</span>

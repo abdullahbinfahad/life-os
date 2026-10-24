@@ -1,5 +1,8 @@
 import { translate as tr } from '../lib/locales';
-import { Archive, CheckCircle2, Circle, Flame, Pencil, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
+import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Archive, CheckCircle2, Circle, Flame, GripVertical, Pencil, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { CatBadge, Empty, Modal, PageHeader } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
@@ -7,6 +10,18 @@ import type { Habit } from '../lib/types';
 import { addDays, bestStreak, cx, pct, streak, today, weekCount } from '../lib/utils';
 
 type HabitForm = { id?: string; title: string; categoryId: string; frequency: 'daily' | 'weekly'; targetPerWeek: number; why: string };
+function SortableHabitCard({ id, children, active }: { id: string; children: React.ReactNode; active: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return <article ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={cx('card min-w-0 p-4', isDragging && 'opacity-50', active && 'ring-2 ring-indigo-500')}>
+    <div className="mb-2 flex justify-end"><button type="button" {...attributes} {...listeners} className="btn-ghost !p-2 touch-none cursor-grab active:cursor-grabbing" aria-label="Reorder habit" title="Drag to reorder"><GripVertical size={18} /></button></div>{children}
+  </article>;
+}
+function SortableHabitRow({ id, children, active }: { id: string; children: React.ReactNode; active: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return <tr ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={cx('group border-b border-slate-100 last:border-0 dark:border-white/[.04]', isDragging && 'opacity-50', active && 'bg-indigo-50 dark:bg-indigo-500/10')}>
+    <td className="w-9 p-1"><button type="button" {...attributes} {...listeners} className="btn-ghost !p-1 touch-none cursor-grab active:cursor-grabbing" aria-label="Reorder habit" title="Drag to reorder"><GripVertical size={16} /></button></td>{children}
+  </tr>;
+}
 const blankForm: HabitForm = { title: '', categoryId: 'health', frequency: 'daily', targetPerWeek: 7, why: '' };
 const SUGGESTIONS: Omit<Habit, 'id' | 'log' | 'createdAt' | 'archived'>[] = [
   { title: 'Drink 2L water', categoryId: 'health', frequency: 'daily', targetPerWeek: 7 },
@@ -23,6 +38,8 @@ const SUGGESTIONS: Omit<Habit, 'id' | 'log' | 'createdAt' | 'archived'>[] = [
 
 export default function Habits() {
   const { habits, categories, settings, addHabit, toggleHabit, updateHabit, deleteHabit } = useStore();
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const catMap = useCategoryMap();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<HabitForm>(blankForm);
@@ -31,6 +48,20 @@ export default function Habits() {
   const week = Array.from({ length: 7 }, (_, i) => addDays(t, i - 6));
   const heat = Array.from({ length: 84 }, (_, i) => addDays(t, i - 83));
   const list = habits.filter((h) => Boolean(h.archived) === showArchived);
+  const reorderVisible = (event: DragEndEvent) => {
+    setDraggingId(null);
+    if (!event.over || event.active.id === event.over.id) return;
+    const current = useStore.getState().habits;
+    const slots = current.flatMap((habit, index) => Boolean(habit.archived) === showArchived ? [index] : []);
+    const visible = slots.map((index) => current[index]);
+    const from = visible.findIndex((habit) => habit.id === event.active.id);
+    const to = visible.findIndex((habit) => habit.id === event.over?.id);
+    if (from < 0 || to < 0) return;
+    const reordered = arrayMove(visible, from, to);
+    const next = [...current];
+    slots.forEach((slot, index) => { next[slot] = reordered[index]; });
+    useStore.setState({ habits: next });
+  };
   const active = habits.filter((h) => !h.archived);
   const checkedToday = active.filter((h) => h.log.includes(t)).length;
 
@@ -81,12 +112,14 @@ export default function Habits() {
         <Empty icon={<Repeat size={28} />} title={showArchived ? 'No archived habits' : 'Build your first habit'} text="Pick a daily routine or a realistic number of times each week. Your check-ins stay flexible." action={!showArchived && <div className="flex max-w-lg flex-wrap justify-center gap-2">{SUGGESTIONS.map((suggestion) => <button key={suggestion.title} className="chip border border-slate-200 px-3 py-1.5 text-sm hover:border-indigo-400 dark:border-white/10" onClick={() => addHabit(suggestion)}><Plus size={12} />{suggestion.title}</button>)}</div>} />
       ) : (
         <>
-          <div className="space-y-3 md:hidden">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => setDraggingId(String(event.active.id))} onDragCancel={() => setDraggingId(null)} onDragEnd={reorderVisible}>
+          <SortableContext items={list.map((h) => h.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-3 md:hidden" aria-label="Habits; drag handles reorder items">
             {list.map((h) => {
               const on = h.log.includes(t);
               const weekDone = weekCount(h.log, t, settings.weekStartsMonday);
               const days = activeDaysInWindow(h);
-              return <article key={h.id} className="card min-w-0 p-4">
+              return <SortableHabitCard key={h.id} id={h.id} active={draggingId === h.id}>
                 <div className="flex min-w-0 items-start gap-2">
                   <button className="min-w-0 flex-1 text-left" onClick={() => openEdit(h)} aria-label={`Edit ${h.title}`}>
                     <span className="block break-words font-semibold">{h.title}</span>
@@ -115,28 +148,30 @@ export default function Habits() {
                   <span className="inline-flex items-center gap-1 muted"><Trophy size={13} />{h.frequency === 'daily' ? `${bestStreak(h.log)} best days` : `${adherence(h)}% of ${days} active days`}</span>
                   <button className={cx('rounded-lg px-2.5 py-1.5 font-medium transition', on ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-200')} onClick={() => toggleHabit(h.id, t)}>{on ? 'Undo today' : 'Check in today'}</button>
                 </div>
-              </article>;
+              </SortableHabitCard>;
             })}
           </div>
 
+          </SortableContext>
           <div className="hidden overflow-x-auto md:block">
             <div className="card overflow-hidden">
               <table className="w-full min-w-[820px] text-sm">
-                <thead><tr className="border-b border-slate-200 dark:border-white/[.06]">
+                <thead><tr className="border-b border-slate-200 dark:border-white/[.06]"><th className="w-9" aria-label="Reorder" />
                   <th className="p-4 text-left font-medium muted">{tr("Habit")}</th>
                   {week.map((d) => <th key={d} className={cx('w-12 p-2 text-center text-xs font-medium', d === t ? 'text-indigo-600 dark:text-indigo-300' : 'muted')}>{new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' })}<div>{d.slice(8)}</div></th>)}
                   <th className="p-2 text-center text-xs font-medium muted">{tr("Current")}</th><th className="p-2 text-center text-xs font-medium muted">{tr("Best")}</th><th className="p-2 text-center text-xs font-medium muted">{tr("30d")}</th><th />
                 </tr></thead>
-                <tbody>{list.map((h) => <tr key={h.id} className="group border-b border-slate-100 last:border-0 dark:border-white/[.04]">
+                <tbody><SortableContext items={list.map((h) => h.id)} strategy={verticalListSortingStrategy}>{list.map((h) => <SortableHabitRow key={h.id} id={h.id} active={draggingId === h.id}>
                   <td className="min-w-0 p-4"><button className="block max-w-[220px] break-words text-left font-medium" onClick={() => openEdit(h)}>{h.title}</button><div className="mt-1 flex flex-wrap items-center gap-1"><CatBadge cat={catMap[h.categoryId]} /><span className="chip bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-300">{h.frequency === 'daily' ? 'Daily' : `${h.targetPerWeek}× / week`}</span></div></td>
                   {week.map((d) => { const logged = h.log.includes(d); return <td key={d} className="p-2 text-center"><button onClick={() => toggleHabit(h.id, d)} aria-label={`${logged ? 'Uncheck' : 'Check'} ${h.title} for ${d}`} className={cx('h-8 w-8 rounded-lg transition', logged ? 'shadow-md' : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[.05] dark:hover:bg-white/10')} style={logged ? { background: catMap[h.categoryId]?.color ?? '#22c55e' } : {}}>{logged && <span className="text-white">✓</span>}</button></td>; })}
                   <td className="p-2 text-center">{h.frequency === 'daily' ? <span className="inline-flex items-center gap-1 font-semibold text-orange-500"><Flame size={14} />{streak(h.log)}</span> : <span className="font-semibold text-indigo-600 dark:text-indigo-300">{weekCount(h.log, t, settings.weekStartsMonday)}/{h.targetPerWeek}</span>}</td>
                   <td className="p-2 text-center text-xs muted">{h.frequency === 'daily' ? bestStreak(h.log) : 'weekly goal'}</td><td className="p-2 text-center text-xs font-semibold">{adherence(h)}%</td>
                   <td className="p-2"><div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button className="btn-ghost !p-1.5" title={tr("Edit")} onClick={() => openEdit(h)}><Pencil size={14} /></button><button className="btn-ghost !p-1.5" title={showArchived ? 'Restore' : 'Archive'} onClick={() => updateHabit(h.id, { archived: !h.archived })}><Archive size={14} /></button><button className="btn-ghost !p-1.5 text-rose-500" title={tr("Move to Trash")} onClick={() => remove(h)}><Trash2 size={14} /></button></div></td>
-                </tr>)}</tbody>
+                </SortableHabitRow>)}</SortableContext></tbody>
               </table>
             </div>
           </div>
+          </DndContext>
         </>
       )}
 

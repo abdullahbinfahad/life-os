@@ -171,6 +171,12 @@ html.dark .loading-copy p { color: rgb(203 213 225); }
 @media (hover: hover) and (pointer: fine) {
   .mobile-bottom-nav a:hover .nav-icon, .mobile-bottom-nav button:hover .nav-icon { animation: nav-icon-pop .42s cubic-bezier(.2, .8, .2, 1); }
 }
+@media (prefers-reduced-motion: no-preference) {
+  .app-main button:not(:disabled), .app-main a[href] { transition: transform .16s cubic-bezier(.22,.8,.24,1), box-shadow .18s ease, border-color .18s ease, color .18s ease; }
+  .app-main button:not(:disabled):active, .app-main a[href]:active { transform: scale(.985); }
+  .app-main [role="progressbar"] > div { transition: width .55s cubic-bezier(.22,.8,.24,1); }
+  .theme-choice:hover:not(:disabled), .award-card:hover { transform: translateY(-2px); }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .loading-mark *, .loading-progress i { animation: none !important; }

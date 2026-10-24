@@ -64,6 +64,7 @@ const PRIMARY_ROUTES = ['/', '/projects', '/library', '/goals', '/habits'];
 export default function Layout({ children }: { children: ReactNode }) {
   const ownerAdmin = useOwnerAdmin();
   const forestTheme = useStore((s) => s.settings.theme === 'forest');
+  const soundsEnabled = useStore((s) => s.settings.sounds ?? false);
   const [mobile, setMobile] = useState(false);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -72,6 +73,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const nav = useNavigate();
 
   useEffect(() => { setMobile(false); setHeaderHidden(false); }, [loc.pathname]);
+  useEffect(() => {
+    if (!soundsEnabled) return;
+    const onAction = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      const control = event.target.closest('button:not(:disabled), [role="button"], a[href]');
+      if (!control || control.closest('[data-sound="off"]')) return;
+      const text = `${control.getAttribute('aria-label') ?? ''} ${control.getAttribute('title') ?? ''} ${control.textContent ?? ''}`.toLowerCase();
+      playFeedback(/sync|refresh|retry|reload/.test(text) ? 'refresh' : /add|new |create|upload|post|save/.test(text) ? 'add' : 'confirm');
+    };
+    document.addEventListener('click', onAction, true);
+    return () => document.removeEventListener('click', onAction, true);
+  }, [soundsEnabled]);
   useEffect(() => {
     setHeaderHidden(false);
     if (mobile || window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.innerWidth >= 1024) return;

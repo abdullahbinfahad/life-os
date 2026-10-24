@@ -1,6 +1,9 @@
 import { translate as tr } from '../lib/locales';
-import { ImagePlus, Plus, Trash2, Upload, X } from 'lucide-react';
+import { GripVertical, ImagePlus, Plus, Trash2, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { PageHeader } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { compressImage, deletePrivateImage, formatBytes, getPrivateImageUrl, uploadPrivateImage } from '../lib/media';
@@ -56,6 +59,16 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [busyMemoryId, setBusyMemoryId] = useState<string>();
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const reorder = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    useStore.setState((state) => ({ albums: state.albums.map((current) => {
+      if (current.id !== album.id) return current;
+      const from = current.memories.findIndex((memory) => memory.id === active.id);
+      const to = current.memories.findIndex((memory) => memory.id === over.id);
+      return from < 0 || to < 0 ? current : { ...current, memories: arrayMove(current.memories, from, to) };
+    }) }));
+  };
 
   useEffect(() => () => {
     if (selectedPreview?.startsWith('blob:')) URL.revokeObjectURL(selectedPreview);
@@ -193,11 +206,12 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
       </div>
     </div>
     {status && <p className="mb-4 break-words text-sm muted" role="status">{status}</p>}
-    <div className="grid gap-3 sm:grid-cols-2">{album.memories.map((memory) => <MemoryCard key={memory.id} memory={memory} userId={userId} busy={busyMemoryId === memory.id} onReplace={(file) => replacePhoto(memory, file)} onRemovePhoto={() => removePhoto(memory)} onDelete={() => removeMemory(memory)} />)}</div>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorder}><SortableContext items={album.memories.map((memory) => memory.id)} strategy={verticalListSortingStrategy}><div className="grid gap-3 sm:grid-cols-2">{album.memories.map((memory) => <MemoryCard key={memory.id} memory={memory} userId={userId} busy={busyMemoryId === memory.id} onReplace={(file) => replacePhoto(memory, file)} onRemovePhoto={() => removePhoto(memory)} onDelete={() => removeMemory(memory)} />)}</div></SortableContext></DndContext>
   </section>;
 }
 
 function MemoryCard({ memory, userId, busy, onReplace, onRemovePhoto, onDelete }: { memory: AlbumMemory; userId?: string; busy: boolean; onReplace: (file?: File) => void; onRemovePhoto: () => void; onDelete: () => void }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: memory.id });
   const fileInput = useRef<HTMLInputElement>(null);
   const [imageUrl, setImageUrl] = useState<string | undefined>(memory.imageUrl);
   const [imageError, setImageError] = useState('');
@@ -221,9 +235,9 @@ function MemoryCard({ memory, userId, busy, onReplace, onRemovePhoto, onDelete }
   }, [memory.imagePath, memory.imageUrl, userId]);
 
   const hasPhoto = Boolean(memory.imagePath || memory.imageUrl);
-  return <article className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[.08]">
+  return <article ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[.08] ${isDragging ? 'opacity-70 shadow-lg' : ''}`}>
     {hasPhoto && <div className="relative h-40 bg-slate-100 dark:bg-white/[.04]">{imageUrl ? <img src={imageUrl} alt={memory.title} className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : <div className="grid h-full place-items-center px-4 text-center text-xs muted">{imageError || 'Loading private photo…'}</div>}</div>}
-    <div className="p-4"><div className="flex items-start justify-between gap-2"><h3 className="font-medium">{memory.title}</h3><button className="muted hover:text-rose-500" disabled={busy} onClick={onDelete} title={tr("Delete memory")}><Trash2 size={14} /></button></div>
+    <div className="p-4"><div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><button ref={setActivatorNodeRef} type="button" aria-label={`Drag to reorder memory: ${memory.title}`} className="grid shrink-0 touch-none place-items-center rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[.05]" {...attributes} {...listeners}><GripVertical size={16} /></button><h3 className="font-medium">{memory.title}</h3></div><button className="muted hover:text-rose-500" disabled={busy} onClick={onDelete} title={tr("Delete memory")}><Trash2 size={14} /></button></div>
       <div className="mt-3 flex flex-wrap gap-2"><input ref={fileInput} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => { onReplace(e.target.files?.[0]); e.currentTarget.value = ''; }} /><button className="btn-outline !px-2 !py-1 text-xs" disabled={busy} onClick={() => fileInput.current?.click()}><ImagePlus size={14} /> {hasPhoto ? 'Replace photo' : 'Add photo'}</button>{hasPhoto && <button className="btn-ghost !px-2 !py-1 text-xs text-rose-500" disabled={busy} onClick={onRemovePhoto}>{tr("Remove photo")}</button>}</div>
       {busy && <p className="mt-2 text-xs muted">{tr("Updating private photo…")}</p>}
     </div>

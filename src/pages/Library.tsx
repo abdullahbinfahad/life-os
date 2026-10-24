@@ -1,7 +1,10 @@
 import { translate as tr } from '../lib/locales';
-import { Copy, Download, Hash, CheckCircle2, Circle, Grid3x3, LayoutList, Library as LibIcon, Plus, Search, Sparkles, Star, Sunrise, Trash2, X } from 'lucide-react';
+import { Copy, Download, Hash, CheckCircle2, Circle, Grid3x3, LayoutList, Library as LibIcon, Plus, Search, Sparkles, Star, Sunrise, Trash2, X, GripVertical } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import ItemEditor from '../components/ItemEditor';
 import TemplatePicker from '../components/TemplatePicker';
 import { toast } from '../components/Toaster';
@@ -12,7 +15,15 @@ import { csvEscape, cx, download, fmtDate, pct, today } from '../lib/utils';
 
 const PAGE = 100;
 type GroupBy = 'none' | 'category' | 'status' | 'priority' | 'horizon' | 'type';
-type SortBy = 'created' | 'priority' | 'due' | 'title';
+type SortBy = 'created' | 'priority' | 'due' | 'title' | 'manual';
+
+function SortableItem({ id, label, children, className }: { id: string; label: string; children: React.ReactNode; className?: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return <div ref={setNodeRef} className={className} style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 2 : undefined, position: 'relative', opacity: isDragging ? 0.65 : undefined }}>
+    <button type="button" {...attributes} {...listeners} aria-label={`Reorder ${label}`} title="Drag or use arrow keys to reorder" className="touch-none rounded p-1 text-slate-400 hover:text-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"><GripVertical size={17} aria-hidden="true" /></button>
+    {children}
+  </div>;
+}
 
 export default function Library() {
   const { items, categories, updateItems, deleteItems, restoreItems, duplicateItems, addTagToItems, removeTagFromItems, toggleItemDone, updateItem } = useStore();
@@ -34,6 +45,7 @@ export default function Library() {
   const [picker, setPicker] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const [inline, setInline] = useState('');
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   useEffect(() => setQ(params.get('q') ?? ''), [params]);
   useEffect(() => setLimit(PAGE), [q, cat, status, prio, horizon, starredOnly, tag]);
@@ -63,6 +75,7 @@ export default function Library() {
       if (sortBy === 'priority') return a.priority - b.priority || Number(b.starred) - Number(a.starred);
       if (sortBy === 'due') return (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999');
       if (sortBy === 'title') return a.title.localeCompare(b.title);
+      if (sortBy === 'manual') return items.indexOf(a) - items.indexOf(b);
       return b.createdAt.localeCompare(a.createdAt);
     });
     return r;
@@ -71,6 +84,21 @@ export default function Library() {
   const filteredRef = useRef(filtered);
   filteredRef.current = filtered;
   const visible = filtered.slice(0, limit);
+  const reorderVisible = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const from = visible.findIndex((item) => item.id === active.id);
+    const to = visible.findIndex((item) => item.id === over.id);
+    if (from < 0 || to < 0) return;
+    const reorderedIds = arrayMove(visible.map((item) => item.id), from, to);
+    useStore.setState((state) => {
+      const slots = new Set(visible.map((item) => item.id));
+      const replacements = new Map(reorderedIds.map((id) => [id, state.items.find((item) => item.id === id)!]));
+      let index = 0;
+      return { items: state.items.map((item) => slots.has(item.id) ? replacements.get(reorderedIds[index++])! : item) };
+    });
+    setSortBy('manual');
+    setGroupBy('none');
+  };
   const filtersOn = q || cat !== 'all' || status !== 'open' || prio !== 'all' || horizon !== 'all' || starredOnly || tag !== 'all';
   const clearFilters = () => { setQ(''); setCat('all'); setStatus('open'); setPrio('all'); setHorizon('all'); setStarredOnly(false); setTag('all'); };
   const exportSelected = () => {
@@ -182,7 +210,7 @@ export default function Library() {
           <option value="priority">{tr("Group: Priority")}</option><option value="horizon">{tr("Group: Horizon")}</option><option value="type">{tr("Group: Type")}</option>
         </select>
         <select className="input !w-auto" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}>
-          <option value="priority">{tr("Sort: Priority")}</option><option value="due">{tr("Sort: Due date")}</option><option value="created">{tr("Sort: Newest")}</option><option value="title">{tr("Sort: A–Z")}</option>
+          <option value="priority">{tr("Sort: Priority")}</option><option value="due">{tr("Sort: Due date")}</option><option value="created">{tr("Sort: Newest")}</option><option value="title">{tr("Sort: A–Z")}</option><option value="manual">{tr("Sort: Manual order")}</option>
         </select>
         {allTags.length > 0 && (
           <select className="input !w-auto" value={tag} onChange={(e) => setTag(e.target.value)}>
@@ -248,7 +276,7 @@ export default function Library() {
       ) : filtered.length === 0 ? (
         <Empty icon={<Search size={28} />} title={tr("No matching items")} text="Try clearing some filters." />
       ) : (
-        <div className="space-y-6">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorderVisible}><SortableContext items={visible.map((item) => item.id)} strategy={view === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}><div className="space-y-6">
           {groups.map((g) => (
             <section key={g.key}>
               <div className="mb-2 flex items-center gap-2 px-1">
@@ -259,7 +287,7 @@ export default function Library() {
               </div>
               <div className={view === 'grid' ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3' : 'card divide-y divide-slate-100 overflow-hidden dark:divide-white/[.05]'}>
                 {g.items.map((i) => view === 'list' ? (
-                  <div key={i.id} className={cx('group flex items-center gap-3 px-4 py-2.5 transition hover:bg-slate-50 dark:hover:bg-white/[.02]', sel.has(i.id) && 'bg-indigo-500/5')}>
+                  <SortableItem key={i.id} id={i.id} label={i.title} className={cx('group flex items-center gap-3 px-4 py-2.5 transition hover:bg-slate-50 dark:hover:bg-white/[.02]', sel.has(i.id) && 'bg-indigo-500/5')}>
                     <input type="checkbox" checked={sel.has(i.id)} onChange={() => toggleSel(i.id)} className="h-4 w-4 accent-indigo-600" />
                     <button title={i.status === 'done' ? 'Mark as open' : 'Mark complete'} aria-label={i.status === 'done' ? `Mark ${i.title} as open` : `Mark ${i.title} complete`} onClick={() => markItemDone(i.id, i.status === 'done')} className={i.status === 'done' ? 'text-emerald-500' : 'muted hover:text-emerald-500'}>
                       {i.status === 'done' ? <CheckCircle2 size={19} /> : <Circle size={19} />}
@@ -277,9 +305,9 @@ export default function Library() {
                       <span className="chip w-8 justify-center" style={{ color: PRIORITY_META[i.priority].color, background: PRIORITY_META[i.priority].color + '1a' }}>{tr("P")}{i.priority}</span>
                     </div>
                     <button onClick={() => updateItem(i.id, { starred: !i.starred })} className={i.starred ? 'text-amber-400' : 'text-slate-300 opacity-0 group-hover:opacity-100 dark:text-slate-600'}><Star size={16} fill={i.starred ? 'currentColor' : 'none'} /></button>
-                  </div>
+                  </SortableItem>
                 ) : (
-                  <div key={i.id} className={cx('card group relative p-4 transition hover:-translate-y-0.5 hover:shadow-lg', sel.has(i.id) && 'ring-2 ring-indigo-500')}>
+                  <SortableItem key={i.id} id={i.id} label={i.title} className="relative">
                     <div className="mb-2 flex items-center gap-2">
                       <input type="checkbox" checked={sel.has(i.id)} onChange={() => toggleSel(i.id)} className="h-4 w-4 accent-indigo-600" />
                       <CatBadge cat={catMap[i.categoryId]} />
@@ -292,7 +320,7 @@ export default function Library() {
                       <span className="chip bg-slate-200/70 dark:bg-white/[.06]">{HORIZON_META[i.horizon]}</span>
                       <button title={i.status === 'done' ? 'Mark as open' : 'Mark complete'} aria-label={i.status === 'done' ? `Mark ${i.title} as open` : `Mark ${i.title} complete`} onClick={() => markItemDone(i.id, i.status === 'done')} className="ml-auto text-emerald-500">{i.status === 'done' ? <CheckCircle2 size={18} /> : <Circle size={18} />}</button>
                     </div>
-                  </div>
+                  </SortableItem>
                 ))}
               </div>
             </section>
@@ -300,7 +328,7 @@ export default function Library() {
           {filtered.length > limit && (
             <div className="text-center"><button className="btn-outline" onClick={() => setLimit(limit + PAGE * 2)}>{tr("Show more (")}{filtered.length - limit} {tr("remaining)")}</button></div>
           )}
-        </div>
+        </div></SortableContext></DndContext>
       )}
       <ItemEditor item={editing} onClose={() => setEditing(null)} />
       <TemplatePicker open={picker} onClose={() => setPicker(false)} />

@@ -1,7 +1,10 @@
 import { translate as tr } from '../lib/locales';
-import { Check, Download, ImagePlus, Lock, Plus, Trash2, Upload } from 'lucide-react';
+import { Check, Download, GripVertical, ImagePlus, Lock, Plus, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
 import { syncNow, useAuth } from '../lib/auth';
@@ -13,11 +16,29 @@ import { APP_LANGUAGES } from '../lib/locales';
 import { playFeedback } from '../lib/sounds';
 import { EARNED_THEMES, isThemeUnlocked } from '../lib/themes';
 
+function SortableCategoryRow({ category, count, onUpdate, onDelete }: { category: { id: string; icon: string; color: string; name: string }; count: number; onUpdate: (patch: { icon?: string; color?: string; name?: string }) => void; onDelete: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
+  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.65 : 1 }} className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 p-2 dark:border-white/[.06]">
+    <button type="button" className="btn-ghost !p-1.5 touch-none" aria-label={`${tr('Reorder')} ${category.name}`} title={tr('Drag to reorder')} {...attributes} {...listeners}><GripVertical size={15} /></button>
+    <input aria-label={tr('Category icon')} className="w-10 rounded-lg bg-transparent text-center text-lg outline-none" value={category.icon} onChange={(e) => onUpdate({ icon: e.target.value })} />
+    <input aria-label={tr('Category color')} type="color" className="h-7 w-7 cursor-pointer rounded border-0 bg-transparent" value={category.color} onChange={(e) => onUpdate({ color: e.target.value })} />
+    <input aria-label={tr('Category name')} className="min-w-0 flex-1 bg-transparent text-sm outline-none" value={category.name} onChange={(e) => onUpdate({ name: e.target.value })} />
+    <span className="text-xs muted">{count}</span>
+    <button type="button" aria-label={`${tr('Delete')} ${category.name}`} className="btn-ghost !p-1.5 text-rose-500" onClick={onDelete}><Trash2 size={14} /></button>
+  </div>;
+}
+
 export default function Settings() {
   const s = useStore();
   const navigate = useNavigate();
   const { user, sync, syncError, lastSynced } = useAuth();
   const rewardPoints = s.rewardEvents.reduce((sum, event) => sum + event.points, 0);
+  const categorySensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const reorderCategory = (event: DragEndEvent) => {
+    const from = s.categories.findIndex((category) => category.id === event.active.id);
+    const to = s.categories.findIndex((category) => category.id === event.over?.id);
+    if (from >= 0 && to >= 0 && from !== to) useStore.setState((state) => ({ categories: arrayMove(state.categories, from, to) }));
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   const csvRef = useRef<HTMLInputElement>(null);
   const [newCat, setNewCat] = useState({ name: '', icon: '⭐', color: '#6366f1' });
@@ -162,10 +183,7 @@ export default function Settings() {
               {([
                 { value: 'dark', title: 'Night glass', detail: 'Original dark theme', preview: 'linear-gradient(135deg,#182131,#0b0d12 62%,#253344)' },
                 { value: 'light', title: 'Clean light', detail: 'Original bright theme', preview: 'linear-gradient(135deg,#dbeafe,#ffffff 52%,#d1fae5)' },
-                { value: 'paper', title: 'Paper & ink', detail: 'Warm paper theme', preview: 'linear-gradient(135deg,#e7dcc5,#faf7ef 52%,#d2c5aa)' },
-                { value: 'monochrome', title: 'Monochrome', detail: 'Black and white theme', preview: 'linear-gradient(135deg,#080808,#3a3a3a 52%,#f7f7f7)' },
-                { value: 'sapphire', title: 'Sapphire glass', detail: 'Deep blue premium theme', preview: 'radial-gradient(ellipse at 78% 4%,rgba(59,130,246,.48),transparent 55%),linear-gradient(140deg,#12213e,#080d19 76%)' },
-                ...EARNED_THEMES.filter((item) => item.id === 'forest').map((item) => ({ value: item.id, title: item.title, detail: 'Deep emerald premium theme', preview: 'radial-gradient(ellipse at 78% 4%,rgba(52,211,153,.42),transparent 55%),linear-gradient(140deg,#13291f,#07100c 76%)' })),
+                ...EARNED_THEMES.map((item) => ({ value: item.id, title: item.title, detail: 'Earn this premium theme', preview: item.id === 'paper' ? 'linear-gradient(135deg,#e7dcc5,#faf7ef 52%,#d2c5aa)' : item.id === 'monochrome' ? 'linear-gradient(135deg,#080808,#3a3a3a 52%,#f7f7f7)' : item.id === 'sapphire' ? 'radial-gradient(ellipse at 78% 4%,rgba(59,130,246,.48),transparent 55%),linear-gradient(140deg,#12213e,#080d19 76%)' : 'radial-gradient(ellipse at 78% 4%,rgba(52,211,153,.42),transparent 55%),linear-gradient(140deg,#13291f,#07100c 76%)' })),
               ] as const).map((choice) => {
                 const selected = s.settings.theme === choice.value;
                 const milestone = EARNED_THEMES.find((item) => item.id === choice.value);
@@ -193,17 +211,11 @@ export default function Settings() {
       <section className="card mb-6 p-6">
         <h3 className="mb-1 font-semibold">{tr("Categories")}</h3>
         <p className="mb-4 text-sm muted">{tr("Organize your life areas. Deleting a category moves its items to another.")}</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {s.categories.map((c) => (
-            <div key={c.id} className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 p-2 dark:border-white/[.06]">
-              <input className="w-10 rounded-lg bg-transparent text-center text-lg outline-none" value={c.icon} onChange={(e) => s.updateCategory(c.id, { icon: e.target.value })} />
-              <input type="color" className="h-7 w-7 cursor-pointer rounded border-0 bg-transparent" value={c.color} onChange={(e) => s.updateCategory(c.id, { color: e.target.value })} />
-              <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" value={c.name} onChange={(e) => s.updateCategory(c.id, { name: e.target.value })} />
-              <span className="text-xs muted">{s.items.filter((i) => i.categoryId === c.id).length}</span>
-              <button className="btn-ghost !p-1.5 text-rose-500" onClick={() => confirm(`Delete category "${c.name}"?`) && s.deleteCategory(c.id)}><Trash2 size={14} /></button>
-            </div>
-          ))}
-        </div>
+        <DndContext sensors={categorySensors} collisionDetection={closestCenter} onDragEnd={reorderCategory}>
+          <SortableContext items={s.categories.map((category) => category.id)} strategy={rectSortingStrategy}>
+            <div className="grid gap-2 sm:grid-cols-2">{s.categories.map((category) => <SortableCategoryRow key={category.id} category={category} count={s.items.filter((item) => item.categoryId === category.id).length} onUpdate={(patch) => s.updateCategory(category.id, patch)} onDelete={() => confirm(`Delete category "${category.name}"?`) && s.deleteCategory(category.id)} />)}</div>
+          </SortableContext>
+        </DndContext>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input className="input !w-16 shrink-0 text-center" value={newCat.icon} onChange={(e) => setNewCat({ ...newCat, icon: e.target.value })} aria-label={tr("New category icon")} />
           <input type="color" className="h-10 w-10 shrink-0 cursor-pointer rounded-xl" value={newCat.color} onChange={(e) => setNewCat({ ...newCat, color: e.target.value })} aria-label={tr("New category color")} />
@@ -226,9 +238,8 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="card mb-6 flex min-w-0 flex-wrap items-center justify-between gap-3 p-5" aria-labelledby="trash-heading">
-        <div className="min-w-0"><h3 id="trash-heading" className="font-semibold">{tr("Trash")}</h3><p className="mt-1 text-sm muted">{tr("Deleted items stay here until you restore them or permanently remove them.")}</p></div>
-        <button className="btn-outline shrink-0" onClick={() => navigate('/trash')}><Trash2 size={15} />{s.trash.length} {tr("items")}<span className="ml-1">· {tr("Open Trash")}</span></button>
+      <section className="card mb-6 flex min-w-0 items-center justify-between gap-3 p-4" aria-label={tr("Trash")}>
+        <button className="btn-outline min-h-11 shrink-0" aria-label={`${tr("Trash")} · ${s.trash.length}`} onClick={() => navigate('/trash')}><Trash2 size={15} /><span className="tabular-nums">{s.trash.length}</span></button>
       </section>
 
       <section className="card mb-6 p-6">

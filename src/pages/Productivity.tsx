@@ -28,6 +28,7 @@ export default function Productivity() {
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState('');
   const [notice, setNotice] = useState('');
+  const [shareStatus, setShareStatus] = useState('');
   const [timerKind, setTimerKind] = useState<'pomodoro' | 'stopwatch'>('pomodoro');
   const [stopwatchElapsed, setStopwatchElapsed] = useState(0);
   const [stopwatchStartedAt, setStopwatchStartedAt] = useState<number | null>(null);
@@ -79,6 +80,21 @@ export default function Productivity() {
     { title: 'Getting things done', earned: state.rewardEvents.filter((event) => event.kind === 'task').length >= 5, detail: 'Complete 5 personal tasks' },
     { title: 'Momentum', earned: rewardPoints >= 500, detail: 'Earn 500 points' },
   ];
+  const shareAchievements = async () => {
+    const earnedBadges = badges.filter((badge) => badge.earned).map((badge) => tr(badge.title));
+    const earnedMedals = EARNED_THEMES.filter((milestone) => rewardPoints >= milestone.points).map((milestone) => tr(milestone.title));
+    const payload = `${tr('Productivity achievements')}\n${tr('Earned points')}: ${rewardPoints}\n${tr('Total focus minutes')}: ${focusMinutes}\n${tr('Earned badges')}: ${earnedBadges.length ? earnedBadges.join(', ') : tr('None')}\n${tr('Earned medals')}: ${earnedMedals.length ? earnedMedals.join(', ') : tr('None')}`;
+    setShareStatus('');
+    if (typeof navigator.share === 'function') {
+      try { await navigator.share({ text: payload }); setShareStatus(tr('Shared successfully.')); return; }
+      catch (error) { if (error instanceof DOMException && error.name === 'AbortError') { setShareStatus(tr('Sharing canceled.')); return; } }
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(payload);
+      setShareStatus(tr('Share is unavailable; summary copied to clipboard.'));
+    } catch { setShareStatus(tr('Sharing and clipboard are unavailable.')); }
+  };
   const display = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
 
   const setModeSafe = (next: Mode) => { if (running) return; setMode(next); setSecondsLeft(modeMinutes(next, config) * 60); setNotice(''); };
@@ -127,7 +143,7 @@ export default function Productivity() {
         })}{!allTasks.length && <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm muted">{tr('No open tasks yet. Add a task in your Life Library or Projects.')}</p>}</div>
       </section>
     </div>}
-    {tab === 'report' && <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
+    {tab === 'report' && <div className="space-y-4">{shareStatus && <p className="text-sm muted" role="status" aria-live="polite">{shareStatus}</p>}<div className="flex justify-end"><button type="button" className="btn-outline min-h-10" onClick={shareAchievements}>{tr('Share')}</button></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
       [tr('Focus today'), `${todayMinutes} ${tr('min')}`], [tr('Focus all time'), `${focusMinutes} ${tr('min')}`], [tr('Self-reported distraction'), `${distractionMinutes} ${tr('min')}`], [tr('Earned points'), rewardPoints.toLocaleString(localeForLanguage(state.settings.language))]
     ].map(([label, value]) => <section key={label} className="card min-w-0 p-4"><p className="text-sm muted">{label}</p><p className="mt-2 break-words text-2xl font-semibold tabular-nums">{value}</p></section>)}</div>
       <section className="card min-w-0 p-4 sm:p-5"><h2 className="mb-3 flex items-center gap-2 font-semibold"><BarChart3 size={18} />{tr('Recent focus sessions')}</h2>{recentSessions.length ? <div className="divide-y divide-slate-200 dark:divide-white/10">{recentSessions.map((session: FocusSession) => <div key={session.id} className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-3"><div className="min-w-0"><p className="break-words text-sm font-medium">{session.focusMinutes} {tr('min focused')} · {session.distractionMinutes} {tr('min distraction')}</p><time className="text-xs muted" dateTime={session.startedAt}>{new Date(session.startedAt).toLocaleString(localeForLanguage(state.settings.language))}</time>{session.note && <p className="mt-1 break-words text-xs muted">{session.note}</p>}</div><span className="chip shrink-0 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200">+{session.pointsAwarded} {tr('points')}</span></div>)}</div> : <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm muted">{tr('Your focus sessions and progress will appear here.')}</p>}</section>
