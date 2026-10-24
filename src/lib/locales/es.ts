@@ -30,6 +30,23 @@ const dictionary: Record<string, string> = {"(optional)":"(opcional)","+ Add mil
 "Completed": 'Completado',
 "Progress": 'Progreso',
 "Unread": 'No leído',
-};
+"Copy to Shared Projects": 'Copiar a proyectos compartidos',
+"Copy private project to Shared Projects": 'Copiar proyecto privado a proyectos compartidos',
+"This creates a copy in Shared Projects. Your private project stays unchanged as a recoverable backup; this is not a move or migration.": 'Esto crea una copia en Proyectos compartidos. Tu proyecto privado permanece intacto como respaldo recuperable; no es un traslado ni una migración.',
+"Warning: the copied title, description, and tasks will be visible to future members of this shared project.": 'Aviso: los miembros futuros de este proyecto compartido podrán ver el título, la descripción y las tareas copiadas.',
+"Confirm and copy": 'Confirmar y copiar',
+"Copying…": 'Copiando…',
+"Shared project created; your private original is unchanged.": 'Proyecto compartido creado; el original privado no ha cambiado.',
+"Shared project created with some tasks missing; your private original is unchanged.": 'Proyecto compartido creado, aunque faltan algunas tareas; el original privado no ha cambiado.',
+"Could not create the shared project. Your private original is unchanged.": 'No se pudo crear el proyecto compartido. El original privado no ha cambiado.',
+"Copied": 'Copiadas',
+"tasks": 'tareas',
 
+"By default this creates a shared copy and keeps your private project. You can optionally move the original to Trash after every task and dependency copies successfully.": "De forma predeterminada, esto crea una copia compartida y conserva tu proyecto privado. Si quieres, puedes mover el original a la papelera cuando se hayan copiado correctamente todas las tareas y dependencias.",
+"Move the private original to Trash after a complete copy (restorable).": "Mover el original privado a la papelera después de completar la copia (se puede restaurar).",
+"Shared project created; private original moved to Trash.": "Proyecto compartido creado; el original privado se ha movido a la papelera.",
+"Shared project created with some details missing; your private original is unchanged.": "Se creó el proyecto compartido con algunos detalles incompletos; tu original privado no ha cambiado.",
+"Back to projects": "Volver a proyectos",
+"Project details": "Detalles del proyecto",
+};
 export default dictionary;

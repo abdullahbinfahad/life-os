@@ -73,8 +73,14 @@ export function sharedServiceError(error: unknown): string {
 export async function fetchSharedWorkspace(currentUserId?: string, currentDisplayName?: string): Promise<SharedWorkspaceSnapshot> {
   const db = getClient();
   if (currentUserId && currentDisplayName?.trim()) {
-    const { error } = await db.from('shared_member_profiles').upsert({ user_id: currentUserId, display_name: currentDisplayName.trim().slice(0, 80), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-    throwIfError(error);
+    const profile = { user_id: currentUserId, display_name: currentDisplayName.trim().slice(0, 80), updated_at: new Date().toISOString() };
+    const { error: insertError } = await db.from('shared_member_profiles').insert(profile);
+    let profileError = insertError;
+    if (insertError?.code === '23505') {
+      const { error } = await db.from('shared_member_profiles').update({ display_name: profile.display_name, updated_at: profile.updated_at }).eq('user_id', currentUserId);
+      profileError = error;
+    }
+    if (profileError) console.warn('Shared member display-name sync failed; continuing workspace load.', profileError);
   }
   const results = await Promise.all([
     db.from('shared_projects').select('id,title,description,status,due_date,created_by,created_at,updated_at').order('updated_at', { ascending: false }),
@@ -156,11 +162,11 @@ export async function updateSharedNote(id: string, patch: Partial<Pick<SharedNot
 export async function markSharedCommentsRead(projectId: string, userId: string, comments: SharedComment[]) {
   const rows = comments.filter((comment) => comment.project_id === projectId).map((comment) => ({ comment_id: comment.id, user_id: userId, seen_at: new Date().toISOString() }));
   if (!rows.length) return;
-  const { error } = await getClient().from('shared_project_comment_receipts').upsert(rows, { onConflict: 'comment_id,user_id' }); throwIfError(error);
+  const { error } = await getClient().from('shared_project_comment_receipts').upsert(rows, { onConflict: 'comment_id,user_id', ignoreDuplicates: true }); throwIfError(error);
 }
 export async function setSharedCommentReadState(commentId: string, userId: string, isRead: boolean) {
   const db = getClient();
-  if (isRead) { const { error } = await db.from('shared_project_comment_receipts').upsert({ comment_id: commentId, user_id: userId, seen_at: new Date().toISOString() }, { onConflict: 'comment_id,user_id' }); throwIfError(error); }
+  if (isRead) { const { error } = await db.from('shared_project_comment_receipts').upsert({ comment_id: commentId, user_id: userId, seen_at: new Date().toISOString() }, { onConflict: 'comment_id,user_id', ignoreDuplicates: true }); throwIfError(error); }
   else { const { error } = await db.from('shared_project_comment_receipts').delete().eq('comment_id', commentId).eq('user_id', userId); throwIfError(error); }
 }
 export async function createSharedPortfolio(title: string, description: string) { const { data, error } = await getClient().rpc('shared_create_portfolio', { p_title: title, p_description: description }); throwIfError(error); return data as string; }

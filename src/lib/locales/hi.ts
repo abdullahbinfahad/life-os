@@ -30,6 +30,23 @@ const dictionary: Record<string, string> = {"(optional)":"(वैकल्पि
 "Completed": 'पूर्ण',
 "Progress": 'प्रगति',
 "Unread": 'अपठित',
-};
+"Copy to Shared Projects": 'Shared Projects में कॉपी करें',
+"Copy private project to Shared Projects": 'निजी प्रोजेक्ट को Shared Projects में कॉपी करें',
+"This creates a copy in Shared Projects. Your private project stays unchanged as a recoverable backup; this is not a move or migration.": 'इससे Shared Projects में एक कॉपी बनेगी। पुनर्प्राप्ति के लिए आपका निजी प्रोजेक्ट अपरिवर्तित रहेगा; यह स्थानांतरण नहीं है।',
+"Warning: the copied title, description, and tasks will be visible to future members of this shared project.": 'चेतावनी: कॉपी किया गया शीर्षक, विवरण और कार्य इस साझा प्रोजेक्ट के भविष्य के सदस्यों को दिखाई देंगे।',
+"Confirm and copy": 'पुष्टि करके कॉपी करें',
+"Copying…": 'कॉपी हो रहा है…',
+"Shared project created; your private original is unchanged.": 'साझा प्रोजेक्ट बन गया; आपका मूल निजी प्रोजेक्ट अपरिवर्तित है।',
+"Shared project created with some tasks missing; your private original is unchanged.": 'कुछ कार्य छूटने के साथ साझा प्रोजेक्ट बन गया; आपका मूल निजी प्रोजेक्ट अपरिवर्तित है।',
+"Could not create the shared project. Your private original is unchanged.": 'साझा प्रोजेक्ट नहीं बन सका। आपका मूल निजी प्रोजेक्ट अपरिवर्तित है।',
+"Copied": 'कॉपी किए',
+"tasks": 'कार्य',
 
+"By default this creates a shared copy and keeps your private project. You can optionally move the original to Trash after every task and dependency copies successfully.": "डिफ़ॉल्ट रूप से, इससे एक साझा कॉपी बनेगी और आपका निजी प्रोजेक्ट बना रहेगा। आप चाहें तो हर काम और निर्भरता की कॉपी सफलतापूर्वक बनने के बाद मूल प्रोजेक्ट को ट्रैश में भेज सकते हैं।",
+"Move the private original to Trash after a complete copy (restorable).": "पूरी कॉपी बनने के बाद निजी मूल प्रोजेक्ट को ट्रैश में भेजें (इसे बहाल किया जा सकता है)।",
+"Shared project created; private original moved to Trash.": "साझा प्रोजेक्ट बनाया गया; निजी मूल प्रोजेक्ट ट्रैश में भेज दिया गया।",
+"Shared project created with some details missing; your private original is unchanged.": "कुछ विवरण छूट जाने के कारण साझा प्रोजेक्ट बनाया गया; आपका निजी मूल प्रोजेक्ट अपरिवर्तित है।",
+"Back to projects": "प्रोजेक्ट्स पर वापस जाएँ",
+"Project details": "प्रोजेक्ट विवरण",
+};
 export default dictionary;

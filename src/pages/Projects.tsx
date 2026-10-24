@@ -1,11 +1,14 @@
 import { translate as tr } from '../lib/locales';
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { CheckCircle2, Circle, FolderKanban, GripVertical, Link2, Lock, Plus, Trash2, Users } from 'lucide-react';
+import { CheckCircle2, Circle, FolderKanban, GripVertical, Link2, Lock, Plus, Share2, Trash2, Users } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { CatBadge, Empty, Modal, PageHeader, Progress } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
 import type { Project } from '../lib/types';
 import { cx, fmtDate, pct, today } from '../lib/utils';
+import { useAuth } from '../lib/auth';
+import { cloudEnabled } from '../lib/supabase';
+import { addSharedDependency, createSharedProject, createSharedTask, updateSharedProject, updateSharedTask } from '../lib/sharedProjects';
 const SharedProjectsWorkspace = lazy(() => import('../components/projects/SharedProjectsWorkspace'));
 
 const COLS: { id: Project['status']; label: string; color: string; tone: string }[] = [
@@ -63,6 +66,7 @@ function ProjectCard({ project, category, onOpen }: { project: Project; category
 
 export default function Projects() {
   const { projects, goals, categories, addProject, updateProject, deleteProject, addTask, updateTask, deleteTask } = useStore();
+  const { user } = useAuth();
   const catMap = useCategoryMap();
   const [selectedStatus, setSelectedStatus] = useState<Project['status']>('active');
   const [workspaceMode, setWorkspaceMode] = useState<'private' | 'shared'>('private');
@@ -73,6 +77,10 @@ export default function Projects() {
   const [taskText, setTaskText] = useState('');
   const [taskDue, setTaskDue] = useState('');
   const [dragNotice, setDragNotice] = useState('');
+  const [sharePreview, setSharePreview] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState('');
+  const [movePrivateToTrash, setMovePrivateToTrash] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 190, tolerance: 8 } }),
@@ -103,6 +111,58 @@ export default function Projects() {
     }
   };
   const blocked = (project: Project, depIds: string[]) => depIds.some((depId) => !project.tasks.find((task) => task.id === depId)?.done);
+  const copyToShared = async () => {
+    if (!open || !user?.id || !cloudEnabled || sharing) return;
+    setSharing(true); setShareFeedback('');
+    let sharedId: string | null = null;
+    let copied = 0;
+    let hadCopyFailure = false;
+    try {
+      sharedId = await createSharedProject(open.title, open.description, open.status);
+      if (open.dueDate) {
+        try { await updateSharedProject(sharedId, { due_date: open.dueDate }); }
+        catch { hadCopyFailure = true; }
+      }
+      const copiedTaskIds = new Map<string, string>();
+      for (const task of open.tasks) {
+        try {
+          const taskId = await createSharedTask(sharedId, user.id, task.title, task.dueDate);
+          copiedTaskIds.set(task.id, taskId);
+          copied += 1;
+          if (task.done) {
+            try { await updateSharedTask(taskId, { status: 'done' }); }
+            catch { hadCopyFailure = true; }
+          }
+        } catch { hadCopyFailure = true; /* Continue copying other tasks and report the count. */ }
+      }
+      for (const task of open.tasks) {
+        const newTaskId = copiedTaskIds.get(task.id);
+        if (!newTaskId) continue;
+        for (const dependencyId of task.dependsOn) {
+          const newDependencyId = copiedTaskIds.get(dependencyId);
+          if (!newDependencyId) { hadCopyFailure = true; continue; }
+          try { await addSharedDependency(sharedId, newTaskId, newDependencyId, user.id); }
+          catch { hadCopyFailure = true; }
+        }
+      }
+      const complete = copied === open.tasks.length && !hadCopyFailure;
+      if (complete && movePrivateToTrash) deleteProject(open.id);
+      const message = complete
+        ? movePrivateToTrash ? tr('Shared project created; private original moved to Trash.') : tr('Shared project created; your private original is unchanged.')
+        : copied < open.tasks.length
+          ? tr('Shared project created with some tasks missing; your private original is unchanged.')
+          : tr('Shared project created with some details missing; your private original is unchanged.');
+      setShareFeedback(`${message} ${tr('Copied')} ${copied}/${open.tasks.length} ${tr('tasks')}.`);
+      setSharePreview(false); setMovePrivateToTrash(false); setOpenId(null); setWorkspaceMode('shared');
+    } catch (error) {
+      if (sharedId) {
+        setShareFeedback(`${tr('Shared project created with some tasks missing; your private original is unchanged.')} ${tr('Copied')} ${copied}/${open.tasks.length} ${tr('tasks')}.`);
+        setSharePreview(false); setMovePrivateToTrash(false); setOpenId(null); setWorkspaceMode('shared');
+      } else {
+        setShareFeedback(error instanceof Error ? error.message : tr('Could not create the shared project. Your private original is unchanged.'));
+      }
+    } finally { setSharing(false); }
+  };
 
   const modeActions = <div className="flex min-w-0 flex-wrap items-center gap-2">
     <div className="flex shrink-0 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-white/10 dark:bg-white/[.04]" role="tablist" aria-label={tr('Project workspaces')}>
@@ -112,7 +172,7 @@ export default function Projects() {
     {workspaceMode === 'private' && <button className="btn-primary shrink-0" onClick={() => setCreating(true)}><Plus size={16} /> {tr('New project')}</button>}
   </div>;
 
-  if (workspaceMode === 'shared') return <div className="min-w-0">{!sharedDetailOpen && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
+  if (workspaceMode === 'shared') return <div className="min-w-0">{shareFeedback && <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200" role="status">{shareFeedback}</p>}{!sharedDetailOpen && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
 
   return (
     <div className="min-w-0">
@@ -157,10 +217,14 @@ export default function Projects() {
         </form>
       </Modal>
 
+      <Modal open={sharePreview} onClose={() => { if (!sharing) { setSharePreview(false); setMovePrivateToTrash(false); } }} title={tr('Copy private project to Shared Projects')}>
+        {open && <div className="space-y-4"><p className="text-sm muted">{tr('By default this creates a shared copy and keeps your private project. You can optionally move the original to Trash after every task and dependency copies successfully.')}</p><div className="rounded-xl border border-slate-200 p-3 dark:border-white/10"><p className="font-semibold">{open.title}</p><p className="mt-1 text-sm muted">{open.tasks.length} {tr('tasks')}</p></div><p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">{tr('Warning: the copied title, description, and tasks will be visible to future members of this shared project.')}</p><label className="flex min-w-0 items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm dark:border-white/10"><input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-indigo-600" checked={movePrivateToTrash} disabled={sharing} onChange={(event) => setMovePrivateToTrash(event.target.checked)} /><span>{tr('Move the private original to Trash after a complete copy (restorable).')}</span></label>{shareFeedback && <p className="text-sm text-rose-600" role="alert">{shareFeedback}</p>}<div className="flex justify-end gap-2"><button type="button" className="btn-ghost" disabled={sharing} onClick={() => { setSharePreview(false); setMovePrivateToTrash(false); }}>{tr('Cancel')}</button><button type="button" className="btn-primary" disabled={sharing || !cloudEnabled || !user} onClick={copyToShared}>{sharing ? tr('Copying…') : tr('Confirm and copy')}</button></div></div>}
+      </Modal>
+
       {open && <section className="project-fullpage card min-w-0 p-4 sm:p-6" aria-label={tr('Project details')}>
         {open && (
           <div className="project-detail min-w-0 space-y-5">
-            <header className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-white/10"><div className="min-w-0"><button type="button" className="btn-ghost -ml-2 mb-2" onClick={() => setOpenId(null)}><Link2 size={15} />{tr('Back to projects')}</button><h2 className="break-words text-xl font-semibold tracking-tight sm:text-2xl">{open.title}</h2><p className="mt-1 text-sm muted">{tr('Project details')} · {tr(COLS.find((column) => column.id === open.status)?.label ?? open.status)}</p></div><button type="button" className="btn-ghost text-rose-600" onClick={() => { if (confirm(tr('Delete project?'))) { deleteProject(open.id); setOpenId(null); } }}><Trash2 size={15} />{tr('Delete project')}</button></header>
+            <header className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-white/10"><div className="min-w-0"><button type="button" className="btn-ghost -ml-2 mb-2" onClick={() => setOpenId(null)}><Link2 size={15} />{tr('Back to projects')}</button><h2 className="break-words text-xl font-semibold tracking-tight sm:text-2xl">{open.title}</h2><p className="mt-1 text-sm muted">{tr('Project details')} · {tr(COLS.find((column) => column.id === open.status)?.label ?? open.status)}</p></div><div className="flex flex-wrap gap-2">{cloudEnabled && user && <button type="button" className="btn-ghost" onClick={() => { setShareFeedback(''); setSharePreview(true); }}><Share2 size={15} />{tr('Copy to Shared Projects')}</button>}<button type="button" className="btn-ghost text-rose-600" onClick={() => { if (confirm(tr('Delete project?'))) { deleteProject(open.id); setOpenId(null); } }}><Trash2 size={15} />{tr('Delete project')}</button></div></header>
             <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <label className="min-w-0"><span className="label">{tr('Status')}</span><select className="input min-w-0" value={open.status} onChange={(event) => updateProject(open.id, { status: event.target.value as Project['status'] })}>{COLS.map((column) => <option key={column.id} value={column.id}>{tr(column.label)}</option>)}</select></label>
               <label className="min-w-0"><span className="label">{tr('Due date')}</span><input type="date" className="input min-w-0" value={open.dueDate ?? ''} onChange={(event) => updateProject(open.id, { dueDate: event.target.value || undefined })} /></label>

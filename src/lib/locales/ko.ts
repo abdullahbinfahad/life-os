@@ -30,6 +30,23 @@ const dictionary: Record<string, string> = {"(optional)":"(선택 사항)","+ Ad
 "Completed": '완료',
 "Progress": '진행 상황',
 "Unread": '읽지 않음',
-};
+"Copy to Shared Projects": '공유 프로젝트로 복사',
+"Copy private project to Shared Projects": '비공개 프로젝트를 공유 프로젝트로 복사',
+"This creates a copy in Shared Projects. Your private project stays unchanged as a recoverable backup; this is not a move or migration.": '공유 프로젝트에 사본을 만듭니다. 복구 가능한 백업으로 비공개 프로젝트는 변경되지 않습니다. 이동이나 마이그레이션이 아닙니다.',
+"Warning: the copied title, description, and tasks will be visible to future members of this shared project.": '주의: 복사된 제목, 설명, 작업은 향후 이 공유 프로젝트에 참여하는 구성원에게 공개됩니다.',
+"Confirm and copy": '확인 후 복사',
+"Copying…": '복사 중…',
+"Shared project created; your private original is unchanged.": '공유 프로젝트를 만들었습니다. 기존 비공개 프로젝트는 변경되지 않았습니다.',
+"Shared project created with some tasks missing; your private original is unchanged.": '일부 작업이 누락된 채 공유 프로젝트를 만들었습니다. 기존 비공개 프로젝트는 변경되지 않았습니다.',
+"Could not create the shared project. Your private original is unchanged.": '공유 프로젝트를 만들지 못했습니다. 기존 비공개 프로젝트는 변경되지 않았습니다.',
+"Copied": '복사됨',
+"tasks": '개 작업',
 
+"By default this creates a shared copy and keeps your private project. You can optionally move the original to Trash after every task and dependency copies successfully.": "기본적으로 공유 사본을 만들고 비공개 프로젝트는 그대로 유지합니다. 원하면 모든 작업과 선행 항목이 성공적으로 복사된 후 원본을 휴지통으로 이동할 수 있습니다.",
+"Move the private original to Trash after a complete copy (restorable).": "복사가 완료된 후 비공개 원본을 휴지통으로 이동합니다(복원 가능).",
+"Shared project created; private original moved to Trash.": "공유 프로젝트를 만들었으며 비공개 원본을 휴지통으로 이동했습니다.",
+"Shared project created with some details missing; your private original is unchanged.": "일부 세부 정보가 누락된 상태로 공유 프로젝트를 만들었습니다. 비공개 원본은 변경되지 않았습니다.",
+"Back to projects": "프로젝트로 돌아가기",
+"Project details": "프로젝트 세부 정보",
+};
 export default dictionary;

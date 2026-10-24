@@ -30,6 +30,23 @@ const dictionary: Record<string, string> = {"(optional)":"（可选）","+ Add m
 "Completed": '已完成',
 "Progress": '进度',
 "Unread": '未读',
-};
+"Copy to Shared Projects": '复制到共享项目',
+"Copy private project to Shared Projects": '将私人项目复制到共享项目',
+"This creates a copy in Shared Projects. Your private project stays unchanged as a recoverable backup; this is not a move or migration.": '此操作会在共享项目中创建副本。您的私人项目将保持不变，作为可恢复的备份；这不是移动或迁移。',
+"Warning: the copied title, description, and tasks will be visible to future members of this shared project.": '警告：此共享项目的未来成员将能够看到复制的标题、描述和任务。',
+"Confirm and copy": '确认并复制',
+"Copying…": '正在复制…',
+"Shared project created; your private original is unchanged.": '共享项目已创建；您的私人原项目未更改。',
+"Shared project created with some tasks missing; your private original is unchanged.": '共享项目已创建，但部分任务未能复制；您的私人原项目未更改。',
+"Could not create the shared project. Your private original is unchanged.": '无法创建共享项目。您的私人原项目未更改。',
+"Copied": '已复制',
+"tasks": '个任务',
 
+"By default this creates a shared copy and keeps your private project. You can optionally move the original to Trash after every task and dependency copies successfully.": "默认情况下，这会创建一个共享副本并保留你的私人项目。你也可以选择在所有任务和依赖项都成功复制后，将原项目移至回收站。",
+"Move the private original to Trash after a complete copy (restorable).": "完整复制后，将私人原项目移至回收站（可恢复）。",
+"Shared project created; private original moved to Trash.": "共享项目已创建；私人原项目已移至回收站。",
+"Shared project created with some details missing; your private original is unchanged.": "共享项目已创建，但部分详细信息缺失；你的私人原项目未更改。",
+"Back to projects": "返回项目列表",
+"Project details": "项目详情",
+};
 export default dictionary;

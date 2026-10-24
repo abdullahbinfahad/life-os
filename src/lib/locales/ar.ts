@@ -30,6 +30,23 @@ const dictionary: Record<string, string> = {"(optional)":"(اختياري)","+ A
 "Completed": 'مكتمل',
 "Progress": 'التقدم',
 "Unread": 'غير مقروء',
-};
+"Copy to Shared Projects": 'نسخ إلى المشاريع المشتركة',
+"Copy private project to Shared Projects": 'نسخ المشروع الخاص إلى المشاريع المشتركة',
+"This creates a copy in Shared Projects. Your private project stays unchanged as a recoverable backup; this is not a move or migration.": 'سينشئ هذا نسخة في المشاريع المشتركة. سيبقى مشروعك الخاص دون تغيير كنسخة احتياطية قابلة للاستعادة؛ هذا ليس نقلًا أو ترحيلًا.',
+"Warning: the copied title, description, and tasks will be visible to future members of this shared project.": 'تحذير: سيكون العنوان والوصف والمهام المنسوخة مرئية للأعضاء المستقبليين في هذا المشروع المشترك.',
+"Confirm and copy": 'تأكيد ونسخ',
+"Copying…": 'جارٍ النسخ…',
+"Shared project created; your private original is unchanged.": 'تم إنشاء المشروع المشترك؛ بقي مشروعك الخاص الأصلي دون تغيير.',
+"Shared project created with some tasks missing; your private original is unchanged.": 'تم إنشاء المشروع المشترك مع تعذر نسخ بعض المهام؛ بقي مشروعك الخاص الأصلي دون تغيير.',
+"Could not create the shared project. Your private original is unchanged.": 'تعذر إنشاء المشروع المشترك. بقي مشروعك الخاص الأصلي دون تغيير.',
+"Copied": 'تم نسخ',
+"tasks": 'مهام',
 
+"By default this creates a shared copy and keeps your private project. You can optionally move the original to Trash after every task and dependency copies successfully.": "ينشئ هذا افتراضيًا نسخة مشتركة مع إبقاء مشروعك الخاص. ويمكنك اختياريًا نقل المشروع الأصلي إلى المهملات بعد نجاح نسخ كل مهمة واعتمادها.",
+"Move the private original to Trash after a complete copy (restorable).": "انقل المشروع الأصلي الخاص إلى المهملات بعد اكتمال النسخ (يمكن استعادته).",
+"Shared project created; private original moved to Trash.": "تم إنشاء المشروع المشترك؛ ونُقل المشروع الأصلي الخاص إلى المهملات.",
+"Shared project created with some details missing; your private original is unchanged.": "تم إنشاء المشروع المشترك مع فقدان بعض التفاصيل؛ ولم يتغير مشروعك الأصلي الخاص.",
+"Back to projects": "العودة إلى المشاريع",
+"Project details": "تفاصيل المشروع",
+};
 export default dictionary;

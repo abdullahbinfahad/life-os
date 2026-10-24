@@ -30,6 +30,23 @@ const dictionary: Record<string, string> = {"(optional)":"（任意）","+ Add m
 "Completed": '完了',
 "Progress": '進捗',
 "Unread": '未読',
-};
+"Copy to Shared Projects": '共有プロジェクトにコピー',
+"Copy private project to Shared Projects": 'プライベートプロジェクトを共有プロジェクトにコピー',
+"This creates a copy in Shared Projects. Your private project stays unchanged as a recoverable backup; this is not a move or migration.": '共有プロジェクトにコピーを作成します。復元可能なバックアップとして、元のプライベートプロジェクトは変更されません。移動や移行ではありません。',
+"Warning: the copied title, description, and tasks will be visible to future members of this shared project.": '注意：コピーされたタイトル、説明、タスクは、この共有プロジェクトに今後参加するメンバーにも表示されます。',
+"Confirm and copy": '確認してコピー',
+"Copying…": 'コピー中…',
+"Shared project created; your private original is unchanged.": '共有プロジェクトを作成しました。元のプライベートプロジェクトは変更されていません。',
+"Shared project created with some tasks missing; your private original is unchanged.": '一部のタスクをコピーできませんでしたが、共有プロジェクトを作成しました。元のプライベートプロジェクトは変更されていません。',
+"Could not create the shared project. Your private original is unchanged.": '共有プロジェクトを作成できませんでした。元のプライベートプロジェクトは変更されていません。',
+"Copied": 'コピー済み',
+"tasks": '件のタスク',
 
+"By default this creates a shared copy and keeps your private project. You can optionally move the original to Trash after every task and dependency copies successfully.": "デフォルトでは共有コピーを作成し、非公開プロジェクトはそのまま残します。必要に応じて、すべてのタスクと依存関係のコピーが正常に完了した後、元のプロジェクトをゴミ箱に移動できます。",
+"Move the private original to Trash after a complete copy (restorable).": "コピーがすべて完了した後、非公開の元プロジェクトをゴミ箱に移動します（復元可能）。",
+"Shared project created; private original moved to Trash.": "共有プロジェクトを作成しました。非公開の元プロジェクトはゴミ箱に移動しました。",
+"Shared project created with some details missing; your private original is unchanged.": "一部の詳細情報が欠けた状態で共有プロジェクトを作成しました。非公開の元プロジェクトに変更はありません。",
+"Back to projects": "プロジェクト一覧に戻る",
+"Project details": "プロジェクト詳細",
+};
 export default dictionary;
