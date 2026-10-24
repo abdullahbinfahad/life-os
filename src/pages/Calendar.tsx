@@ -63,7 +63,7 @@ export default function Calendar() {
     const title = entryTitle.trim();
     if (!title || !selectedDate) return;
     addItems([{ title, notes: entryDetails.trim(), dueDate: selectedDate }]);
-    playFeedback('add');
+    playFeedback('submit');
     setAnnouncement(`Added ${title} on ${displayDate(selectedDate, settings.language)}.`);
     setSelectedDate(null);
   };

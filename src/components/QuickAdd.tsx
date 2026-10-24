@@ -103,14 +103,14 @@ export default function QuickAdd() {
       else if (quickKind === 'journal') createJournal({ title: cleanTitle, content: notes.trim(), visibility: 'private' });
       else if (quickKind === 'album') createAlbum({ title: cleanTitle, description: notes.trim() });
       else addItems([{ title: cleanTitle, notes: notes.trim(), categoryId, type: quickKind === 'today' ? 'other' : type, status: 'next', priority: 2, horizon, tags: [], starred: false, ...(dueDate ? { dueDate } : {}), ...(quickKind === 'today' ? { todayDate: today() } : {}) }]);
-      playFeedback('add');
+      playFeedback('submit');
       toast(quickKind === 'library' ? 'Added to your library' : `${tr(actionLabel)} · ${cleanTitle}`);
       setTitle(''); setNotes(''); setCategoryId(''); setDueDate(''); setType('other'); setHorizon('1-3y'); setOpen(false);
       return;
     }
     if (!parsed.length) return;
     addItems(parsed.map(({ dupe, tooLong, invalidDate, ...p }) => p));
-    playFeedback('add');
+    playFeedback('submit');
     toast(`Added ${parsed.length} item${parsed.length === 1 ? '' : 's'}`);
     setText(''); setOpen(false);
   };

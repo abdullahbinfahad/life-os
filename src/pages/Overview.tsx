@@ -43,26 +43,26 @@ export default function Overview() {
   }, [user?.id]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader title={settings.name ? `${tr("Welcome back,")} ${settings.name}` : tr("Welcome to your life map")} subtitle={tr("A clear place for the goals you care about and the next small step you can take.")} />
 
-      <section className="card overflow-hidden border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-4 text-slate-900 shadow-xl shadow-indigo-600/5 dark:border-indigo-400/20 dark:from-indigo-950 dark:via-slate-900 dark:to-violet-950 dark:text-slate-100 dark:shadow-indigo-600/10 sm:p-8">
+      <section className="card overflow-hidden border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-3 text-slate-900 shadow-xl shadow-indigo-600/5 dark:border-indigo-400/20 dark:from-indigo-950 dark:via-slate-900 dark:to-violet-950 dark:text-slate-100 dark:shadow-indigo-600/10 sm:p-8">
         <div className="max-w-2xl">
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-800 sm:mb-3 dark:bg-white/15 dark:text-indigo-100"><Target size={14} /> {tr("Start with what matters")}</div>
-          <h2 className="break-words text-xl font-bold leading-tight tracking-tight sm:text-3xl">{tr("Make room for one meaningful next step.")}</h2>
-          <p className="mt-2 max-w-xl text-sm leading-5 text-slate-600 sm:mt-3 sm:leading-6 dark:text-slate-300">{tr("Add a task for today or set a goal for the longer term. Your overview will bring your plan and progress together.")}</p>
-          <div className="mt-4 flex flex-wrap gap-2 sm:mt-6">
-            <button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn bg-white text-indigo-700 hover:bg-white/90"><Plus size={16} /> {tr("Add a task")}</button>
-            <Link to="/goals" className="btn bg-indigo-100 text-indigo-900 hover:bg-indigo-200 dark:bg-white/15 dark:text-white dark:hover:bg-white/25"><Target size={16} /> {tr("Add a goal")}</Link>
-            <Link to="/today" className="btn bg-indigo-100 text-indigo-900 hover:bg-indigo-200 dark:bg-white/15 dark:text-white dark:hover:bg-white/25"><Sunrise size={16} /> {tr("View today")}</Link>
+          <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-800 sm:mb-3 sm:px-3 dark:bg-white/15 dark:text-indigo-100"><Target size={14} /> {tr("Start with what matters")}</div>
+          <h2 className="break-words text-lg font-bold leading-tight tracking-tight sm:text-3xl">{tr("Make room for one meaningful next step.")}</h2>
+          <p className="mt-1 max-w-xl text-xs leading-4 text-slate-600 sm:mt-3 sm:text-sm sm:leading-6 dark:text-slate-300">{tr("Add a task for today or set a goal for the longer term. Your overview will bring your plan and progress together.")}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-6 sm:flex sm:flex-wrap">
+            <button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn min-h-11 justify-center bg-white px-2 text-xs text-indigo-700 hover:bg-white/90 sm:px-4 sm:text-sm"><Plus size={16} /> {tr("Add a task")}</button>
+            <Link to="/goals" className="btn min-h-11 justify-center bg-indigo-100 px-2 text-xs text-indigo-900 hover:bg-indigo-200 sm:px-4 sm:text-sm dark:bg-white/15 dark:text-white dark:hover:bg-white/25"><Target size={16} /> {tr("Add a goal")}</Link>
+            <Link to="/today" className="btn col-span-2 min-h-11 justify-center bg-indigo-100 px-2 text-xs text-indigo-900 hover:bg-indigo-200 sm:col-span-1 sm:px-4 sm:text-sm dark:bg-white/15 dark:text-white dark:hover:bg-white/25"><Sunrise size={16} /> {tr("View today")}</Link>
           </div>
         </div>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <section className="card p-4 sm:p-5 lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4"><div><h3 className="text-sm font-semibold sm:text-base">{tr("Today’s plan")}</h3><p className="mt-0.5 text-xs muted sm:mt-1 sm:text-sm">{todayItems.length ? `${todayDone} of ${todayItems.length} complete` : 'Choose a small action to focus on today.'}</p></div><Link to="/today" className="shrink-0 text-xs text-indigo-500 sm:text-sm">{tr("Open plan")}<ArrowRight size={14} className="inline" /></Link></div>
-          {todayItems.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-center sm:p-6 dark:border-white/15"><Sunrise className="mx-auto text-amber-500" size={26} /><p className="mt-1.5 text-sm font-medium sm:mt-2 sm:text-base">{tr("Nothing planned yet")}</p><p className="mt-1 text-xs muted sm:text-sm">{tr("Add a task or choose one action to make today feel manageable.")}</p><button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn-primary mt-3 sm:mt-4"><Plus size={15} /> {tr("Add a task")}</button></div> : <div className="space-y-2">{todayItems.slice(0, 5).map((item) => <div key={item.id} className="flex items-center gap-2 rounded-xl bg-slate-50 px-2.5 py-2 text-xs sm:px-3 sm:py-2.5 sm:text-sm dark:bg-white/[.04]"><CheckCircle2 size={16} className={item.status === 'done' ? 'text-emerald-500' : 'muted'} /><span className={item.status === 'done' ? 'line-through muted' : 'truncate'}>{item.title}</span></div>)}{todayItems.length > 5 && <Link to="/today" className="inline-block pt-1 text-xs text-indigo-500 sm:text-sm">{tr("See all")}{todayItems.length} {tr("items")}<ArrowRight size={14} className="inline" /></Link>}</div>}
+        <section className="card p-3 sm:p-5 lg:col-span-2">
+          <div className="mb-2 flex items-center justify-between gap-3 sm:mb-4"><div><h3 className="text-sm font-semibold sm:text-base">{tr("Today’s plan")}</h3><p className="mt-0.5 text-xs muted sm:mt-1 sm:text-sm">{todayItems.length ? `${todayDone} of ${todayItems.length} complete` : 'Choose a small action to focus on today.'}</p></div><Link to="/today" className="shrink-0 rounded-md px-2 py-2 text-xs text-indigo-500 sm:text-sm">{tr("Open plan")}<ArrowRight size={14} className="inline" /></Link></div>
+          {todayItems.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 p-3 text-center sm:p-6 dark:border-white/15"><Sunrise className="mx-auto text-amber-500" size={26} /><p className="mt-1 text-sm font-medium sm:mt-2 sm:text-base">{tr("Nothing planned yet")}</p><p className="mt-1 text-xs muted sm:text-sm">{tr("Add a task or choose one action to make today feel manageable.")}</p><button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn-primary mt-3 min-h-11 sm:mt-4"><Plus size={15} /> {tr("Add a task")}</button></div> : <div className="space-y-1.5 sm:space-y-2">{todayItems.slice(0, 5).map((item) => <div key={item.id} className="flex items-center gap-2 rounded-xl bg-slate-50 px-2.5 py-1.5 text-xs sm:px-3 sm:py-2.5 sm:text-sm dark:bg-white/[.04]"><CheckCircle2 size={16} className={item.status === 'done' ? 'text-emerald-500' : 'muted'} /><span className={item.status === 'done' ? 'line-through muted' : 'truncate'}>{item.title}</span></div>)}{todayItems.length > 5 && <Link to="/today" className="inline-block min-h-11 pt-2 text-xs text-indigo-500 sm:text-sm">{tr("See all")}{todayItems.length} {tr("items")}<ArrowRight size={14} className="inline" /></Link>}</div>}
         </section>
 
         <section className="card p-5">

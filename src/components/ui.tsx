@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { ReactNode, useEffect, useId } from 'react';
 import { cx } from '../lib/utils';
 import type { Category } from '../lib/types';
+import { playFeedback } from '../lib/sounds';
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
@@ -23,6 +24,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
+  useEffect(() => { if (open) playFeedback('popup'); }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3 pt-[max(.75rem,env(safe-area-inset-top))] pb-[max(.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:p-4 md:p-10" role="presentation" onMouseDown={onClose}>

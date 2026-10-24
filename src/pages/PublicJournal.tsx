@@ -132,11 +132,12 @@ export default function PublicJournal() {
       if (error) throw error;
       setDraft('');
       setCommentNotice('Your comment was posted.');
-      playFeedback('confirm');
+      playFeedback('submit');
       await loadComments();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Please try again.';
       setCommentNotice(/42P01|PGRST205|schema cache|does not exist/i.test(message) ? 'Comments need to be enabled for this site first.' : `Could not post your comment: ${message}`);
+      playFeedback('failed');
     } finally { setCommentBusy(false); }
   };
 

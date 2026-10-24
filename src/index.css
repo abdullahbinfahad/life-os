@@ -24,6 +24,10 @@
   html.dark select { color-scheme: dark; }
   select option { background: #fff; color: #0f172a; }
   html.dark select option { background: #121722; color: #f1f5f9; }
+  input[type="date"] { display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; font-size: 16px; line-height: 1.25; color-scheme: light; accent-color: #635BFF; }
+  html.dark input[type="date"] { color-scheme: dark; }
+  input[type="date"]::-webkit-date-and-time-value { min-width: 0; text-align: left; }
+  input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; cursor: pointer; opacity: .75; }
 }
 
 @layer components {

@@ -94,10 +94,11 @@ export default function Journal() {
       const link = `${window.location.origin}${window.location.pathname}#/public/journal/${encodeURIComponent(slug)}`;
       try { await navigator.clipboard?.writeText(link); } catch { /* Link remains available in the public index. */ }
       setStatusMessage('Published to Public Journal. The share link was copied when clipboard access was available.');
-      playFeedback('confirm');
+      playFeedback('submit');
       return true;
     } catch {
       setStatusMessage('Saved privately on this device, but publishing failed. Check your connection and public-journal database setup, then try again.');
+      playFeedback('failed');
       return false;
     } finally { publishingIds.current.delete(value.id); setPublishing(false); }
   };
@@ -107,7 +108,7 @@ export default function Journal() {
     saveEntry(saved);
     setSel(saved.id);
     setDraft(null);
-    playFeedback('add');
+    playFeedback('submit');
     if (saved.visibility === 'public' && user) await publish(saved);
     else if (entry?.visibility === 'public' && user && supabase) {
       const { error } = await supabase.from('public_journals').delete().eq('slug', `${user.id.slice(0, 8)}-${entry.id}`);

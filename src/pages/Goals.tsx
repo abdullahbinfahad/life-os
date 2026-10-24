@@ -1,8 +1,8 @@
 import { translate as tr } from '../lib/locales';
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CheckCircle2, Circle, GripVertical, Plus, Target, Trash2 } from 'lucide-react';
+import { CheckCircle2, Circle, Plus, Target, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { CatBadge, Empty, Modal, PageHeader, Progress, Ring } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
@@ -11,8 +11,7 @@ import { cx, daysBetween, fmtDate, pct, today, uid } from '../lib/utils';
 
 function SortableRow({ id, children, card = false, goalId }: { id: string; children: React.ReactNode; card?: boolean; goalId?: string }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, data: { goalId } });
-  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={cx(card ? 'card relative p-5' : 'group flex items-center gap-2 rounded text-sm', isDragging && 'z-10 bg-indigo-500/10 ring-2 ring-indigo-400')}>
-    <button type="button" {...attributes} {...listeners} aria-label={card ? tr('Reorder goal') : tr('Reorder milestone')} title={tr('Drag to reorder')} className={cx('cursor-grab touch-none rounded p-1 muted hover:bg-slate-200/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 active:cursor-grabbing', card && 'absolute right-2 top-2 z-10')}><GripVertical size={card ? 18 : 15} /></button>
+  return <div ref={setNodeRef} {...attributes} {...listeners} role="group" tabIndex={0} aria-label={tr(card ? 'Reorder goal' : 'Reorder milestone')} aria-roledescription={tr('Draggable card; press and hold to move')} style={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'pan-y' }} className={cx(card ? 'card relative p-5' : 'group flex items-center gap-2 rounded text-sm', 'cursor-grab active:cursor-grabbing', isDragging && 'z-10 bg-indigo-500/10 ring-2 ring-indigo-400')}>
     {children}
   </div>;
 }
@@ -25,7 +24,7 @@ export default function Goals() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', categoryId: categories[0]?.id ?? '', targetDate: '' });
   const [ms, setMs] = useState<Record<string, string>>({});
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 10 } }), useSensor(TouchSensor, { activationConstraint: { delay: 280, tolerance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   const list = goals.filter((g) => filter === 'all' || g.status === filter);
   const progress = (g: Goal) => {

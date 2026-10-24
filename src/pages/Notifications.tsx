@@ -9,6 +9,7 @@ import { cloudEnabled } from '../lib/supabase';
 import { fetchMyAssignedSharedTasks, sharedServiceError, subscribeToSharedWorkspace, updateSharedTask, type AssignedSharedTask } from '../lib/sharedProjects';
 import { collectReminders, reminderTiming, type Reminder } from '../lib/reminders';
 import { fmtDate, today } from '../lib/utils';
+import { playFeedback } from '../lib/sounds';
 
 const sectionCopy = {
   overdue: { title: 'Overdue', color: 'text-rose-700 dark:text-rose-300', surface: 'border-rose-200 bg-rose-50/70 dark:border-rose-500/20 dark:bg-rose-500/[.06]' },
@@ -55,6 +56,7 @@ export default function Notifications() {
       const body = fresh.length === 1 ? fresh[0].title : `${fresh.length} items need attention today.`;
       new Notification('Life OS reminders', { body, tag: `lifeos:${todayKey}`, icon: `${import.meta.env.BASE_URL}runner-mark.svg` });
       localStorage.setItem(storageKey, JSON.stringify([...already, ...fresh.map((reminder) => reminder.id)]));
+      playFeedback('notification');
     } catch { /* Browser notifications are an enhancement; the in-app inbox remains available. */ }
   }, [state.settings.browserNotifications, reminders, todayKey]);
 
