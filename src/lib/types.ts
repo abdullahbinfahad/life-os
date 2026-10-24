@@ -123,7 +123,7 @@ export interface AlbumMemory {
 }
 
 export interface Settings {
-  theme: 'dark' | 'light' | 'forest';
+  theme: 'dark' | 'light' | 'paper' | 'monochrome' | 'sapphire' | 'forest';
   language?: 'en' | 'bn' | 'hi' | 'ar' | 'es' | 'zh' | 'ja' | 'ko';
   sounds?: boolean;
   /** Optional browser notifications while the app is open; never enabled without permission. */

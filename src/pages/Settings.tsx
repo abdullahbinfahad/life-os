@@ -1,25 +1,27 @@
 import { translate as tr } from '../lib/locales';
-import { Check, Download, ImagePlus, Lock, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
+import { Check, Download, ImagePlus, Lock, Plus, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
 import { syncNow, useAuth } from '../lib/auth';
 import { compressImage, deletePrivateImage, formatBytes, getPrivateImageUrl, uploadPrivateImage } from '../lib/media';
-import type { Album, AlbumMemory, Settings as SettingsData, TrashRecord } from '../lib/types';
+import type { Settings as SettingsData } from '../lib/types';
 import { cloudEnabled, supabase } from '../lib/supabase';
 import { csvEscape, download, localeForLanguage, parseCSV, today } from '../lib/utils';
 import { APP_LANGUAGES } from '../lib/locales';
 import { playFeedback } from '../lib/sounds';
+import { EARNED_THEMES, isThemeUnlocked } from '../lib/themes';
 
 export default function Settings() {
   const s = useStore();
+  const navigate = useNavigate();
   const { user, sync, syncError, lastSynced } = useAuth();
   const rewardPoints = s.rewardEvents.reduce((sum, event) => sum + event.points, 0);
   const fileRef = useRef<HTMLInputElement>(null);
   const csvRef = useRef<HTMLInputElement>(null);
   const [newCat, setNewCat] = useState({ name: '', icon: '⭐', color: '#6366f1' });
   const [msg, setMsg] = useState('');
-  const [trashBusy, setTrashBusy] = useState(false);
   const [backupAction, setBackupAction] = useState<'json-export' | 'csv-export' | 'json-import' | 'csv-import' | null>(null);
   const [backupPassword, setBackupPassword] = useState('');
   const [backupOtp, setBackupOtp] = useState('');
@@ -138,44 +140,6 @@ export default function Settings() {
     setImportPreview(null);
   };
 
-  const purgeRecord = async (record: TrashRecord, ask = true) => {
-    if (ask && !confirm(`Permanently delete “${record.title}”? This cannot be undone.`)) return;
-    if (trashBusy) return;
-    const paths = trashImagePaths(record);
-    if (paths.length && !user?.id) {
-      setMsg('Sign in to permanently remove this record’s private photo files. The record remains in Trash.');
-      return;
-    }
-    setTrashBusy(true);
-    try {
-      if (user?.id) await Promise.all(paths.map((path) => deletePrivateImage(user.id, path)));
-      s.permanentlyDeleteFromTrash(record.id);
-      setMsg(`“${record.title}” was permanently deleted.`);
-    } catch (error) {
-      setMsg(error instanceof Error ? `Could not permanently delete: ${error.message}` : 'Could not permanently delete this record.');
-    } finally {
-      setTrashBusy(false);
-    }
-  };
-
-  const emptyTrash = async () => {
-    if (!s.trash.length || trashBusy || !confirm('Permanently delete every item currently in Trash? This cannot be undone.')) return;
-    setTrashBusy(true);
-    let deleted = 0;
-    let failed = 0;
-    for (const record of [...s.trash]) {
-      const paths = trashImagePaths(record);
-      if (paths.length && !user?.id) { failed += 1; continue; }
-      try {
-        if (user?.id) await Promise.all(paths.map((path) => deletePrivateImage(user.id, path)));
-        s.permanentlyDeleteFromTrash(record.id);
-        deleted += 1;
-      } catch { failed += 1; }
-    }
-    setTrashBusy(false);
-    setMsg(failed ? `Permanently deleted ${deleted}; ${failed} record(s) remain in Trash because private media could not be removed.` : 'Trash emptied permanently.');
-  };
-
   return (
     <div className="max-w-4xl">
       <PageHeader title={tr("Settings")} subtitle={tr("Templates, imports, exports, privacy")} />
@@ -187,32 +151,37 @@ export default function Settings() {
         <div className="grid gap-4 sm:grid-cols-3">
           <div><label className="label">{tr("Your name")}</label><input className="input" value={s.settings.name} onChange={(e) => s.updateSettings({ name: e.target.value })} /></div>
           <div><label className="label">{tr("Profile photo URL")}</label><input className="input" type="url" placeholder={tr("https://…")} value={s.settings.avatarUrl ?? ''} onChange={(e) => s.updateSettings({ avatarUrl: e.target.value || undefined })} /><p className="mt-1 text-xs muted">{tr("Optional external-image fallback. Private uploads are shown first.")}</p></div>
-          <div><label className="label">{tr("Birthday")}</label><input className="input" type="date" value={s.settings.birthday ?? ''} onChange={(e) => s.updateSettings({ birthday: e.target.value || undefined })} /></div>
+          <div className="min-w-0"><label className="label">{tr("Birthday")}</label><input className="input min-w-0 max-w-full min-h-11" type="date" value={s.settings.birthday ?? ''} onChange={(e) => s.updateSettings({ birthday: e.target.value || undefined })} /></div>
           <div><label className="label">{tr("Location")}</label><input className="input" placeholder={tr("City, country")} value={s.settings.location ?? ''} onChange={(e) => s.updateSettings({ location: e.target.value || undefined })} /></div>
           <div><label className="label">{tr("Week starts")}</label><select className="input" value={s.settings.weekStartsMonday ? 'mon' : 'sun'} onChange={(e) => s.updateSettings({ weekStartsMonday: e.target.value === 'mon' })}><option value="mon">{tr("Monday")}</option><option value="sun">{tr("Sunday")}</option></select></div>
           <div><label className="label" htmlFor="system-language">{tr("System language")}</label><select id="system-language" className="input" value={s.settings.language ?? 'en'} onChange={(e) => s.updateSettings({ language: e.target.value as NonNullable<SettingsData['language']> })}>{APP_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.native} · {language.label}</option>)}</select><p className="mt-1 text-xs muted">{tr("The interface changes immediately. Your entries stay in the language you wrote them.")}</p></div>
           <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/10"><label htmlFor="interaction-sounds" className="min-w-0"><span className="block text-sm font-medium">{tr("Soft interaction sounds")}</span><span className="block text-xs muted">{tr("Optional gentle tones for add, save, and sync.")}</span></label><input id="interaction-sounds" type="checkbox" className="h-5 w-5 shrink-0 accent-indigo-600" checked={s.settings.sounds ?? false} onChange={(e) => { const enabled = e.target.checked; s.updateSettings({ sounds: enabled }); if (enabled) window.setTimeout(() => playFeedback('confirm'), 0); }} /></div>
           <div className="sm:col-span-3">
             <div className="mb-2"><span className="label">{tr("Appearance")}</span><p className="text-xs muted">{tr("Choose your look here. The sidebar stays focused on navigation.")}</p></div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {([
-                { value: 'dark', title: 'Night glass', detail: 'Your original dark theme', preview: 'linear-gradient(135deg,#182131,#0b0d12 62%,#253344)' },
-                { value: 'forest', title: 'Emerald night', detail: `Earned reward · ${Math.min(rewardPoints, 50000).toLocaleString(localeForLanguage(s.settings.language))} / 50,000 points`, preview: 'radial-gradient(ellipse at 78% 4%,rgba(52,211,153,.42),transparent 55%),linear-gradient(140deg,#13291f,#07100c 76%)' },
-                { value: 'light', title: 'Clean light', detail: 'Your original bright theme', preview: 'linear-gradient(135deg,#dbeafe,#ffffff 52%,#d1fae5)' },
+                { value: 'dark', title: 'Night glass', detail: 'Original dark theme', preview: 'linear-gradient(135deg,#182131,#0b0d12 62%,#253344)' },
+                { value: 'light', title: 'Clean light', detail: 'Original bright theme', preview: 'linear-gradient(135deg,#dbeafe,#ffffff 52%,#d1fae5)' },
+                { value: 'paper', title: 'Paper & ink', detail: 'Warm paper theme', preview: 'linear-gradient(135deg,#e7dcc5,#faf7ef 52%,#d2c5aa)' },
+                { value: 'monochrome', title: 'Monochrome', detail: 'Black and white theme', preview: 'linear-gradient(135deg,#080808,#3a3a3a 52%,#f7f7f7)' },
+                { value: 'sapphire', title: 'Sapphire glass', detail: 'Deep blue premium theme', preview: 'radial-gradient(ellipse at 78% 4%,rgba(59,130,246,.48),transparent 55%),linear-gradient(140deg,#12213e,#080d19 76%)' },
+                ...EARNED_THEMES.filter((item) => item.id === 'forest').map((item) => ({ value: item.id, title: item.title, detail: 'Deep emerald premium theme', preview: 'radial-gradient(ellipse at 78% 4%,rgba(52,211,153,.42),transparent 55%),linear-gradient(140deg,#13291f,#07100c 76%)' })),
               ] as const).map((choice) => {
                 const selected = s.settings.theme === choice.value;
-                const locked = choice.value === 'forest' && rewardPoints < 50000 && !selected;
-                return <button key={choice.value} type="button" aria-pressed={selected} aria-disabled={locked} title={locked ? tr('Earn 50,000 points to unlock Emerald Night') : undefined} disabled={locked} onClick={() => s.updateSettings({ theme: choice.value as SettingsData['theme'] })}
-                  className={`theme-choice min-w-0 rounded-2xl border p-3 text-left transition duration-200 disabled:cursor-not-allowed disabled:opacity-65 ${selected ? 'is-selected border-emerald-500 ring-2 ring-emerald-500/25' : 'border-slate-200 hover:border-emerald-400/70 dark:border-white/10'}`}>
+                const milestone = EARNED_THEMES.find((item) => item.id === choice.value);
+                const locked = !isThemeUnlocked(choice.value, rewardPoints) && !selected;
+                const detail = milestone ? `${tr(locked ? 'Unlock at' : 'Unlocked')} · ${milestone.points.toLocaleString(localeForLanguage(s.settings.language))} ${tr('points')}` : tr(choice.detail);
+                return <button key={choice.value} type="button" aria-pressed={selected} aria-disabled={locked} title={locked ? `${tr('Unlock at')} ${milestone?.points.toLocaleString(localeForLanguage(s.settings.language))} ${tr('points')}` : undefined} disabled={locked} onClick={() => s.updateSettings({ theme: choice.value })}
+                  className={`theme-choice min-w-0 rounded-2xl border p-3 text-left transition duration-200 disabled:cursor-not-allowed disabled:opacity-65 ${selected ? 'is-selected border-indigo-500 ring-2 ring-indigo-500/25' : 'border-slate-200 hover:border-indigo-400/70 dark:border-white/10'}`}>
                   <span className="theme-preview relative mb-3 flex h-14 items-end gap-1.5 overflow-hidden rounded-xl border border-black/5 p-2 dark:border-white/10" style={{ background: choice.preview }} aria-hidden="true">
                     <span className="h-2/3 w-[17%] rounded-t bg-white/15 backdrop-blur-sm" />
                     <span className="h-full w-[17%] rounded-t bg-emerald-400/65" />
                     <span className="h-1/2 w-[17%] rounded-t bg-white/20" />
                     <span className="mb-1 h-1 w-[28%] rounded-full bg-white/55" />
-                    {choice.value === 'forest' && <span className="theme-preview-glow absolute -right-4 -top-5 h-16 w-16 rounded-full bg-emerald-300/35 blur-xl" />}
+                    {milestone && <span className="theme-preview-glow absolute -right-4 -top-5 h-16 w-16 rounded-full bg-indigo-300/35 blur-xl" />}
                   </span>
-                  <span className="flex items-center justify-between gap-2 text-sm font-semibold"><span>{choice.title}</span>{selected && <Check size={16} className="shrink-0 text-emerald-500" aria-label={tr("Selected")} />}</span>
-                  <span className="mt-1 block text-xs leading-5 muted">{choice.detail}</span>
+                  <span className="flex items-center justify-between gap-2 text-sm font-semibold"><span>{tr(choice.title)}</span>{selected && <Check size={16} className="shrink-0 text-indigo-500" aria-label={tr("Selected")} />}</span>
+                  <span className="mt-1 block text-xs leading-5 muted">{detail}</span>
                 </button>;
               })}
             </div>
@@ -257,22 +226,9 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="card mb-6 p-6" aria-labelledby="trash-heading">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div><h3 id="trash-heading" className="font-semibold">{tr("Trash")}</h3><p className="mt-1 text-sm muted">{tr("Deleted items stay here until you restore them or permanently remove them.")}</p></div>
-          <div className="flex items-center gap-2"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium dark:bg-white/[.08]">{s.trash.length} {tr("item")}{s.trash.length === 1 ? '' : 's'}</span><button className="btn-danger !px-3 !py-1.5" disabled={!s.trash.length || trashBusy} onClick={() => void emptyTrash()}><Trash2 size={14} /> {tr("Empty trash")}</button></div>
-        </div>
-        {s.trash.length === 0 ? <p className="rounded-xl bg-slate-100/70 p-4 text-sm muted dark:bg-white/[.04]">{tr("Nothing in Trash. Deleted items will appear here.")}</p> : (
-          <div className="space-y-2">
-            {[...s.trash].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt)).map((record) => (
-              <div key={record.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-white/[.08]">
-                <div className="min-w-0 flex-1"><div className="truncate font-medium">{record.title}</div><div className="mt-0.5 text-xs muted">{record.entityType[0].toUpperCase() + record.entityType.slice(1)} {tr("· deleted")}{new Date(record.deletedAt).toLocaleString(localeForLanguage(s.settings.language))}</div></div>
-                <button className="btn-outline !px-2.5 !py-1.5" disabled={trashBusy} onClick={() => { if (s.restoreFromTrash(record.id)) setMsg(`“${record.title}” restored.`); else setMsg('Restore the parent project or album first, then restore this record.'); }}><RotateCcw size={14} /> {tr("Restore")}</button>
-                <button className="btn-ghost !px-2.5 !py-1.5 text-rose-500" disabled={trashBusy} onClick={() => void purgeRecord(record)}><Trash2 size={14} /> {tr("Delete forever")}</button>
-              </div>
-            ))}
-          </div>
-        )}
+      <section className="card mb-6 flex min-w-0 flex-wrap items-center justify-between gap-3 p-5" aria-labelledby="trash-heading">
+        <div className="min-w-0"><h3 id="trash-heading" className="font-semibold">{tr("Trash")}</h3><p className="mt-1 text-sm muted">{tr("Deleted items stay here until you restore them or permanently remove them.")}</p></div>
+        <button className="btn-outline shrink-0" onClick={() => navigate('/trash')}><Trash2 size={15} />{s.trash.length} {tr("items")}<span className="ml-1">· {tr("Open Trash")}</span></button>
       </section>
 
       <section className="card mb-6 p-6">
@@ -320,17 +276,6 @@ export default function Settings() {
   );
 }
 
-function trashImagePaths(record: TrashRecord): string[] {
-  if (record.entityType === 'album') {
-    const memories = (record.data as Album).memories ?? [];
-    return memories.map((memory) => memory.imagePath).filter((path): path is string => Boolean(path));
-  }
-  if (record.entityType === 'memory') {
-    const path = (record.data as AlbumMemory).imagePath;
-    return path ? [path] : [];
-  }
-  return [];
-}
 
 function ProfilePhotoControl({ settings, userId, updateSettings }: { settings: SettingsData; userId?: string; updateSettings: (patch: Partial<SettingsData>) => void }) {
   const input = useRef<HTMLInputElement>(null);

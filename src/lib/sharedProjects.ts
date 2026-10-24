@@ -57,6 +57,8 @@ const empty = <T,>(value: T[] | null | undefined) => value ?? [];
 
 export function sharedServiceError(error: unknown): string {
   const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error);
+  if (/could not embed because more than one relationship was found/i.test(message))
+    return 'Could not load shared tasks. Please try again.';
   if (/shared_|schema cache|could not find the table|does not exist/i.test(message))
     return 'Shared workspaces need the one-time secure database migration. Open README.md → Supabase setup and run supabase/migrations/20261023_shared_projects.sql.';
   if (/row-level security|permission denied|not allowed|42501/i.test(message))
@@ -145,7 +147,7 @@ export async function markSharedNotificationRead(id: string) { const { error } =
 
 export interface AssignedSharedTask extends SharedTask { project_title: string }
 export async function fetchMyAssignedSharedTasks(userId: string): Promise<AssignedSharedTask[]> {
-  const { data, error } = await getClient().from('shared_project_tasks').select('id,project_id,title,details,status,due_date,estimate_minutes,assignee_id,created_by,created_at,updated_at,shared_projects!inner(title)').eq('assignee_id', userId).in('status', ['todo', 'in-progress', 'blocked']).order('due_date', { ascending: true, nullsFirst: false });
+  const { data, error } = await getClient().from('shared_project_tasks').select('id,project_id,title,details,status,due_date,estimate_minutes,assignee_id,created_by,created_at,updated_at,shared_projects!shared_project_tasks_project_id_fkey!inner(title)').eq('assignee_id', userId).in('status', ['todo', 'in-progress', 'blocked']).order('due_date', { ascending: true, nullsFirst: false });
   throwIfError(error);
   return empty(data as unknown as Array<SharedTask & { shared_projects: { title: string } }> | null).map((row) => ({ ...row, project_title: row.shared_projects.title }));
 }

@@ -25,6 +25,7 @@ const Notifications = lazy(() => import('./pages/Notifications'));
 const PublicJournal = lazy(() => import('./pages/PublicJournal'));
 const PublicJournalIndex = lazy(() => import('./pages/PublicJournalIndex'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Trash = lazy(() => import('./pages/Trash'));
 const Today = lazy(() => import('./pages/Today'));
 
 function LoadingStage({ message, fullscreen = false }: { message: string; fullscreen?: boolean }) {
@@ -61,6 +62,7 @@ function PrivateRoutes() {
     <Route path="/journal" element={<Journal />} />
     <Route path="/albums" element={<Albums />} />
     <Route path="/settings" element={<Settings />} />
+    <Route path="/trash" element={<Trash />} />
     <Route path="/admin" element={<AdminConsole />} />
     <Route path="*" element={<Overview />} />
   </Routes></Layout></Suspense>;
@@ -77,11 +79,11 @@ function RouteContent() {
   try { pendingInvite = Boolean(sessionStorage.getItem('lifeos:pending-shared-invite')); } catch { /* session storage unavailable */ }
   if (session && pendingInvite && pathname !== '/projects') return <Navigate to="/projects" replace />;
   const publicRoute = pathname === '/public' || pathname.startsWith('/public/');
-  return <Suspense fallback={<RouteFallback />}>{publicRoute ? <Routes>
+  return <Suspense fallback={<RouteFallback />}>{publicRoute ? <Layout><Routes>
     <Route path="/public" element={<PublicJournalIndex />} />
     <Route path="/public/journal/:slug" element={<PublicJournal />} />
     <Route path="*" element={<PublicJournalIndex />} />
-  </Routes> : <PrivateRoutes />}</Suspense>;
+  </Routes></Layout> : <PrivateRoutes />}</Suspense>;
 }
 
 export default function App() {
@@ -89,8 +91,10 @@ export default function App() {
   const language = useStore((s) => s.settings.language ?? 'en');
   const [readyLanguage, setReadyLanguage] = useState<AppLanguage>('en');
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark' || theme === 'forest');
-    document.documentElement.classList.toggle('theme-forest', theme === 'forest');
+    const root = document.documentElement;
+    ['theme-paper', 'theme-monochrome', 'theme-sapphire', 'theme-forest'].forEach((name) => root.classList.remove(name));
+    if (theme !== 'dark' && theme !== 'light') root.classList.add(`theme-${theme}`);
+    root.classList.toggle('dark', theme === 'dark' || theme === 'monochrome' || theme === 'sapphire' || theme === 'forest');
   }, [theme]);
   useEffect(() => {
     document.documentElement.lang = language;

@@ -7,6 +7,7 @@ import { HORIZON_META, Modal } from './ui';
 import { toast } from './Toaster';
 import { playFeedback } from '../lib/sounds';
 import type { Horizon, Priority, ItemType } from '../lib/types';
+import { useLocation } from 'react-router-dom';
 
 /**
  * Quick add with smart syntax:
@@ -43,6 +44,10 @@ export function parseQuick(line: string, cats: { id: string; name: string }[]) {
 }
 
 export default function QuickAdd() {
+  const location = useLocation();
+  const page = location.pathname;
+  const quickKind = page === '/goals' ? 'goal' : page === '/projects' ? 'project' : page === '/habits' ? 'habit' : page === '/journal' ? 'journal' : page === '/albums' ? 'album' : page === '/today' ? 'today' : 'library';
+  const actionLabel = ({ goal: 'Add a goal', project: 'Create project', habit: 'Add habit', journal: 'New journal entry', album: 'Create album', today: 'Add to today', library: 'Add to your Life Library' } as const)[quickKind];
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
@@ -56,6 +61,11 @@ export default function QuickAdd() {
   const cats = useStore((s) => s.categories);
   const addItems = useStore((s) => s.addItems);
   const items = useStore((s) => s.items);
+  const createGoal = useStore((s) => s.addGoal);
+  const createProject = useStore((s) => s.addProject);
+  const createHabit = useStore((s) => s.addHabit);
+  const createJournal = useStore((s) => s.saveEntry);
+  const createAlbum = useStore((s) => s.addAlbum);
   const [skipDupes, setSkipDupes] = useState(true);
 
   useEffect(() => {
@@ -87,9 +97,14 @@ export default function QuickAdd() {
     if (!advanced) {
       const cleanTitle = title.trim();
       if (!cleanTitle) { titleRef.current?.focus(); return; }
-      addItems([{ title: cleanTitle, notes: notes.trim(), categoryId, type, status: 'next', priority: 2, horizon, tags: [], starred: false, ...(dueDate ? { dueDate } : {}) }]);
+      if (quickKind === 'goal') createGoal({ title: cleanTitle, description: notes.trim(), categoryId: categoryId || 'career', status: 'active' });
+      else if (quickKind === 'project') createProject({ title: cleanTitle, description: notes.trim(), categoryId: categoryId || 'career', status: 'planning', dueDate: dueDate || undefined });
+      else if (quickKind === 'habit') createHabit({ title: cleanTitle, categoryId: categoryId || 'health' });
+      else if (quickKind === 'journal') createJournal({ title: cleanTitle, content: notes.trim(), visibility: 'private' });
+      else if (quickKind === 'album') createAlbum({ title: cleanTitle, description: notes.trim() });
+      else addItems([{ title: cleanTitle, notes: notes.trim(), categoryId, type: quickKind === 'today' ? 'other' : type, status: 'next', priority: 2, horizon, tags: [], starred: false, ...(dueDate ? { dueDate } : {}), ...(quickKind === 'today' ? { todayDate: today() } : {}) }]);
       playFeedback('add');
-      toast('Added to your library');
+      toast(quickKind === 'library' ? 'Added to your library' : `${tr(actionLabel)} · ${cleanTitle}`);
       setTitle(''); setNotes(''); setCategoryId(''); setDueDate(''); setType('other'); setHorizon('1-3y'); setOpen(false);
       return;
     }
@@ -101,16 +116,16 @@ export default function QuickAdd() {
   };
   return (
     <>
-      <button onClick={() => setOpen(true)} title={tr("Quick add (N)")} aria-label={tr("Add something to Life Circle")} aria-haspopup="dialog"
+      <button onClick={() => setOpen(true)} title={tr(actionLabel)} aria-label={tr(actionLabel)} aria-haspopup="dialog"
         className="fixed bottom-[calc(5.6rem+env(safe-area-inset-bottom))] right-4 z-30 grid h-12 w-12 place-items-center rounded-full border border-indigo-500/30 bg-white/55 text-indigo-700 shadow-lg shadow-indigo-900/10 backdrop-blur-xl transition hover:scale-105 active:scale-95 dark:bg-slate-900/45 dark:text-indigo-200 lg:bottom-6 lg:right-6 lg:h-14 lg:w-14">
         <Plus size={26} />
       </button>
-      <Modal open={open} onClose={() => setOpen(false)} title={tr("Add to your Life Library")}>
+      <Modal open={open} onClose={() => setOpen(false)} title={tr(actionLabel)}>
         {!advanced ? <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); submit(); }}>
           <label className="block text-sm font-medium">{tr("Title")}<span className="text-rose-500">*</span>
             <input ref={titleRef} autoFocus aria-label={tr("Entry title, required")} required maxLength={200} className="input mt-1 w-full" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr("What would you like to add?")} />
           </label>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {quickKind === 'library' && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block text-sm font-medium">{tr("Type")}<select aria-label={tr("Entry type")} className="input mt-1 w-full" value={type} onChange={(e) => setType(e.target.value as ItemType)}>
                 {(['other','goal','idea','experience','skill','place','book','habit'] as ItemType[]).map((v) => <option key={v} value={v}>{v === 'other' ? 'Item' : v[0].toUpperCase() + v.slice(1)}</option>)}
               </select>
@@ -124,10 +139,8 @@ export default function QuickAdd() {
                 {Object.entries(HORIZON_META).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
-          </div>
-          <label className="block text-sm font-medium">{tr("Due date")}<span className="font-normal muted">{tr("(optional)")}</span>
-            <input aria-label={tr("Due date")} type="date" className="input mt-1 w-full sm:max-w-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </label>
+          </div>}
+          {(quickKind === 'project' || quickKind === 'library') && <label className="block text-sm font-medium">{tr("Due date")}<span className="font-normal muted">{tr("(optional)")}</span><input aria-label={tr("Due date")} type="date" className="input mt-1 w-full sm:max-w-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></label>}
           <label className="block text-sm font-medium">{tr("Notes")}<span className="font-normal muted">{tr("(optional)")}</span>
             <textarea aria-label={tr("Notes")} className="input mt-1 min-h-20 w-full resize-y" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={tr("Add a little detail…")} />
           </label>

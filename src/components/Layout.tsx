@@ -65,12 +65,33 @@ export default function Layout({ children }: { children: ReactNode }) {
   const ownerAdmin = useOwnerAdmin();
   const forestTheme = useStore((s) => s.settings.theme === 'forest');
   const [mobile, setMobile] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
   const [palette, setPalette] = useState(false);
   const [navItems, setNavItems] = useState<NavigationItem[]>(() => DEFAULT_NAVIGATION.map(({ to, label, icon, visible }) => ({ to, label, icon, visible })));
   const loc = useLocation();
   const nav = useNavigate();
 
-  useEffect(() => setMobile(false), [loc.pathname]);
+  useEffect(() => { setMobile(false); setHeaderHidden(false); }, [loc.pathname]);
+  useEffect(() => {
+    setHeaderHidden(false);
+    if (mobile || window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.innerWidth >= 1024) return;
+    let frame = 0;
+    let previousY = window.scrollY;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const y = Math.max(0, window.scrollY);
+        const atEnd = y + window.innerHeight >= document.documentElement.scrollHeight - 2;
+        if (y <= 8 || atEnd) setHeaderHidden(false);
+        else if (y - previousY > 8 && y > 24) setHeaderHidden(true);
+        else if (previousY - y > 5) setHeaderHidden(false);
+        previousY = y;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame); };
+  }, [mobile]);
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
@@ -179,12 +200,12 @@ export default function Layout({ children }: { children: ReactNode }) {
         <aside className="mobile-drawer-panel absolute inset-y-0 left-0 w-72 max-w-[min(85vw,22rem)] overflow-hidden bg-white p-4 pt-[max(1rem,env(safe-area-inset-top))] dark:bg-[#0f1218]" onClick={(e) => e.stopPropagation()}>{sidebar}</aside>
       </div>
       <div className="lg:pl-64">
-        <header className="mobile-app-header sticky top-0 z-50 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-3 py-2.5 pt-[max(.625rem,env(safe-area-inset-top))] backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/90 lg:hidden">
+        <header className={cx('mobile-app-header sticky top-0 z-50 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-3 py-2.5 pt-[max(.625rem,env(safe-area-inset-top))] backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/90 lg:hidden', headerHidden && !mobile && 'is-scroll-hidden')}>
           <button type="button" className="btn-ghost mobile-menu-trigger !h-12 !w-12 !shrink-0 !rounded-xl !p-0" aria-label={mobile ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobile} aria-controls="mobile-navigation-drawer" onClick={() => setMobile((open) => !open)}><span className="grid h-full w-full place-items-center rounded-xl border border-slate-300/80 bg-white/80 text-slate-800 shadow-sm dark:border-white/15 dark:bg-white/[.06] dark:text-slate-100">{mobile ? <X size={23} strokeWidth={2.4} /> : <Menu size={23} strokeWidth={2.4} />}</span></button>
           <Logo size={24} /><span className="font-bold">{APP_NAME}</span>{ownerAdmin && <span className="premium-pill"><Crown size={12} /> {tr("Owner")}</span>}
           <button className="btn-ghost ml-auto !p-2" onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>
-        <main className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</main>
+        <div className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</div>
       </div>
       <nav className="mobile-bottom-nav lg:hidden" aria-label={tr("Primary navigation")}>
         {navItems.filter((item) => item.visible && PRIMARY_ROUTES.includes(item.to)).map(({ to, label, icon }) => { const Icon = NAVIGATION_ICONS[icon]; const defaultLabel = DEFAULT_NAVIGATION.find((item) => item.to === to)?.label; const display = label === defaultLabel ? tr(label) : label; return <NavLink key={to} to={to} end={to === '/'} aria-label={display} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{to === '/' ? tr('Home') : display}</span></NavLink>; })}

@@ -156,10 +156,10 @@ html.dark .loading-copy p { color: rgb(203 213 225); }
 .mobile-bottom-nav a:focus-visible .nav-icon, .mobile-bottom-nav button:focus-visible .nav-icon { animation: nav-icon-pop .42s cubic-bezier(.2, .8, .2, 1); }
 .mobile-drawer { visibility: hidden; pointer-events: none; transition: visibility 0s linear .24s; }
 .mobile-drawer-backdrop { opacity: 0; transition: opacity .2s ease; }
-.mobile-drawer-panel { transform: translate3d(-18px, 0, 0) scale(.99); opacity: .96; transition: transform .28s cubic-bezier(.22,1,.36,1), opacity .22s ease; will-change: transform; }
+.mobile-drawer-panel { transform: translate3d(-100%, 0, 0); opacity: 0; transition: transform .28s cubic-bezier(.22,1,.36,1), opacity .22s ease; will-change: transform, opacity; }
 .mobile-drawer.is-open { visibility: visible; pointer-events: auto; transition-delay: 0s; }
 .mobile-drawer.is-open .mobile-drawer-backdrop { opacity: 1; }
-.mobile-drawer.is-open .mobile-drawer-panel { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+.mobile-drawer.is-open .mobile-drawer-panel { transform: translate3d(0, 0, 0); opacity: 1; }
 
 @media (prefers-reduced-motion: no-preference) {
   .mobile-bottom-nav { transition: background-color .2s ease, border-color .2s ease; }
@@ -176,8 +176,10 @@ html.dark .loading-copy p { color: rgb(203 213 225); }
   .loading-mark *, .loading-progress i { animation: none !important; }
 }
 @media (max-width: 1023px) {
-  main.app-main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
-  .mobile-app-header { min-height: calc(3.5rem + env(safe-area-inset-top)); padding-top: max(.625rem, env(safe-area-inset-top)); -webkit-transform: translateZ(0); transform: translateZ(0); }
+  .app-main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+  .mobile-app-header { min-height: calc(3.5rem + env(safe-area-inset-top)); padding-top: max(.625rem, env(safe-area-inset-top)); -webkit-transform: translateZ(0); transform: translate3d(0, 0, 0); transition: transform .24s cubic-bezier(.22,1,.36,1); will-change: transform; }
+  .mobile-app-header.is-scroll-hidden { transform: translate3d(0, -100%, 0); }
+  .mobile-app-header:focus-within { transform: translate3d(0, 0, 0); }
   .mobile-menu-trigger { position: relative; z-index: 2; touch-action: manipulation; -webkit-appearance: none; appearance: none; }
   .mobile-drawer { z-index: 60; }
   .mobile-drawer-panel { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }

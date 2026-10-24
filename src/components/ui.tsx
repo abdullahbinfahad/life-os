@@ -25,9 +25,9 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   }, [onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm md:p-10" role="presentation" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3 pt-[max(.75rem,env(safe-area-inset-top))] pb-[max(.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:p-4 md:p-10" role="presentation" onMouseDown={onClose}>
       <div
-        className={cx('card w-full !bg-white p-6 dark:!bg-[#12151c]', wide ? 'max-w-4xl' : 'max-w-lg')}
+        className={cx('card my-auto max-h-[90dvh] w-full overflow-y-auto !bg-white p-4 dark:!bg-[#12151c] sm:p-6 md:max-h-[calc(100dvh-5rem)]', wide ? 'max-w-4xl' : 'max-w-lg')}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

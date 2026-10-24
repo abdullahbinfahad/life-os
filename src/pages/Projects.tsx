@@ -116,7 +116,7 @@ export default function Projects() {
   return (
     <div className="min-w-0">
       <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      {!open && <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <section aria-label={tr('Project status views')} className="card mb-5 min-w-0 p-3 sm:p-4">
           <div className="mb-3 flex min-w-0 flex-wrap items-end justify-between gap-2">
             <div className="min-w-0"><h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{tr('Work view')}</h2><p className="mt-0.5 text-xs muted">{tr('Choose one status. Drag a project handle onto another status to move it.')}</p></div>
@@ -141,7 +141,7 @@ export default function Projects() {
             </div>
           )}
         </section>
-      </DndContext>
+      </DndContext>}
 
       <Modal open={creating} onClose={() => setCreating(false)} title={tr('New private project')} wide>
         <form className="grid min-w-0 gap-4" onSubmit={(event) => { event.preventDefault(); create(); }}>
@@ -156,9 +156,10 @@ export default function Projects() {
         </form>
       </Modal>
 
-      <Modal open={Boolean(open)} onClose={() => setOpenId(null)} title={open?.title ?? ''} wide>
+      {open && <section className="project-fullpage card min-w-0 p-4 sm:p-6" aria-label={tr('Project details')}>
         {open && (
           <div className="project-detail min-w-0 space-y-5">
+            <header className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-white/10"><div className="min-w-0"><button type="button" className="btn-ghost -ml-2 mb-2" onClick={() => setOpenId(null)}><Link2 size={15} />{tr('Back to projects')}</button><h2 className="break-words text-xl font-semibold tracking-tight sm:text-2xl">{open.title}</h2><p className="mt-1 text-sm muted">{tr('Project details')} · {tr(COLS.find((column) => column.id === open.status)?.label ?? open.status)}</p></div><button type="button" className="btn-ghost text-rose-600" onClick={() => { if (confirm(tr('Delete project?'))) { deleteProject(open.id); setOpenId(null); } }}><Trash2 size={15} />{tr('Delete project')}</button></header>
             <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <label className="min-w-0"><span className="label">{tr('Status')}</span><select className="input min-w-0" value={open.status} onChange={(event) => updateProject(open.id, { status: event.target.value as Project['status'] })}>{COLS.map((column) => <option key={column.id} value={column.id}>{tr(column.label)}</option>)}</select></label>
               <label className="min-w-0"><span className="label">{tr('Due date')}</span><input type="date" className="input min-w-0" value={open.dueDate ?? ''} onChange={(event) => updateProject(open.id, { dueDate: event.target.value || undefined })} /></label>
@@ -201,7 +202,7 @@ export default function Projects() {
             <div className="flex justify-end border-t border-slate-200 pt-3 dark:border-white/10"><button type="button" className="btn-ghost text-rose-600 dark:text-rose-300" onClick={() => { if (confirm(tr('Delete project?'))) { deleteProject(open.id); setOpenId(null); } }}><Trash2 size={15} /> {tr('Delete project')}</button></div>
           </div>
         )}
-      </Modal>
+      </section>}
     </div>
   );
 }

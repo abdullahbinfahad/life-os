@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Album, AlbumMemory, Category, FocusSession, Goal, Habit, JournalEntry, LifeItem, Project, RewardEvent, Settings, Task, TrashRecord } from './types';
 import { DEFAULT_CATEGORIES } from './library';
 import { addDays, today, uid } from './utils';
+import { isThemeUnlocked } from './themes';
 
 type NewItem = Partial<LifeItem> & { title: string };
 
@@ -355,7 +356,7 @@ export const useStore = create<State>()(
       }),
 
       updateSettings: (patch) => set((s) => {
-        if (patch.theme === 'forest' && s.settings.theme !== 'forest' && s.rewardEvents.reduce((sum, event) => sum + event.points, 0) < 50000) return s;
+        if (patch.theme && !isThemeUnlocked(patch.theme, s.rewardEvents.reduce((sum, event) => sum + event.points, 0))) return s;
         return { settings: { ...s.settings, ...patch } };
       }),
       addFocusSession: (session) => {
