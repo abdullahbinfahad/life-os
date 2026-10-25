@@ -46,5 +46,5 @@ await writeRoute('public/index.html', 'Public Journals · Life Circle', 'Read jo
   canonical: 'https://abdullahbinfahad.github.io/life-os/public/', robots: 'index,follow',
 });
 await writeRoute('public/journal/index.html', 'Public Journal Entry · Life Circle', 'Read a public Life Circle journal entry and its conversation.', detailFallback, {
-  robots: 'noindex,follow', type: 'article',
+  robots: 'index,follow', type: 'article',
 });
