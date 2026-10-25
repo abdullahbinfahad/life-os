@@ -238,8 +238,16 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="card mb-6 flex min-w-0 items-center justify-between gap-3 p-4" aria-label={tr("Trash")}>
-        <button className="btn-outline min-h-11 shrink-0" aria-label={`${tr("Trash")} · ${s.trash.length}`} onClick={() => navigate('/trash')}><Trash2 size={15} /><span className="tabular-nums">{s.trash.length}</span></button>
+      <section className="card mb-6 flex min-w-0 flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center sm:p-5" aria-label={tr("Trash")}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300"><Trash2 size={16} /></span>
+            <h3 className="font-semibold">{tr("Trash")}</h3>
+          </div>
+          <p className="mt-2 text-sm muted">{tr("Deleted items stay here until you restore them or permanently remove them.")}</p>
+          <p className="mt-1 max-w-3xl text-xs muted">{tr("The summary shows only the count. Open Trash to review titles, types, and deletion dates, restore items or permanently delete them.")}</p>
+        </div>
+        <button className="btn-outline min-h-11 shrink-0 self-start sm:self-center" aria-label={`${tr("Trash")} · ${s.trash.length} ${tr("items")}`} title={tr("Trash")} onClick={() => navigate('/trash')}><Trash2 size={15} /><span className="tabular-nums">{s.trash.length}</span></button>
       </section>
 
       <section className="card mb-6 p-6">

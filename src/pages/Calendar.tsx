@@ -218,14 +218,14 @@ export default function Calendar() {
             const list = items.filter((i) => i.horizon === h && i.status !== 'done' && i.status !== 'dropped');
             return (
               <div key={h} className="card p-4 transition-colors motion-reduce:transition-none" onDragOver={(event) => event.preventDefault()} onDrop={(event) => handleHorizonDrop(event, h)}>
-                <div className="mb-1 text-xs uppercase tracking-wide muted">{tr("Horizon")}{idx + 1}</div>
+                <div className="mb-1 text-xs uppercase tracking-wide muted">{tr("Horizon")} {idx + 1}</div>
                 <h3 className="mb-3 font-semibold">{label} <span className="text-sm muted">· {list.length}</span></h3>
                 <div className="max-h-[60vh] space-y-1.5 overflow-y-auto">
                   {list.slice(0, 60).map((i) => (
-                    <div key={i.id} draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', `item-${i.id}`); }} className="flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:ring-1 hover:ring-indigo-400/50 motion-reduce:transition-none" style={{ background: (catMap[i.categoryId]?.color ?? '#666') + '12' }}>
-                      <span aria-hidden="true">{catMap[i.categoryId]?.icon}</span><span className="min-w-0 flex-1 truncate">{i.title}</span>
+                    <div key={i.id} draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', `item-${i.id}`); }} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:ring-1 hover:ring-indigo-400/50 motion-reduce:transition-none" style={{ background: (catMap[i.categoryId]?.color ?? '#666') + '12' }}>
+                      <span className="mt-0.5" aria-hidden="true">{catMap[i.categoryId]?.icon}</span><span className="min-w-0 break-words leading-5">{i.title}</span>
                       <label className="sr-only" htmlFor={`horizon-${i.id}`}>{tr("Move horizon for")} {i.title}</label>
-                      <select id={`horizon-${i.id}`} aria-label={`${tr("Move horizon for")} ${i.title}`} value={i.horizon} onChange={(event) => moveItemToHorizon(i.id, event.target.value)} className="max-w-[8rem] rounded-md border border-slate-200 bg-white/80 px-1 py-1 text-xs dark:border-white/10 dark:bg-slate-900">
+                      <select id={`horizon-${i.id}`} aria-label={`${tr("Move horizon for")} ${i.title}`} value={i.horizon} onChange={(event) => moveItemToHorizon(i.id, event.target.value)} className="col-span-2 w-full min-w-0 rounded-md border border-slate-200 bg-white/80 px-2 py-1.5 text-xs dark:border-white/10 dark:bg-slate-900">
                         {Object.entries(HORIZON_META).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
                       </select>
                     </div>

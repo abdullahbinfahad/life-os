@@ -69,3 +69,12 @@
 
 ### Restore owner account directory
 - [ ] Apply `supabase/migrations/20261021_owner_admin_tools.sql` to the correct Supabase project and refresh the Account Directory; the authenticated SQL editor is open, but automated editor input is not registering, so owner takeover is required before database verification.
+
+
+## 2026-10-25 Trash and capacity follow-up
+
+- [x] “Reedit this trash section with more text and details”: keep the Settings Trash summary count-only, explain how restoration and permanent deletion work, and send users to the Trash page for titles, types, dates, and actions.
+- [x] “Make it can handle huge load and user load”: make the detailed Trash list searchable and paginated, and batch bulk removal so it does not issue one full account-snapshot sync per removed row; preserve photo cleanup failures in Trash for retry. This reduces Trash UI/rendering and sync bursts but does not raise hosting or database quotas.
+- [x] “Give me a number that how many people can use it at once or load capacity”: report documented hosting/backend quotas separately from a tested concurrent-user benchmark; do not claim a measured user count without a safe staging load test. See `CAPACITY.md`.
+- [x] Keep each Calendar & Timeline horizon-card item title fully readable beside its selector at desktop and mobile widths; the Calendar floating action creates a dated Calendar item, and Trash has no generic floating Add button covering its controls.
+- [ ] For broad public-scale capacity, choose an application-oriented host/plan and verify concurrency with a separate staging load test; do not claim this is done until hosting and backend capacity are measured.

@@ -64,6 +64,7 @@ interface State {
   updateSettings: (patch: Partial<Settings>) => void;
   restoreFromTrash: (id: string) => boolean;
   permanentlyDeleteFromTrash: (id: string) => TrashRecord | undefined;
+  permanentlyDeleteManyFromTrash: (ids: string[]) => TrashRecord[];
   emptyTrash: () => TrashRecord[];
   addFocusSession: (session: Omit<FocusSession, 'id' | 'pointsAwarded'>) => number;
   awardReward: (uniqueKey: string, title: string, kind: RewardEvent['kind'], points: number) => void;
@@ -426,6 +427,15 @@ export const useStore = create<State>()(
         const record = get().trash.find((entry) => entry.id === id);
         if (record) set((s) => ({ trash: s.trash.filter((entry) => entry.id !== id) }));
         return record;
+      },
+      permanentlyDeleteManyFromTrash: (ids) => {
+        const wanted = new Set(ids);
+        let removed: TrashRecord[] = [];
+        set((s) => {
+          removed = s.trash.filter((entry) => wanted.has(entry.id));
+          return removed.length ? { trash: s.trash.filter((entry) => !wanted.has(entry.id)) } : s;
+        });
+        return removed;
       },
       emptyTrash: () => {
         const records = get().trash;
