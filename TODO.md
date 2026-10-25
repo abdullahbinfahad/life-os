@@ -51,3 +51,21 @@
 - [ ] Require fresh authentication using the existing account provider (password re-entry for password accounts; Google reauthentication for Google accounts); do not add or store a second app-specific password.
 - [ ] Export only after successful reauthentication, and import only after reauthentication plus validation, preview, and an explicit merge-or-replace choice.
 - [ ] Import writes are atomic or recoverable, preserve privacy boundaries, and never leave the user’s current data partially replaced on validation failure.
+
+
+## 2026-10-25 requested refinements
+
+### Upgrade team project identity and discussion
+- [x] Team workspace displays member names from the existing RLS-protected profile source rather than showing member UUIDs; discussion uses a modern chat-bubble layout with sender attribution, timestamps, existing mentions, real-time updates, and existing seen/read receipts, without inventing unsupported reactions or attachments.
+
+### Improve Insights, Albums, Journal, and Calendar in place
+- [x] Insights adds selectable recent-activity windows, comparable-period completion counts, date-filtered mood summaries, clearer accessible chart summaries, and responsive charts while preserving sample-size qualification and using only recorded data.
+- [x] Albums adds search/navigation, memory counts, responsive gallery cards, and an accessible photo lightbox while preserving private upload, compression, deletion, and storage behavior.
+- [x] Journal adds entry counts, search, date/mood filters, word/character counts, and accessible mood controls while preserving drafts, explicit publish review/consent, and safe unpublishing.
+- [x] Calendar & Timeline supports accessible date movement for existing dated items and horizon movement for existing life-library items, retaining month date-click creation and non-drag controls without duplicating records.
+
+### Refine motion and mobile interaction
+- [x] Existing page and system interactions use restrained responsive transitions and visible keyboard focus; motion respects reduced-motion preferences and does not restructure pages or force horizontal scrolling.
+
+### Restore owner account directory
+- [ ] Apply `supabase/migrations/20261021_owner_admin_tools.sql` to the correct Supabase project and refresh the Account Directory; the authenticated SQL editor is open, but automated editor input is not registering, so owner takeover is required before database verification.

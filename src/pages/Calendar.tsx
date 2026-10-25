@@ -93,7 +93,7 @@ export default function Calendar() {
     }
   };
 
-  const handleDragStart = (event: DragEvent<HTMLButtonElement>, calendarEvent: Ev) => {
+  const handleDragStart = (event: DragEvent<HTMLElement>, calendarEvent: Ev) => {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', calendarEvent.key);
     setDraggedEvent(calendarEvent);
@@ -106,6 +106,22 @@ export default function Calendar() {
     if (calendarEvent) moveEvent(calendarEvent, date);
     setDraggedEvent(null);
     setDragOverDate(null);
+  };
+
+  const moveItemToHorizon = (itemId: string, horizon: string) => {
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item || item.horizon === horizon) return;
+    updateItem(itemId, { horizon: horizon as typeof item.horizon });
+    setAnnouncement(`Moved ${item.title} to ${HORIZON_META[horizon as keyof typeof HORIZON_META]}.`);
+  };
+
+  const handleHorizonDrop = (event: DragEvent<HTMLDivElement>, horizon: string) => {
+    event.preventDefault();
+    const key = event.dataTransfer.getData('text/plain');
+    const dragged = draggedEvent ?? events.find((entry) => entry.key === key);
+    if (dragged?.kind === 'Item') moveItemToHorizon(dragged.entityId, horizon);
+    else if (dragged) setAnnouncement(`${dragged.kind} horizons cannot be changed here.`);
+    setDraggedEvent(null);
   };
 
   return (
@@ -181,10 +197,11 @@ export default function Calendar() {
                   <h3 className="mb-3 font-semibold">{new Date(m + '-01T00:00:00').toLocaleDateString(localeForLanguage(settings.language), { month: 'long', year: 'numeric' })}</h3>
                   <div className="space-y-2">
                     {evs.map((e, i) => (
-                      <div key={i} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/[.06]">
+                      <div key={e.key} draggable onDragStart={(event) => handleDragStart(event, e)} onDragEnd={() => setDraggedEvent(null)} className="flex min-w-0 flex-wrap items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 transition-colors hover:border-indigo-300 dark:border-white/[.06] dark:hover:border-indigo-500/50 motion-reduce:transition-none">
                         <span className="w-14 shrink-0 text-xs font-semibold muted">{new Date(e.date + 'T00:00:00').toLocaleDateString(localeForLanguage(settings.language), { day: 'numeric', month: 'short' })}</span>
                         <span className="h-2 w-2 rounded-full" style={{ background: e.color }} />
                         <span className="min-w-0 flex-1 break-words text-sm">{e.title}</span><span className="shrink-0 text-xs muted">{e.kind}</span>
+                        <label className="flex items-center gap-1 text-xs muted">{tr("Move date")}<input aria-label={`${tr("Move date for")} ${e.title}`} type="date" value={e.date} onChange={(event) => moveEvent(e, event.target.value)} className="max-w-[9.5rem] rounded-md border border-slate-200 bg-transparent px-1.5 py-1 text-slate-700 dark:border-white/10 dark:text-slate-200" /></label>
                       </div>
                     ))}
                   </div>
@@ -200,13 +217,17 @@ export default function Calendar() {
           {Object.entries(HORIZON_META).map(([h, label], idx) => {
             const list = items.filter((i) => i.horizon === h && i.status !== 'done' && i.status !== 'dropped');
             return (
-              <div key={h} className="card p-4">
+              <div key={h} className="card p-4 transition-colors motion-reduce:transition-none" onDragOver={(event) => event.preventDefault()} onDrop={(event) => handleHorizonDrop(event, h)}>
                 <div className="mb-1 text-xs uppercase tracking-wide muted">{tr("Horizon")}{idx + 1}</div>
                 <h3 className="mb-3 font-semibold">{label} <span className="text-sm muted">· {list.length}</span></h3>
                 <div className="max-h-[60vh] space-y-1.5 overflow-y-auto">
                   {list.slice(0, 60).map((i) => (
-                    <div key={i.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm" style={{ background: (catMap[i.categoryId]?.color ?? '#666') + '12' }}>
-                      <span>{catMap[i.categoryId]?.icon}</span><span className="truncate">{i.title}</span>
+                    <div key={i.id} draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', `item-${i.id}`); }} className="flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:ring-1 hover:ring-indigo-400/50 motion-reduce:transition-none" style={{ background: (catMap[i.categoryId]?.color ?? '#666') + '12' }}>
+                      <span aria-hidden="true">{catMap[i.categoryId]?.icon}</span><span className="min-w-0 flex-1 truncate">{i.title}</span>
+                      <label className="sr-only" htmlFor={`horizon-${i.id}`}>{tr("Move horizon for")} {i.title}</label>
+                      <select id={`horizon-${i.id}`} aria-label={`${tr("Move horizon for")} ${i.title}`} value={i.horizon} onChange={(event) => moveItemToHorizon(i.id, event.target.value)} className="max-w-[8rem] rounded-md border border-slate-200 bg-white/80 px-1 py-1 text-xs dark:border-white/10 dark:bg-slate-900">
+                        {Object.entries(HORIZON_META).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+                      </select>
                     </div>
                   ))}
                   {list.length > 60 && <div className="text-xs muted">+{list.length - 60} {tr("more")}</div>}
@@ -234,7 +255,7 @@ export default function Calendar() {
           </div>
         </form>
       </Modal>
-      <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
     </div>
   );
 }

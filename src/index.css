@@ -231,6 +231,22 @@ html.dark .loading-copy p { color: rgb(203 213 225); }
 .timeline-item:nth-child(3) { animation-delay: 70ms; }
 .timeline-item:nth-child(4) { animation-delay: 105ms; }
 @keyframes shared-rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+/* Keep mobile controls responsive: animate only small, directly interactive elements. */
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  .app-main button:not(:disabled), .app-main a[href], .mobile-bottom-nav a, .mobile-bottom-nav button {
+    transition-duration: .14s;
+  }
+  .app-main .input, .app-main select, .app-main textarea {
+    transition: border-color .14s ease, box-shadow .14s ease;
+  }
+}
+/* Preserve a clear, consistent keyboard indicator across native controls and links. */
+:focus-visible {
+  outline: 2px solid #635BFF;
+  outline-offset: 3px;
+}
+html.dark :focus-visible { outline-color: #818cf8; }
+html.theme-forest :focus-visible { outline-color: #6ee7b7; }
 @media (max-width: 1023px) {
   .shared-project-layout { grid-template-columns: minmax(0, 1fr); gap: .75rem; }
   .shared-project-tabs { position: relative; top: auto; z-index: 1; flex-direction: row; overflow-x: auto; overscroll-behavior-inline: contain; padding: .125rem .125rem .5rem; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }

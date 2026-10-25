@@ -1,5 +1,5 @@
 import { translate as tr } from '../lib/locales';
-import { BookOpen, Globe2, GripVertical, Lock, Plus, Search, Trash2 } from 'lucide-react';
+import { BookOpen, CalendarDays, Globe2, GripVertical, Hash, Lock, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -33,6 +33,8 @@ export default function Journal() {
   const [sel, setSel] = useState<string | null>(journal[0]?.id ?? null);
   const [q, setQ] = useState('');
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'private' | 'public'>('all');
+  const [moodFilter, setMoodFilter] = useState<number | null>(null);
+  const [dateFilter, setDateFilter] = useState<'all' | 'month' | 'year'>('all');
   const [draft, setDraft] = useState<Partial<JournalEntry> | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [statusTone, setStatusTone] = useState<'success' | 'error'>('success');
@@ -43,10 +45,15 @@ export default function Journal() {
   const [publicStatus, setPublicStatus] = useState({ unpublished: 0, failed: false });
   const entry = journal.find((j) => j.id === sel);
   const current = draft ?? entry;
-  const list = journal.filter((j) => (visibilityFilter === 'all' || j.visibility === visibilityFilter) && (!q || (j.title + j.content + j.tags.join(' ')).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => a.sortOrder != null && b.sortOrder != null ? a.sortOrder - b.sortOrder : a.sortOrder == null && b.sortOrder != null ? -1 : a.sortOrder != null && b.sortOrder == null ? 1 : b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  const cutoff = new Date();
+  if (dateFilter === 'month') cutoff.setDate(1);
+  if (dateFilter === 'year') { cutoff.setMonth(0, 1); }
+  const list = journal.filter((j) => (visibilityFilter === 'all' || j.visibility === visibilityFilter) && (!moodFilter || j.mood === moodFilter) && (dateFilter === 'all' || j.date >= cutoff.toISOString().slice(0, 10)) && (!q || (j.title + j.content + j.tags.join(' ')).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => a.sortOrder != null && b.sortOrder != null ? a.sortOrder - b.sortOrder : a.sortOrder == null && b.sortOrder != null ? -1 : a.sortOrder != null && b.sortOrder == null ? 1 : b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  const hasFilters = Boolean(q || moodFilter || dateFilter !== 'all' || visibilityFilter !== 'all');
+  const wordCount = (current?.content ?? '').trim().split(/\s+/).filter(Boolean).length;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 7 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const onDragEnd = (event: DragEndEvent) => {
-    if (q || visibilityFilter !== 'all' || !event.over || event.active.id === event.over.id) return;
+    if (hasFilters || !event.over || event.active.id === event.over.id) return;
     const oldIndex = list.findIndex((item) => item.id === event.active.id); const newIndex = list.findIndex((item) => item.id === event.over?.id);
     if (oldIndex < 0 || newIndex < 0) return;
     const ids = list.map((item) => item.id); const [moved] = ids.splice(oldIndex, 1); ids.splice(newIndex, 0, moved); useStore.getState().reorderJournal(ids);
@@ -195,12 +202,18 @@ export default function Journal() {
         <Empty icon={<BookOpen size={28} />} title={tr("Start journaling")} text="Pick a prompt to begin."
           action={<div className="flex max-w-lg flex-wrap justify-center gap-2">{PROMPTS.map((p) => <button key={p} className="chip border border-slate-200 px-3 py-1.5 text-sm hover:border-indigo-400 dark:border-white/10" onClick={() => newEntry(p)}>{p}</button>)}</div>} />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          <div className="card p-3">
-            <div className="relative mb-2"><Search size={15} className="absolute left-3 top-2.5 muted" /><input className="input pl-9" placeholder={tr("Search memories…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr] motion-safe:animate-[fadeIn_.25s_ease-out]">
+          <div className="card min-w-0 p-3">
+            <div className="mb-3 rounded-xl bg-gradient-to-br from-indigo-500/[.10] via-violet-500/[.06] to-transparent p-3">
+              <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles size={15} className="text-indigo-500" />{tr('Your journal')}</div>
+              <div className="mt-2 flex gap-4 text-xs muted"><span><b className="text-slate-800 dark:text-slate-100">{journal.length}</b> {tr('entries')}</span><span><b className="text-slate-800 dark:text-slate-100">{journal.filter((j) => j.visibility === 'private').length}</b> {tr('private')}</span><span><b className="text-slate-800 dark:text-slate-100">{journal.filter((j) => j.visibility === 'public').length}</b> {tr('public')}</span></div>
+            </div>
+            <div className="relative mb-2"><Search size={15} className="absolute left-3 top-2.5 muted" /><input aria-label={tr('Search title, text, and tags')} className="input pl-9 pr-9" placeholder={tr("Search memories…")} value={q} onChange={(e) => setQ(e.target.value)} />{q && <button type="button" aria-label={tr('Clear search')} onClick={() => setQ('')} className="absolute right-2 top-1.5 rounded p-1 muted hover:bg-slate-100 dark:hover:bg-white/10"><X size={15}/></button>}</div>
             <div className="mb-2 flex gap-1 overflow-x-auto pb-1" role="group" aria-label={tr('Filter journal entries')}>{(['all', 'private', 'public'] as const).map((filter) => <button key={filter} type="button" onClick={() => setVisibilityFilter(filter)} className={cx('shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium', visibilityFilter === filter ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-200')}>{filter === 'all' ? tr('All entries') : tr(filter === 'private' ? 'Private' : 'Public')}</button>)}</div>
+            <div className="mb-2 flex items-center gap-2"><CalendarDays size={14} className="shrink-0 muted"/><select aria-label={tr('Filter by date')} className="input !py-1.5 text-xs" value={dateFilter} onChange={(e) => setDateFilter(e.target.value as typeof dateFilter)}><option value="all">{tr('Any time')}</option><option value="month">{tr('This month')}</option><option value="year">{tr('This year')}</option></select><select aria-label={tr('Filter by mood')} className="input !py-1.5 text-xs" value={moodFilter ?? ''} onChange={(e) => setMoodFilter(e.target.value ? Number(e.target.value) : null)}><option value="">{tr('Any mood')}</option>{MOODS.map((m, i) => <option key={m} value={i + 1}>{m} {tr(['Very low', 'Low', 'Neutral', 'Good', 'Great'][i])}</option>)}</select></div>
+            {hasFilters && <button type="button" className="mb-2 inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-300" onClick={() => { setQ(''); setMoodFilter(null); setDateFilter('all'); setVisibilityFilter('all'); }}><X size={12}/>{tr('Clear filters')}</button>}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}><SortableContext items={list.map((entry) => entry.id)} strategy={verticalListSortingStrategy}><div className="max-h-[65vh] space-y-1 overflow-y-auto">
-              {list.map((j) => <SortableJournalCard key={j.id} entry={j} language={settings.language ?? 'en'} selected={sel === j.id && !draft} disabled={Boolean(q) || visibilityFilter !== 'all'} onSelect={() => { setDraft(null); setSel(j.id); }} />)}
+              {list.map((j) => <SortableJournalCard key={j.id} entry={j} language={settings.language ?? 'en'} selected={sel === j.id && !draft} disabled={hasFilters} onSelect={() => { setDraft(null); setSel(j.id); }} />)}
               {!list.length && <p className="p-4 text-center text-sm muted">{tr('No matching entries')}</p>}
             </div></SortableContext></DndContext>
           </div>
@@ -208,14 +221,15 @@ export default function Journal() {
             <div className="journal-editor card p-6">
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <input type="date" className="input !w-auto" value={current.date} onChange={(e) => edit({ date: e.target.value })} />
-                <div className="flex gap-1">{MOODS.map((m, i) => <button key={i} onClick={() => edit({ mood: (i + 1) as any })} className={cx('rounded-lg p-1.5 text-xl transition', current.mood === i + 1 ? 'scale-110 bg-indigo-500/15' : 'opacity-50 hover:opacity-100')}>{m}</button>)}</div>
+                <div className="flex gap-1" role="group" aria-label={tr('Choose mood')}>{MOODS.map((m, i) => <button type="button" key={i} aria-label={tr(['Very low', 'Low', 'Neutral', 'Good', 'Great'][i])} aria-pressed={current.mood === i + 1} onClick={() => edit({ mood: (i + 1) as any })} className={cx('rounded-lg p-1.5 text-xl transition motion-reduce:transition-none', current.mood === i + 1 ? 'scale-110 bg-indigo-500/15' : 'opacity-50 hover:opacity-100')}>{m}</button>)}</div>
                 <button className={cx('btn-outline ml-auto !py-1.5', current.visibility === 'public' && '!border-emerald-400 text-emerald-500')} onClick={() => edit({ visibility: current.visibility === 'public' ? 'private' : 'public' })} title={tr("Public journals can be published to your public journal page")}>
                   {current.visibility === 'public' ? <Globe2 size={15} /> : <Lock size={15} />} {current.visibility === 'public' ? 'Public' : 'Private'}
                 </button>
                   {entry && !draft && <button className="btn-ghost ml-auto text-rose-500" title={tr('Delete entry?')} aria-label={tr('Delete entry?')} onClick={() => setDeleteReview(entry)}><Trash2 size={15} /></button>}
               </div>
               <input className="mb-3 w-full bg-transparent text-2xl font-bold outline-none placeholder:text-slate-400" placeholder={tr("Title…")} value={current.title} onChange={(e) => edit({ title: e.target.value })} />
-              <textarea className="min-h-[340px] w-full resize-y bg-transparent leading-relaxed outline-none placeholder:text-slate-400" placeholder={tr("Write freely…")} value={current.content} onChange={(e) => edit({ content: e.target.value })} />
+              <textarea aria-label={tr('Journal entry text')} className="min-h-[340px] w-full resize-y bg-transparent leading-relaxed outline-none placeholder:text-slate-400" placeholder={tr("Write freely…")} value={current.content} onChange={(e) => edit({ content: e.target.value })} />
+              <div className="mt-1 flex items-center justify-end gap-1.5 text-xs muted"><Hash size={13}/>{wordCount} {tr('words')} <span aria-hidden="true">·</span>{(current.content ?? '').length} {tr('characters')}</div>
               <input className="input mt-3" placeholder={tr("Tags, comma separated")} value={(current.tags ?? []).join(', ')} onChange={(e) => edit({ tags: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
               <input className="input mt-3" placeholder={tr("Location or memory context (optional)")} value={current.location ?? ''} onChange={(e) => edit({ location: e.target.value || undefined })} />
               <label className="mt-3 block text-sm font-medium">{tr("Link this reflection to a goal, plan, or project")}<select className="input mt-1" value={current.relatedGoalId ? `goal:${current.relatedGoalId}` : current.relatedItemId ? `item:${current.relatedItemId}` : current.relatedProjectId ? `project:${current.relatedProjectId}` : ''} onChange={(e) => { const [kind, id] = e.target.value.split(':'); edit({ relatedGoalId: kind === 'goal' ? id : undefined, relatedItemId: kind === 'item' ? id : undefined, relatedProjectId: kind === 'project' ? id : undefined }); }}><option value="">{tr("No linked goal, plan, or project")}</option>{goals.map((goal) => <option key={goal.id} value={`goal:${goal.id}`}>{tr("Goal ·")}{goal.title}</option>)}{items.map((item) => <option key={item.id} value={`item:${item.id}`}>{tr("Plan ·")}{item.title}</option>)}{projects.map((project) => <option key={project.id} value={`project:${project.id}`}>{tr("Project ·")}{project.title}</option>)}</select></label>
