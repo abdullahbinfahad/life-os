@@ -81,6 +81,7 @@ function RouteContent() {
   const publicRoute = pathname === '/public' || pathname.startsWith('/public/');
   return <Suspense fallback={<RouteFallback />}>{publicRoute ? <Layout><Routes>
     <Route path="/public" element={<PublicJournalIndex />} />
+    <Route path="/public/journal" element={<PublicJournal />} />
     <Route path="/public/journal/:slug" element={<PublicJournal />} />
     <Route path="*" element={<PublicJournalIndex />} />
   </Routes></Layout> : <PrivateRoutes />}</Suspense>;

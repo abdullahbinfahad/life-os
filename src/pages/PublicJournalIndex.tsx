@@ -1,11 +1,12 @@
 import { translate as tr } from '../lib/locales';
 import { ArrowRight, BookOpen, RefreshCw, Search, WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Logo } from '../components/Brand';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { localeForLanguage } from '../lib/utils';
+import { setPublicPageMetadata } from '../lib/publicSeo';
 
 type PublicJournalListItem = {
   slug: string;
@@ -18,10 +19,16 @@ type LoadState = 'loading' | 'ready' | 'empty' | 'offline' | 'missing-table' | '
 
 const PAGE_SIZE = 50;
 const PUBLIC_LIST_CACHE = 'life-circle-public-journals-v1';
+const COVER_TONES = [
+  'from-indigo-500/20 via-violet-400/10 to-sky-300/15',
+  'from-emerald-500/15 via-teal-400/10 to-amber-300/15',
+  'from-rose-500/15 via-orange-400/10 to-fuchsia-300/15',
+  'from-sky-500/15 via-cyan-400/10 to-indigo-300/15',
+];
 
-function readPublicCache(): PublicJournalListItem[] | null {
+function readPublicCache(page = 1): PublicJournalListItem[] | null {
   try {
-    const raw = localStorage.getItem(PUBLIC_LIST_CACHE);
+    const raw = localStorage.getItem(`${PUBLIC_LIST_CACHE}:page:${page}`) ?? (page === 1 ? localStorage.getItem(PUBLIC_LIST_CACHE) : null);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return null;
@@ -48,21 +55,48 @@ function stateForError(error: unknown): Exclude<LoadState, 'loading' | 'ready' |
 
 export default function PublicJournalIndex() {
   const language = useStore((state) => state.settings.language ?? 'en');
-  const [entries, setEntries] = useState<PublicJournalListItem[]>(() => readPublicCache() ?? []);
-  const [state, setState] = useState<LoadState>(() => readPublicCache() === null ? 'loading' : (readPublicCache()?.length ? 'ready' : 'empty'));
+  const location = useLocation();
+  const requestedPage = Number(new URLSearchParams(location.search).get('page') || 1);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage, 10000) : 1;
+  const [initialCache] = useState(() => readPublicCache(page));
+  const [entries, setEntries] = useState<PublicJournalListItem[]>(() => initialCache ?? []);
+  const [state, setState] = useState<LoadState>(() => initialCache === null ? 'loading' : (initialCache.length ? 'ready' : 'empty'));
+  const [hasNextPage, setHasNextPage] = useState(() => (initialCache?.length ?? 0) >= PAGE_SIZE);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshIssue, setRefreshIssue] = useState(false);
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState<'all' | '30' | '90'>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
+  useEffect(() => {
+    const cached = readPublicCache(page);
+    setEntries(cached ?? []);
+    setHasNextPage((cached?.length ?? 0) >= PAGE_SIZE);
+    setState(cached === null ? 'loading' : cached.length ? 'ready' : 'empty');
+  }, [page]);
+
+  useEffect(() => setPublicPageMetadata({
+    path: page === 1 ? 'public/' : `public/?page=${page}`,
+    title: tr('Public journals'),
+    description: tr('Reflections shared for anyone to read.'),
+    type: 'website',
+  }), [language, page]);
+
   const loadEntries = useCallback(async (quiet = false) => {
-    if (!quiet && readPublicCache() === null) setState('loading');
+    const hasCache = readPublicCache(page) !== null;
+    if (!quiet && !hasCache) setState('loading');
+    if (hasCache) { setRefreshing(true); setRefreshIssue(false); }
 
     if (!navigator.onLine) {
-      if (!readPublicCache()) setState('offline');
+      if (!hasCache) setState('offline');
+      else setRefreshIssue(true);
+      setRefreshing(false);
       return;
     }
     if (!supabase) {
-      if (!readPublicCache()) setState('unavailable');
+      if (!hasCache) setState('unavailable');
+      else setRefreshIssue(true);
+      setRefreshing(false);
       return;
     }
 
@@ -71,21 +105,26 @@ export default function PublicJournalIndex() {
         .from('public_journals')
         .select('slug,title,excerpt,published_at')
         .order('published_at', { ascending: false })
-        .limit(PAGE_SIZE);
+        .range((page - 1) * PAGE_SIZE, (page - 1) * PAGE_SIZE + PAGE_SIZE);
 
       if (error) {
-        if (!readPublicCache()) setState(stateForError(error));
+        if (!hasCache) setState(stateForError(error));
+        else setRefreshIssue(true);
         return;
       }
 
-      const journals = (data ?? []) as PublicJournalListItem[];
+      const rows = (data ?? []) as PublicJournalListItem[];
+      setHasNextPage(rows.length > PAGE_SIZE);
+      const journals = rows.slice(0, PAGE_SIZE);
       setEntries(journals);
-      try { localStorage.setItem(PUBLIC_LIST_CACHE, JSON.stringify(journals)); } catch { /* Public content cache is optional. */ }
+      try { localStorage.setItem(`${PUBLIC_LIST_CACHE}:page:${page}`, JSON.stringify(journals)); if (page === 1) localStorage.setItem(PUBLIC_LIST_CACHE, JSON.stringify(journals)); } catch { /* Public content cache is optional. */ }
       setState(journals.length ? 'ready' : 'empty');
+      setRefreshIssue(false);
     } catch (error) {
-      if (!readPublicCache()) setState(stateForError(error));
-    }
-  }, []);
+      if (!hasCache) setState(stateForError(error));
+      else setRefreshIssue(true);
+    } finally { setRefreshing(false); }
+  }, [page]);
 
   useEffect(() => {
     void loadEntries();
@@ -111,12 +150,19 @@ export default function PublicJournalIndex() {
       <div className="mx-auto max-w-3xl">
         <Link to="/public" className="mb-10 inline-flex items-center gap-2 text-sm muted" aria-label={tr("Public journals home")}>
           <Logo size={28} /> {tr("Life Circle")}</Link>
-        <header className="mb-8 min-w-0 max-w-2xl">
-          <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{tr("Life Circle")}</p>
-          <h1 className="mt-2 break-words text-3xl font-bold tracking-tight sm:text-4xl">{tr("Public journals")}</h1>
-          <p className="mt-3 text-lg muted">{tr("Reflections shared for anyone to read.")}</p>
+        <header className="relative isolate mb-8 min-w-0 overflow-hidden rounded-3xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-violet-50 shadow-sm dark:border-indigo-300/10 dark:from-indigo-500/[.10] dark:via-slate-900 dark:to-violet-500/[.08]">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-64 w-64 rounded-full bg-indigo-400/15 blur-3xl" />
+          <div aria-hidden="true" className="pointer-events-none absolute right-12 top-9 hidden h-36 w-28 rotate-6 rounded-2xl border border-white/80 bg-white/50 shadow-lg backdrop-blur-sm dark:border-white/10 dark:bg-white/[.04] sm:block"><div className="m-4 h-1.5 w-12 rounded-full bg-indigo-400/40" /><div className="mx-4 mt-3 h-1 w-16 rounded-full bg-slate-400/20" /><div className="mx-4 mt-2 h-1 w-12 rounded-full bg-slate-400/20" /><div className="mx-4 mt-2 h-1 w-14 rounded-full bg-slate-400/20" /></div>
+          <div className="relative max-w-2xl p-6 sm:p-8">
+            <p className="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[.16em] text-indigo-700 dark:border-indigo-300/15 dark:bg-white/[.04] dark:text-indigo-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{tr("Life Circle")}</p>
+            <h1 className="mt-4 break-words text-3xl font-bold tracking-tight sm:text-4xl">{tr("Public journals")}</h1>
+            <p className="mt-3 max-w-xl text-base leading-7 muted sm:text-lg">{tr("Reflections shared for anyone to read.")}</p>
+            <div className="mt-6 inline-flex items-center gap-2 rounded-xl border border-white/80 bg-white/70 px-3 py-2 text-sm shadow-sm dark:border-white/10 dark:bg-white/[.04]" aria-label={`${entries.length} ${tr('Public journals')}`}><BookOpen size={16} className="text-indigo-600 dark:text-indigo-300" /><span className="font-semibold tabular-nums">{entries.length}</span><span className="muted">{tr("Public journals")}</span></div>
+          </div>
         </header>
 
+        {refreshing && <p className="mb-4 text-xs muted" role="status" aria-live="polite">{tr('Refreshing public journals…')}</p>}
+        {refreshIssue && <p className="mb-4 rounded-lg border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/5 dark:text-amber-100" role="status">{tr('Showing the saved public journal list; it may be out of date.')}</p>}
         {state === 'loading' && <div className="card p-8 text-center muted" role="status">{tr("Loading public journals…")}</div>}
         {state === 'empty' && (
           <div className="card p-8 text-center">
@@ -181,18 +227,32 @@ export default function PublicJournalIndex() {
                 <p className="mt-1 text-sm muted">{tr("Try changing your search or filters.")}</p>
                 <button type="button" className="btn-outline mt-4" onClick={clearFilters}>{tr("Clear search and filters")}</button>
               </div>
-            ) : filteredEntries.map((entry) => (
+            ) : <div className="grid gap-4 sm:grid-cols-2">{filteredEntries.map((entry, index) => (
               <Link
                 key={entry.slug}
-                to={`/public/journal/${encodeURIComponent(entry.slug)}`}
-                className="card block min-w-0 p-4 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md dark:hover:border-indigo-400/50 sm:p-6"
+                to={`/public/journal/?slug=${encodeURIComponent(entry.slug)}`}
+                className="card group block min-w-0 overflow-hidden p-0 transition duration-300 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg dark:hover:border-indigo-400/50"
               >
-                <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{formatDate(entry.published_at, language)}</p>
-                <h2 className="mt-2 break-words text-xl font-semibold tracking-tight">{entry.title || 'Journal entry'}</h2>
-                {entry.excerpt && <p className="mt-2 break-words leading-6 muted">{entry.excerpt}</p>}
-                <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-indigo-700 dark:text-indigo-300">{tr("Read journal")}<ArrowRight size={16} /></span>
+                <div className={`relative overflow-hidden bg-gradient-to-br ${COVER_TONES[index % COVER_TONES.length]}`}>
+                  <div aria-hidden="true" className="absolute -right-8 -top-12 h-40 w-40 rounded-full border border-white/40 bg-white/20 blur-[1px] transition-transform duration-500 group-hover:scale-110" />
+                  <div className="relative flex h-28 items-end justify-between p-4">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/65 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/35 dark:text-slate-100"><BookOpen size={14} />{tr("Public journals")}</span>
+                    <span aria-hidden="true" className="font-serif text-5xl font-semibold tracking-tight text-indigo-950/10 dark:text-white/15">{String(index + 1).padStart(2, '0')}</span>
+                  </div>
+                </div>
+                <div className="min-w-0 p-4 sm:p-5">
+                  <p className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{formatDate(entry.published_at, language)}</p>
+                  <h2 className="mt-2 break-words text-xl font-semibold tracking-tight transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">{entry.title || 'Journal entry'}</h2>
+                  {entry.excerpt && <p className="mt-2 line-clamp-3 break-words text-sm leading-6 muted">{entry.excerpt}</p>}
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-indigo-700 dark:text-indigo-300">{tr("Read journal")}<ArrowRight size={16} className="transition-transform group-hover:translate-x-1" /></span>
+                </div>
               </Link>
-            ))}
+            ))}</div>}
+            {(page > 1 || hasNextPage) && <nav aria-label={tr('Public journal pages')} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[.03]">
+              {page > 1 ? <Link className="btn-ghost" to={page === 2 ? '/public/' : `/public/?page=${page - 1}`} rel="prev">← {tr('Previous page')}</Link> : <span />}
+              <span className="text-sm muted">{page}</span>
+              {hasNextPage ? <Link className="btn-outline" to={`/public/?page=${page + 1}`} rel="next">{tr('Next page')} →</Link> : <span />}
+            </nav>}
           </div>
         )}
       </div>

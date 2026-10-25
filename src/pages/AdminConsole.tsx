@@ -43,7 +43,7 @@ export default function AdminConsole() {
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
   const [accountOffset, setAccountOffset] = useState(0);
   const [hasMoreAccounts, setHasMoreAccounts] = useState(false);
-  const [accountsBusy, setAccountsBusy] = useState(false);
+  const [accountsBusy, setAccountsBusy] = useState(true);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [accountQuery, setAccountQuery] = useState('');
   const [accountPage, setAccountPage] = useState(0);
@@ -62,18 +62,27 @@ export default function AdminConsole() {
   const [auditError, setAuditError] = useState<string | null>(null);
 
   const loadAccountBatch = useCallback(async (offset: number, replace = false) => {
-    if (!supabase) { setAccountError('Cloud connection is not configured.'); return; }
+    if (!supabase) { setAccountError(tr('Cloud connection is not configured.')); setAccountsBusy(false); return; }
     if (replace) offset = 0;
     setAccountsBusy(true); setAccountError(null);
     try {
       const { data, error } = await supabase.rpc('lifeos_admin_list_users', { p_limit: OWNER_PAGE_SIZE, p_offset: offset });
       if (error) throw error;
-      const rows = (Array.isArray(data) ? data : []) as AdminAccount[];
+      if (!Array.isArray(data) || data.some((row) => !row || typeof row !== 'object' || typeof (row as Partial<AdminAccount>).user_id !== 'string')) {
+        throw new Error('Unexpected account directory response');
+      }
+      const rows = data as AdminAccount[];
       setAccounts((previous) => replace ? rows : [...previous, ...rows]);
       setAccountOffset(offset + rows.length);
       setHasMoreAccounts(rows.length === OWNER_PAGE_SIZE);
       setAccountPage(0);
-    } catch (error) { setAccountError(humanizeAdminError(error, 'Could not list accounts')); }
+    } catch (error) {
+      const code = error && typeof error === 'object' && 'code' in error ? String((error as { code: unknown }).code) : '';
+      if (typeof navigator !== 'undefined' && !navigator.onLine) setAccountError(tr('You appear to be offline. Reconnect and retry.'));
+      else if (code === '42501') setAccountError(tr('The server could not verify owner access. Confirm your owner account, then retry.'));
+      else if (['PGRST202', 'PGRST203', 'PGRST205', '42883'].includes(code)) setAccountError(tr('The owner account-list service is missing or unavailable. Apply the owner-admin migration, then refresh.'));
+      else setAccountError(tr('Could not list accounts. Check your connection and backend setup, then retry.'));
+    }
     finally { setAccountsBusy(false); }
   }, []);
 
@@ -195,7 +204,7 @@ export default function AdminConsole() {
       <div className="pointer-events-none absolute -right-14 -top-20 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div><span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/25 bg-amber-100/10 px-3 py-1 text-xs font-semibold text-amber-100"><Crown size={13} /> {tr("OWNER · PREMIUM")}</span><h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">{tr("System console")}</h1><p className="mt-2 max-w-xl text-sm leading-6 text-emerald-50/75">{tr("A live, privacy-conscious view of this app, your own cloud record, and public service health.")}</p></div>
-        <button className="btn border border-white/15 bg-white/10 text-white hover:bg-white/15" onClick={() => { void refresh(); setAccounts([]); setAccountOffset(0); setHasMoreAccounts(false); void loadAccountBatch(0, true); void loadNavigation(); void loadAudit(); }} disabled={busy}><RefreshCw size={15} className={busy ? 'animate-spin' : ''} /> {tr("Refresh checks")}</button>
+        <button className="btn border border-white/15 bg-white/10 text-white hover:bg-white/15" onClick={() => { void refresh(); void loadAccountBatch(0, true); void loadNavigation(); void loadAudit(); }} disabled={busy || accountsBusy}><RefreshCw size={15} className={busy || accountsBusy ? 'animate-spin' : ''} /> {tr("Refresh checks")}</button>
       </div>
       <div className="relative mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-emerald-50/70"><span>{user?.email ?? 'Verified owner'}</span><span>{tr("Role: owner")}</span><span>{tr("Database verification:")}{report.backendOwnerVerified ? 'confirmed' : 'pending setup'}</span><span>{tr("Checked")}{report.checkedAt ? new Date(report.checkedAt).toLocaleTimeString() : '—'}</span></div>
     </div>

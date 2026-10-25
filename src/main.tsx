@@ -5,6 +5,7 @@ import './index.css';
 import './lib/themes.css';
 import { initAuth } from './lib/auth';
 
+document.documentElement.classList.add('js-enabled');
 initAuth();
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

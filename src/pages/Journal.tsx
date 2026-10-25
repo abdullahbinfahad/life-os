@@ -1,11 +1,11 @@
 import { translate as tr } from '../lib/locales';
 import { BookOpen, Globe2, GripVertical, Lock, Plus, Search, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
-import { Empty, PageHeader } from '../components/ui';
+import { Empty, Modal, PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
 import type { JournalEntry } from '../lib/types';
 import { cx, fmtDate, today, uid } from '../lib/utils';
@@ -35,8 +35,12 @@ export default function Journal() {
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'private' | 'public'>('all');
   const [draft, setDraft] = useState<Partial<JournalEntry> | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
+  const [statusTone, setStatusTone] = useState<'success' | 'error'>('success');
   const [publishing, setPublishing] = useState(false);
-  const publishingIds = useRef(new Set<string>());
+  const [publishReview, setPublishReview] = useState<JournalEntry | null>(null);
+  const [publishError, setPublishError] = useState('');
+  const [deleteReview, setDeleteReview] = useState<JournalEntry | null>(null);
+  const [publicStatus, setPublicStatus] = useState({ unpublished: 0, failed: false });
   const entry = journal.find((j) => j.id === sel);
   const current = draft ?? entry;
   const list = journal.filter((j) => (visibilityFilter === 'all' || j.visibility === visibilityFilter) && (!q || (j.title + j.content + j.tags.join(' ')).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => a.sortOrder != null && b.sortOrder != null ? a.sortOrder - b.sortOrder : a.sortOrder == null && b.sortOrder != null ? -1 : a.sortOrder != null && b.sortOrder == null ? 1 : b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
@@ -50,70 +54,125 @@ export default function Journal() {
 
   useEffect(() => {
     if (!user || !supabase) return;
-    const candidates = journal.filter((item) => item.visibility === 'public' && item.id && !publishingIds.current.has(item.id));
-    if (!candidates.length) return;
+    const candidates = journal.filter((item) => item.visibility === 'public' && item.id);
+    if (!candidates.length) { setPublicStatus({ unpublished: 0, failed: false }); return; }
     let active = true;
     void (async () => {
       try {
         const slugs = candidates.map((item) => `${user.id.slice(0, 8)}-${item.id}`);
-        const { data: existing, error: lookupError } = await supabase.from('public_journals').select('slug').in('slug', slugs);
-        if (lookupError) throw lookupError;
-        const existingSlugs = new Set((existing ?? []).map((row) => row.slug));
-        const missing = candidates.filter((item) => !existingSlugs.has(`${user.id.slice(0, 8)}-${item.id}`));
-        if (!missing.length) return;
-        const publishedAt = new Date().toISOString();
-        const { error } = await supabase.from('public_journals').upsert(missing.map((item) => ({
-          slug: `${user.id.slice(0, 8)}-${item.id}`,
-          owner_id: user.id,
-          title: item.title || 'Journal entry',
-          excerpt: (item.content ?? '').slice(0, 180),
-          content: item.content ?? '',
-          published_at: publishedAt,
-          updated_at: publishedAt,
-        })), { onConflict: 'slug' });
+        const { data: existing, error } = await supabase.from('public_journals').select('slug').in('slug', slugs);
         if (error) throw error;
-        if (active) setStatusMessage(`${missing.length} existing public journal ${missing.length === 1 ? 'entry was' : 'entries were'} added to the public page.`);
+        const published = new Set((existing ?? []).map((row) => row.slug));
+        const unpublished = candidates.filter((item) => !published.has(`${user.id.slice(0, 8)}-${item.id}`)).length;
+        if (active) setPublicStatus({ unpublished, failed: false });
       } catch {
-        if (active) setStatusMessage('Some entries marked Public could not be added to the public page. Open one and choose Update public link to retry.');
+        if (active) setPublicStatus({ unpublished: 0, failed: true });
       }
     })();
     return () => { active = false; };
   }, [journal, user?.id]);
 
-  const newEntry = (prompt?: string) => { setSel(null); setStatusMessage(''); setDraft({ id: uid(), date: today(), title: '', content: prompt ? prompt + '\n\n' : '', mood: 3, tags: [], visibility: 'private' }); };
-  const publish = async (value: Partial<JournalEntry>, confirmPublic = true) => {
+  const newEntry = (prompt?: string) => { setSel(null); setStatusMessage(''); setStatusTone('success'); setDraft({ id: uid(), date: today(), title: '', content: prompt ? prompt + '\n\n' : '', mood: 3, tags: [], visibility: 'private' }); };
+  const publish = async (value: JournalEntry) => {
     if (!user || !supabase || value.visibility !== 'public' || !value.id) return false;
-    if (confirmPublic && !confirm('Publish this journal entry publicly? Anyone with the link may read it.')) return false;
     const slug = `${user.id.slice(0, 8)}-${value.id}`;
     const content = value.content ?? '';
-    publishingIds.current.add(value.id);
     setPublishing(true);
+    setPublishError('');
     try {
-      const { error } = await supabase.from('public_journals').upsert({ slug, owner_id: user.id, title: value.title || 'Journal entry', excerpt: content.slice(0, 180), content, published_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: 'slug' });
+      const publishedAt = new Date().toISOString();
+      const { error } = await supabase.from('public_journals').upsert({ slug, owner_id: user.id, title: value.title || 'Journal entry', excerpt: content.slice(0, 180), content, published_at: publishedAt, updated_at: publishedAt }, { onConflict: 'slug' });
       if (error) throw error;
-      const link = `${window.location.origin}${window.location.pathname}#/public/journal/${encodeURIComponent(slug)}`;
+      const appBase = window.location.pathname.replace(/\/+$/, '');
+      const link = `${window.location.origin}${appBase}/public/journal/?slug=${encodeURIComponent(slug)}`;
       try { await navigator.clipboard?.writeText(link); } catch { /* Link remains available in the public index. */ }
+      saveEntry({ ...value, visibility: 'public' });
+      setSel(value.id);
+      setDraft(null);
+      setPublishReview(null);
+      setStatusTone('success');
       setStatusMessage('Published to Public Journal. The share link was copied when clipboard access was available.');
       playFeedback('submit');
       return true;
     } catch {
-      setStatusMessage('Saved privately on this device, but publishing failed. Check your connection and public-journal database setup, then try again.');
+      setPublishError(tr('Publishing failed. The entry was not changed locally. Check your connection and public journal setup, then retry.'));
       playFeedback('failed');
       return false;
-    } finally { publishingIds.current.delete(value.id); setPublishing(false); }
+    } finally { setPublishing(false); }
   };
   const save = async () => {
     if (!draft) return;
     const saved = { date: today(), mood: 3 as const, tags: [], visibility: 'private' as const, createdAt: new Date().toISOString(), ...draft, id: draft.id ?? uid() } as JournalEntry;
-    saveEntry(saved);
-    setSel(saved.id);
-    setDraft(null);
+    if (saved.visibility === 'public') {
+      if (!user || !supabase) {
+        if (entry?.visibility === 'public') { setStatusTone('error'); setStatusMessage(tr('Cannot safely change this public entry while signed out or offline. Reconnect and retry.')); return; }
+        const privateEntry = { ...saved, visibility: 'private' as const };
+        saveEntry(privateEntry); setSel(privateEntry.id); setDraft(null);
+        setStatusTone('success');
+        setStatusMessage(tr('Saved privately. Sign in before publishing this entry.'));
+        playFeedback('submit');
+        return;
+      }
+      setPublishError('');
+      setPublishReview(saved);
+      return;
+    }
+    if (entry?.visibility === 'public') {
+      if (!user || !supabase) { setStatusTone('error'); setStatusMessage(tr('Could not confirm removal of the public link. Reconnect and retry; the entry was not changed.')); return; }
+      setPublishing(true);
+      try {
+        const { error } = await supabase.from('public_journals').delete().eq('slug', `${user.id.slice(0, 8)}-${entry.id}`);
+        if (error) throw error;
+      } catch {
+        setStatusTone('error');
+        setStatusMessage(tr('Could not remove the public link. Your entry was not changed; reconnect and retry.'));
+        playFeedback('failed');
+        return;
+      } finally { setPublishing(false); }
+    }
+    saveEntry(saved); setSel(saved.id); setDraft(null); playFeedback('submit');
+    setStatusTone('success');
+    setStatusMessage(tr(saved.visibility === 'private' ? 'Journal entry saved to your Life OS workspace.' : 'Saved privately and removed from the public journal.'));
+  };
+  const savePrivately = async () => {
+    if (!publishReview) return;
+    const value = publishReview;
+    const wasPublished = entry?.id === value.id && entry.visibility === 'public';
+    if (wasPublished) {
+      if (!user || !supabase) { setPublishError(tr('Could not confirm removal of the public link. Reconnect and retry.')); return; }
+      setPublishing(true);
+      try {
+        const { error } = await supabase.from('public_journals').delete().eq('slug', `${user.id.slice(0, 8)}-${value.id}`);
+        if (error) throw error;
+      } catch { setPublishError(tr('Could not remove the public link. The entry was not changed; reconnect and retry.')); return; }
+      finally { setPublishing(false); }
+    }
+    const privateEntry = { ...value, visibility: 'private' as const };
+    saveEntry(privateEntry); setSel(privateEntry.id); setDraft(null); setPublishReview(null); setPublishError('');
+    setStatusTone('success');
+    setStatusMessage(tr('Saved privately. This entry is not available on the public journal.'));
     playFeedback('submit');
-    if (saved.visibility === 'public' && user) await publish(saved);
-    else if (entry?.visibility === 'public' && user && supabase) {
-      const { error } = await supabase.from('public_journals').delete().eq('slug', `${user.id.slice(0, 8)}-${entry.id}`);
-      setStatusMessage(error ? 'Saved as private, but the old public link could not be removed. Please retry while online.' : 'Saved privately and removed from the public journal.');
-    } else setStatusMessage('Journal entry saved to your Life OS workspace.');
+  };
+  const removeEntry = async () => {
+    if (!deleteReview) return;
+    const removing = deleteReview;
+    if (removing.visibility === 'public') {
+      if (!user || !supabase) { setStatusTone('error'); setStatusMessage(tr('Could not confirm removal of the public link. Reconnect and retry; the entry was not deleted.')); return; }
+      setPublishing(true);
+      try {
+        const { error } = await supabase.from('public_journals').delete().eq('slug', `${user.id.slice(0, 8)}-${removing.id}`);
+        if (error) throw error;
+      } catch {
+        setStatusTone('error');
+        setStatusMessage(tr('Could not remove the public link, so the entry was not deleted. Reconnect and retry.'));
+        playFeedback('failed');
+        return;
+      } finally { setPublishing(false); }
+    }
+    deleteEntry(removing.id); setDeleteReview(null); setDraft(null); setSel(null);
+    setStatusTone('success');
+    setStatusMessage(tr('Journal entry deleted.'));
+    playFeedback('submit');
   };
   const edit = (patch: Partial<JournalEntry>) => setDraft({ ...(current as JournalEntry), ...patch });
 
@@ -129,7 +188,9 @@ export default function Journal() {
           </>
         }
       />
-      {statusMessage && <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[.07] px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300" role="status"><span>{statusMessage}</span><Link to="/public" className="shrink-0 underline underline-offset-2">{tr("Open public journals")}</Link></div>}
+      {statusMessage && <div className={cx('mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm', statusTone === 'error' ? 'border-rose-500/20 bg-rose-500/[.07] text-rose-700 dark:text-rose-300' : 'border-emerald-500/20 bg-emerald-500/[.07] text-emerald-700 dark:text-emerald-300')} role={statusTone === 'error' ? 'alert' : 'status'}><span>{statusMessage}</span><Link to="/public" className="shrink-0 underline underline-offset-2">{tr("Open public journals")}</Link></div>}
+      {publicStatus.failed && <div className="mb-4 rounded-xl border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/5 dark:text-amber-100" role="status">{tr('Could not verify which entries are on the public journal. Nothing will be published automatically; review an entry before using Update public link.')}</div>}
+      {publicStatus.unpublished > 0 && <div className="mb-4 rounded-xl border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/5 dark:text-amber-100" role="status"><b>{publicStatus.unpublished}</b> {tr('entry or entries marked Public here are not published online. Review each entry and choose Update public link to publish it.')}</div>}
       {journal.length === 0 && !draft ? (
         <Empty icon={<BookOpen size={28} />} title={tr("Start journaling")} text="Pick a prompt to begin."
           action={<div className="flex max-w-lg flex-wrap justify-center gap-2">{PROMPTS.map((p) => <button key={p} className="chip border border-slate-200 px-3 py-1.5 text-sm hover:border-indigo-400 dark:border-white/10" onClick={() => newEntry(p)}>{p}</button>)}</div>} />
@@ -151,18 +212,18 @@ export default function Journal() {
                 <button className={cx('btn-outline ml-auto !py-1.5', current.visibility === 'public' && '!border-emerald-400 text-emerald-500')} onClick={() => edit({ visibility: current.visibility === 'public' ? 'private' : 'public' })} title={tr("Public journals can be published to your public journal page")}>
                   {current.visibility === 'public' ? <Globe2 size={15} /> : <Lock size={15} />} {current.visibility === 'public' ? 'Public' : 'Private'}
                 </button>
-                  {entry && !draft && <button className="btn-ghost ml-auto text-rose-500" onClick={async () => { if (confirm('Delete entry?')) { deleteEntry(entry.id); setSel(null); if (entry.visibility === 'public' && user && supabase) await supabase.from('public_journals').delete().eq('slug', `${user.id.slice(0, 8)}-${entry.id}`); } }}><Trash2 size={15} /></button>}
+                  {entry && !draft && <button className="btn-ghost ml-auto text-rose-500" title={tr('Delete entry?')} aria-label={tr('Delete entry?')} onClick={() => setDeleteReview(entry)}><Trash2 size={15} /></button>}
               </div>
               <input className="mb-3 w-full bg-transparent text-2xl font-bold outline-none placeholder:text-slate-400" placeholder={tr("Title…")} value={current.title} onChange={(e) => edit({ title: e.target.value })} />
               <textarea className="min-h-[340px] w-full resize-y bg-transparent leading-relaxed outline-none placeholder:text-slate-400" placeholder={tr("Write freely…")} value={current.content} onChange={(e) => edit({ content: e.target.value })} />
               <input className="input mt-3" placeholder={tr("Tags, comma separated")} value={(current.tags ?? []).join(', ')} onChange={(e) => edit({ tags: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
               <input className="input mt-3" placeholder={tr("Location or memory context (optional)")} value={current.location ?? ''} onChange={(e) => edit({ location: e.target.value || undefined })} />
               <label className="mt-3 block text-sm font-medium">{tr("Link this reflection to a goal, plan, or project")}<select className="input mt-1" value={current.relatedGoalId ? `goal:${current.relatedGoalId}` : current.relatedItemId ? `item:${current.relatedItemId}` : current.relatedProjectId ? `project:${current.relatedProjectId}` : ''} onChange={(e) => { const [kind, id] = e.target.value.split(':'); edit({ relatedGoalId: kind === 'goal' ? id : undefined, relatedItemId: kind === 'item' ? id : undefined, relatedProjectId: kind === 'project' ? id : undefined }); }}><option value="">{tr("No linked goal, plan, or project")}</option>{goals.map((goal) => <option key={goal.id} value={`goal:${goal.id}`}>{tr("Goal ·")}{goal.title}</option>)}{items.map((item) => <option key={item.id} value={`item:${item.id}`}>{tr("Plan ·")}{item.title}</option>)}{projects.map((project) => <option key={project.id} value={`project:${project.id}`}>{tr("Project ·")}{project.title}</option>)}</select></label>
-              {current.visibility === 'public' && <p className="mt-3 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">{tr("Public preview enabled. When cloud publishing is configured, this entry can appear on your public journal page. Do not include sensitive information.")}</p>}
+              {current.visibility === 'public' && <p className="mt-3 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">{tr('This entry is marked for public publishing. It appears online only after you review and confirm the preview. Do not include sensitive information.')}</p>}
               {(draft || (current.visibility === 'public' && user)) && (
                 <div className="mt-4 flex flex-wrap justify-end gap-2">
                   {draft && <button className="btn-ghost" onClick={() => setDraft(null)}>{tr("Discard")}</button>}
-                  {current.visibility === 'public' && user && !draft && <button className="btn-outline" disabled={publishing} onClick={() => void publish(current)}><Globe2 size={15} /> {publishing ? 'Publishing…' : entry ? 'Update public link' : 'Publish link'}</button>}
+                  {current.visibility === 'public' && user && !draft && <button className="btn-outline" disabled={publishing} onClick={() => { if (entry) { setPublishError(''); setPublishReview(entry); } }}><Globe2 size={15} /> {publishing ? 'Publishing…' : entry ? 'Update public link' : 'Publish link'}</button>}
                   {draft && <button className="btn-primary" onClick={() => void save()}>{tr("Save entry")}</button>}
                 </div>
               )}
@@ -170,6 +231,33 @@ export default function Journal() {
           ) : <div className="card grid place-items-center p-10 muted">{tr("Select an entry")}</div>}
         </div>
       )}
+      <Modal open={!!publishReview} onClose={() => { if (!publishing) setPublishReview(null); }} title={tr('Review before public publishing')} wide>
+        {publishReview && <div className="space-y-4">
+          <p className="rounded-xl border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/5 dark:text-amber-100">{tr('Anyone with the public link can read this journal entry. Review the exact content before publishing.')}</p>
+          <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+            <p className="text-xs font-semibold uppercase tracking-wide muted">{tr('Public title')}</p>
+            <p className="mt-1 break-words font-semibold">{publishReview.title || tr('Journal entry')}</p>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-wide muted">{tr('Public preview excerpt')}</p>
+            <p className="mt-1 break-words text-sm">{(publishReview.content ?? '').slice(0, 180)}</p>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-wide muted">{tr('Full public text')}</p>
+            <pre className="mt-1 max-h-[32dvh] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm">{publishReview.content || tr('No text content.')}</pre>
+          </div>
+          <p className="text-xs leading-5 muted">{tr('The title, first 180 characters as the preview, and full text will be public. Tags, location, and linked records are not included.')}</p>
+          {publishError && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-600 dark:text-rose-300" role="alert">{publishError}</p>}
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" className="btn-ghost" disabled={publishing} onClick={() => setPublishReview(null)}>{tr('Back to editor')}</button>
+            <button type="button" className="btn-outline" disabled={publishing} onClick={() => void savePrivately()}>{tr('Save privately')}</button>
+            <button type="button" className="btn-primary" disabled={publishing} onClick={() => void publish(publishReview)}><Globe2 size={15} /> {publishing ? tr('Publishing…') : tr(entry?.id === publishReview.id && entry.visibility === 'public' ? 'Update public entry' : 'Publish publicly')}</button>
+          </div>
+        </div>}
+      </Modal>
+      <Modal open={!!deleteReview} onClose={() => { if (!publishing) setDeleteReview(null); }} title={tr('Delete journal entry?')}>
+        {deleteReview && <div className="space-y-4">
+          <p className="break-words font-medium">{deleteReview.title || tr('Untitled')}</p>
+          <p className="text-sm muted">{deleteReview.visibility === 'public' ? tr('The public copy will be removed first. If it cannot be removed, this entry will not be deleted.') : tr('This entry will be moved to Trash and can be restored from Settings.')}</p>
+          <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" disabled={publishing} onClick={() => setDeleteReview(null)}>{tr('Cancel')}</button><button type="button" className="btn-primary !bg-rose-600" disabled={publishing} onClick={() => void removeEntry()}>{publishing ? tr('Deleting…') : tr('Delete entry')}</button></div>
+        </div>}
+      </Modal>
     </div>
   );
 }

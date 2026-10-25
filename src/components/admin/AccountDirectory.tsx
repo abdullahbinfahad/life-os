@@ -44,7 +44,7 @@ export default function AccountDirectory({ accounts, query, onQueryChange, page,
       </label>
       {error && <div role="alert" className="mt-3 rounded-xl border border-rose-300/60 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">{error}</div>}
       <div className="mt-3 max-h-[30rem] space-y-2 overflow-y-auto pr-1">
-        {!loading && !error && !pageAccounts.length && <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm muted dark:border-white/15">{tr("No accounts match this search.")}</div>}
+        {!loading && !error && !pageAccounts.length && <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm muted dark:border-white/15">{query.trim() ? tr("No accounts match this search.") : tr("The owner directory returned no accounts.")}</div>}
         {pageAccounts.map((account) => {
           const selected = account.user_id === selectedId;
           const title = account.display_name || account.email || account.phone || 'Unnamed account';

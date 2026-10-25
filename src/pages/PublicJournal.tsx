@@ -1,13 +1,14 @@
 import { translate as tr } from '../lib/locales';
-import { ArrowLeft, MessageCircle, RefreshCw, Send, Trash2, WifiOff } from 'lucide-react';
+import { ArrowLeft, BookOpen, MessageCircle, RefreshCw, Send, Trash2, WifiOff } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Logo } from '../components/Brand';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { playFeedback } from '../lib/sounds';
 import { useStore } from '../lib/store';
 import { localeForLanguage } from '../lib/utils';
+import { setPublicNotFoundMetadata, setPublicPageMetadata } from '../lib/publicSeo';
 
 type PublicEntry = { title: string; excerpt: string; content: string; published_at: string };
 type LoadState = 'loading' | 'ready' | 'not-found' | 'offline' | 'missing-table' | 'error' | 'unavailable';
@@ -32,7 +33,9 @@ function stateForError(error: unknown): Extract<LoadState, 'offline' | 'missing-
 
 export default function PublicJournal() {
   const language = useStore((store) => store.settings.language ?? 'en');
-  const { slug } = useParams();
+  const { slug: pathSlug } = useParams();
+  const location = useLocation();
+  const slug = pathSlug || new URLSearchParams(location.search).get('slug') || undefined;
   const navigate = useNavigate();
   const { user, setGuest } = useAuth();
   const [entry, setEntry] = useState<PublicEntry | null>(null);
@@ -86,6 +89,20 @@ export default function PublicJournal() {
   useEffect(() => {
     void loadEntry();
   }, [loadEntry]);
+
+  useEffect(() => {
+    if (state === 'ready' && entry && slug) {
+      const description = entry.excerpt || entry.content.slice(0, 220) || tr('A public journal reflection shared on Life Circle.');
+      return setPublicPageMetadata({
+        path: `public/journal/?slug=${encodeURIComponent(slug)}`,
+        title: entry.title || tr('Journal entry'),
+        description,
+        type: 'article',
+        publishedAt: entry.published_at,
+      });
+    }
+    if (state !== 'loading') return setPublicNotFoundMetadata();
+  }, [state, entry, slug, language]);
 
   const loadComments = useCallback(async () => {
     if (!slug) return;
@@ -151,7 +168,7 @@ export default function PublicJournal() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 dark:bg-[#0b0d12] dark:text-slate-100">
-      <article className="mx-auto min-w-0 max-w-2xl break-words">
+      <article className="mx-auto min-w-0 max-w-3xl break-words">
         <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
           <Link to="/public" className="flex items-center gap-2 text-sm muted" aria-label={tr("Public journals home")}><Logo size={28} /> {tr("Life Circle")}</Link>
           <Link to="/public" className="btn-primary"><ArrowLeft size={16} /> {tr("All public journals")}</Link>
@@ -165,9 +182,16 @@ export default function PublicJournal() {
         {state === 'error' && <div className="card p-8 text-center" role="alert"><h1 className="font-semibold">{tr("We couldn’t load this journal")}</h1><p className="mt-1 text-sm muted">{tr("Please try again in a moment.")}</p>{retry}</div>}
         {state === 'ready' && entry && (
           <>
-            <p className="mb-3 text-sm font-medium text-indigo-500">{tr("Published")} {formatDate(entry.published_at, language)}</p>
-            <h1 className="break-words text-3xl font-bold tracking-tight sm:text-4xl">{entry.title || 'Journal entry'}</h1>
-            <div className="mt-8 whitespace-pre-wrap break-words leading-8">{entry.content}</div>
+            <header className="relative isolate overflow-hidden rounded-t-3xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 dark:border-indigo-300/10 dark:from-indigo-500/[.10] dark:via-slate-900 dark:to-violet-500/[.08] sm:p-9">
+              <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-64 w-64 rounded-full bg-indigo-400/15 blur-3xl" />
+              <div className="relative">
+                <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-200/80 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:border-indigo-300/15 dark:bg-white/[.04] dark:text-indigo-200"><BookOpen size={14} />{tr("Published")} {formatDate(entry.published_at, language)}</p>
+                <h1 className="break-words text-3xl font-bold tracking-tight sm:text-4xl">{entry.title || 'Journal entry'}</h1>
+              </div>
+            </header>
+            <div className="rounded-b-3xl border-x border-b border-slate-200 bg-white px-5 py-7 dark:border-white/10 dark:bg-slate-900/60 sm:px-9 sm:py-10">
+              <div className="mx-auto max-w-2xl whitespace-pre-wrap break-words text-base leading-8 sm:text-lg sm:leading-9">{entry.content}</div>
+            </div>
             <section className="mt-10 border-t border-slate-200 pt-7 dark:border-white/10" aria-labelledby="comments-title">
               <div className="flex items-center gap-2"><MessageCircle size={19} className="text-emerald-500" /><h2 id="comments-title" className="text-xl font-semibold">{tr("Comments")}<span className="text-sm font-normal muted">{commentState === 'ready' ? `· ${comments.length}` : ''}</span></h2></div>
               {commentState === 'loading' && <p className="mt-4 text-sm muted" role="status">{tr("Loading comments…")}</p>}

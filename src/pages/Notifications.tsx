@@ -65,7 +65,7 @@ export default function Notifications() {
     if (!('Notification' in window)) { setPermissionMessage(tr('This browser does not support notifications. In-app reminders are available here.')); return; }
     try {
       const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
-      if (permission === 'granted') { state.updateSettings({ browserNotifications: true }); setPermissionMessage(tr('Browser alerts are enabled for due and overdue items while this app is open.')); }
+      if (permission === 'granted') { state.updateSettings({ browserNotifications: true }); setPermissionMessage(tr('Browser alerts are enabled; this Reminders page checks them while open. Delivery is best-effort and may be delayed if the browser suspends it.')); }
       else { state.updateSettings({ browserNotifications: false }); setPermissionMessage(tr('Notifications were not allowed. You can still use this in-app reminder list.')); }
     } catch { setPermissionMessage(tr('Could not enable browser notifications. In-app reminders remain available.')); }
   };
@@ -87,7 +87,7 @@ export default function Notifications() {
   return (
     <div className="min-w-0">
       <PageHeader title={tr('Reminders')} subtitle={urgentCount ? `${urgentCount} ${tr('due or overdue items need attention')}` : tr('Due dates and unfinished work, in one quiet place')} actions={<label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-white/[.04]"><Bell size={16} className="shrink-0 text-indigo-600 dark:text-indigo-300" /><span>{tr('Browser alerts')}</span><input type="checkbox" className="h-4 w-4 shrink-0 accent-indigo-600" checked={Boolean(state.settings.browserNotifications && notificationSupported)} disabled={!notificationSupported} onChange={(event) => void enableNotifications(event.target.checked)} aria-label={tr('Enable browser notifications')} /></label>} />
-      <div className="mb-5 flex items-start gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-xs leading-5 muted dark:border-white/10 dark:bg-white/[.03]"><ShieldCheck size={15} className="mt-0.5 shrink-0" /><p>{tr('Browser alerts are optional and only appear while the app is open. Your due dates and habit logs remain in your private account.')}</p></div>
+      <div className="mb-5 flex items-start gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-xs leading-5 muted dark:border-white/10 dark:bg-white/[.03]"><ShieldCheck size={15} className="mt-0.5 shrink-0" /><p>{tr('Browser alerts are optional. They are checked when this Reminders page is open and may be delayed if the browser is suspended. They are not scheduled in the background. Your due dates and habit logs remain in your private account.')}</p></div>
       {permissionMessage && <p role="status" className="mb-4 rounded-lg bg-indigo-500/10 px-3 py-2 text-sm text-indigo-800 dark:text-indigo-200">{permissionMessage}</p>}
       {reminders.length === 0 ? <Empty icon={<CheckCircle2 size={28} />} title={tr('All clear for now')} text={tr('You have no due or unfinished items in the next week. New reminders will appear here automatically.')} action={<Link className="btn-outline" to="/projects">{tr('Open projects')} <ExternalLink size={14} /></Link>} /> : (
         <div className="space-y-5">
