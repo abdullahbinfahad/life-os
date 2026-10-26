@@ -68,7 +68,7 @@
 - [x] Existing page and system interactions use restrained responsive transitions and visible keyboard focus; motion respects reduced-motion preferences and does not restructure pages or force horizontal scrolling.
 
 ### Restore owner account directory
-- [ ] Apply `supabase/migrations/20261021_owner_admin_tools.sql` to the correct Supabase project and refresh the Account Directory; the authenticated SQL editor is open, but automated editor input is not registering, so owner takeover is required before database verification.
+- [ ] The UI still reports the account-list RPC missing after the original setup; re-create `lifeos_admin_list_users(p_limit, p_offset)` with an idempotent repair migration, reload PostgREST's schema cache, then verify the RPC in the exact Supabase project used by the app. The authenticated SQL editor must be used by the owner to apply the repair.
 
 
 ## 2026-10-25 Trash and capacity follow-up
@@ -78,3 +78,20 @@
 - [x] “Give me a number that how many people can use it at once or load capacity”: report documented hosting/backend quotas separately from a tested concurrent-user benchmark; do not claim a measured user count without a safe staging load test. See `CAPACITY.md`.
 - [x] Keep each Calendar & Timeline horizon-card item title fully readable beside its selector at desktop and mobile widths; the Calendar floating action creates a dated Calendar item, and Trash has no generic floating Add button covering its controls.
 - [ ] For broad public-scale capacity, choose an application-oriented host/plan and verify concurrency with a separate staging load test; do not claim this is done until hosting and backend capacity are measured.
+
+
+## 2026-10-25 Search discoverability and erase verification
+
+- [ ] “Make the platform available in Google search”: publish a crawlable product-information page with unique title, description, canonical/social metadata, appropriate structured data, robots policy, sitemap entry, and links to the product and public journal; keep private account data out of the index.
+- [ ] “For all types of occupation and jobs”: describe actual supported workflows for study, individual work, projects/teams, creative work, and personal planning without unsupported “best in the world,” ranking, testimonial, or feature claims.
+- [ ] “In Settings to Erase all data must need password to verify”: gate the existing personal-data reset with fresh password verification for password accounts, fresh account verification for OAuth-only accounts, and a deliberate confirmation for local-only data; do not convert it into account deletion.
+- [ ] Publish the sitemap and request crawling in Google Search Console only if the user’s site property is already verified or after the user completes verification; Google does not guarantee indexing or ranking.
+
+
+## 2026-10-26 owner-RPC and assistant follow-up
+
+- [ ] Repair the deployed owner account-list RPC: the frontend calls `lifeos_admin_list_users(p_limit, p_offset)`; provide an idempotent migration that re-creates the guarded function and triggers a PostgREST schema-cache reload, then verify the RPC in the correct project.
+- [ ] “Find a complete free API to integrate a system as AI as chatbot anything user say to it. It you should understand make plan and create a schedule”: use the current free-tier Gemini API as an opt-in, planning/scheduling-only prototype; do not imply that free access is unlimited or private.
+- [ ] “All the features service limited to schedule help and make plan only”: require an authenticated account, send no private account snapshot, provide an editable plan preview, require explicit confirmation before writing, and have the AI decline unrelated tasks.
+- [ ] “Put the chatbot top of the plus button and not always visible”: mount a compact assistant launcher above the existing contextual Add button; open the conversation only when tapped and hide it on public routes.
+- [ ] Keep the Gemini key server-side in Supabase Function Secrets and require the user to deploy the Edge Function and set their own key before the feature becomes active.

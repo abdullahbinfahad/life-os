@@ -24,6 +24,7 @@ const Productivity = lazy(() => import('./pages/Productivity'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const PublicJournal = lazy(() => import('./pages/PublicJournal'));
 const PublicJournalIndex = lazy(() => import('./pages/PublicJournalIndex'));
+const PublicProduct = lazy(() => import('./pages/PublicProduct'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Trash = lazy(() => import('./pages/Trash'));
 const Today = lazy(() => import('./pages/Today'));
@@ -113,9 +114,9 @@ export default function App() {
   // link, GitHub Pages serves 404.html as the app shell and BrowserRouter
   // handles the original path (including the /life-os repository base).
   const rawPath = window.location.pathname.replace(/\/+$/, '') || '/';
-  const direct = rawPath.match(/^(.*?)(\/public(?:\/.*)?)$/);
+  const direct = rawPath.match(/^(.*?)(\/(?:about(?:\/.*)?|public(?:\/.*)?))$/);
   if (direct) {
-    const routes = <RouteContent key={language} />;
+    const routes = <Routes><Route path="/about" element={<PublicProduct />} /><Route path="/about/" element={<PublicProduct />} /><Route path="*" element={<RouteContent key={language} />} /></Routes>;
     return <BrowserRouter basename={direct[1] || undefined}>{routes}</BrowserRouter>;
   }
   return <HashRouter><RouteContent key={language} /></HashRouter>;

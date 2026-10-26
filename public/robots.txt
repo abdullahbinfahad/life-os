@@ -1,0 +1,7 @@
+# Base-path rules for the /life-os/ project deployment only.
+# This file does not govern the github.io host root. Host-root robots rules, if needed,
+# must be published separately from the user-site repository.
+User-agent: *
+Allow: /life-os/about/
+Allow: /life-os/public/
+Sitemap: https://abdullahbinfahad.github.io/life-os/sitemap.xml

@@ -3,11 +3,13 @@ import { BarChart3, Cloud, CloudOff, Crown, LogIn, LogOut, RefreshCw, BookOpen, 
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
-import { cx } from '../lib/utils';
+import { cx, today } from '../lib/utils';
 import QuickAdd from './QuickAdd';
+import PlanningAssistant, { type PlannerProposal } from './PlanningAssistant';
 import CommandPalette from './CommandPalette';
 import { APP_NAME, Logo } from './Brand';
 import Toaster from './Toaster';
+import { toast } from './Toaster';
 import { auth, syncNow, useAuth } from '../lib/auth';
 import { cloudEnabled, supabase } from '../lib/supabase';
 import { getPrivateImageUrl } from '../lib/media';
@@ -64,11 +66,29 @@ const PRIMARY_ROUTES = ['/', '/projects', '/library', '/goals', '/habits'];
 export default function Layout({ children }: { children: ReactNode }) {
   const ownerAdmin = useOwnerAdmin();
   const forestTheme = useStore((s) => s.settings.theme === 'forest');
+  const addItems = useStore((s) => s.addItems);
+  const categories = useStore((s) => s.categories);
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
   const [navItems, setNavItems] = useState<NavigationItem[]>(() => DEFAULT_NAVIGATION.map(({ to, label, icon, visible }) => ({ to, label, icon, visible })));
   const loc = useLocation();
   const nav = useNavigate();
+  const isPublicPage = loc.pathname.startsWith('/public') || loc.pathname.startsWith('/about');
+  const canShowPlanner = !isPublicPage && !['/trash', '/settings', '/admin', '/insights', '/notifications', '/productivity'].includes(loc.pathname);
+  const addPlannedItems = (proposals: PlannerProposal[]) => {
+    const dateToday = today();
+    const categoryId = categories.find((category) => category.id === 'productivity')?.id ?? categories.find((category) => /productivity|planning|work/i.test(category.name))?.id;
+    const items = proposals.filter((proposal) => proposal.title.trim()).map((proposal) => ({
+      title: proposal.title.trim().slice(0, 200), notes: proposal.notes.slice(0, 1000), type: 'other' as const,
+      status: 'next' as const, priority: proposal.priority, horizon: 'this-year' as const,
+      tags: [], starred: false, ...(categoryId ? { categoryId } : {}),
+      ...(proposal.dueDate ? { dueDate: proposal.dueDate, ...(proposal.dueDate === dateToday ? { todayDate: dateToday } : {}) } : {}),
+      ...(proposal.scheduledTime ? { scheduledTime: proposal.scheduledTime } : {}),
+    }));
+    if (!items.length) return;
+    addItems(items);
+    toast(tr('Added selected suggestions to your task list.'));
+  };
 
   useEffect(() => { setMobile(false); }, [loc.pathname]);
   useEffect(() => {
@@ -190,6 +210,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <nav className="mobile-bottom-nav lg:hidden" aria-label={tr("Primary navigation")}>
         {navItems.filter((item) => item.visible && PRIMARY_ROUTES.includes(item.to)).map(({ to, label, icon }) => { const Icon = NAVIGATION_ICONS[icon]; const defaultLabel = DEFAULT_NAVIGATION.find((item) => item.to === to)?.label; const display = label === defaultLabel ? tr(label) : label; return <NavLink key={to} to={to} end={to === '/'} aria-label={display} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{to === '/' ? tr('Home') : display}</span></NavLink>; })}
       </nav>
+      {canShowPlanner && <PlanningAssistant onAddItems={addPlannedItems} />}
       <QuickAdd />
       <CommandPalette open={palette} onClose={() => setPalette(false)} navigation={navItems} />
       <Toaster />

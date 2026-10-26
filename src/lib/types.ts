@@ -21,6 +21,7 @@ export interface LifeItem {
   horizon: Horizon;
   tags: string[];
   dueDate?: string; // YYYY-MM-DD
+  scheduledTime?: string; // HH:mm in the user's local timezone
   todayDate?: string; // set when pinned to Today
   starred: boolean;
   goalId?: string;

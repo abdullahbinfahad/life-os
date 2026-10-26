@@ -11,6 +11,7 @@ type Ev = {
   key: string;
   title: string;
   date: string;
+  scheduledTime?: string;
   color: string;
   kind: EventKind;
   entityId: string;
@@ -30,6 +31,7 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [entryTitle, setEntryTitle] = useState('');
   const [entryDetails, setEntryDetails] = useState('');
+  const [entryTime, setEntryTime] = useState('');
   const [draggedEvent, setDraggedEvent] = useState<Ev | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [keyboardMovingEvent, setKeyboardMovingEvent] = useState<Ev | null>(null);
@@ -37,7 +39,7 @@ export default function Calendar() {
   const t = today();
 
   const events = useMemo<Ev[]>(() => [
-    ...items.filter((i) => i.dueDate).map((i) => ({ key: `item-${i.id}`, entityId: i.id, title: i.title, date: i.dueDate!, color: catMap[i.categoryId]?.color ?? '#6366f1', kind: 'Item' as const, done: i.status === 'done' })),
+    ...items.filter((i) => i.dueDate).map((i) => ({ key: `item-${i.id}`, entityId: i.id, title: i.title, date: i.dueDate!, scheduledTime: i.scheduledTime, color: catMap[i.categoryId]?.color ?? '#6366f1', kind: 'Item' as const, done: i.status === 'done' })),
     ...goals.filter((g) => g.targetDate).map((g) => ({ key: `goal-${g.id}`, entityId: g.id, title: '🎯 ' + g.title, date: g.targetDate!, color: catMap[g.categoryId]?.color ?? '#22c55e', kind: 'Goal' as const, done: g.status === 'done' })),
     ...goals.flatMap((g) => g.milestones.filter((m) => m.dueDate).map((m) => ({ key: `milestone-${g.id}-${m.id}`, entityId: m.id, parentId: g.id, title: '◆ ' + m.title, date: m.dueDate!, color: catMap[g.categoryId]?.color ?? '#22c55e', kind: 'Milestone' as const, done: m.done }))),
     ...projects.filter((p) => p.dueDate).map((p) => ({ key: `project-${p.id}`, entityId: p.id, title: '📁 ' + p.title, date: p.dueDate!, color: catMap[p.categoryId]?.color ?? '#3b82f6', kind: 'Project' as const, done: p.status === 'done' })),
@@ -56,13 +58,14 @@ export default function Calendar() {
     setSelectedDate(date);
     setEntryTitle('');
     setEntryDetails('');
+    setEntryTime('');
   };
 
   const createEntry = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const title = entryTitle.trim();
     if (!title || !selectedDate) return;
-    addItems([{ title, notes: entryDetails.trim(), dueDate: selectedDate }]);
+    addItems([{ title, notes: entryDetails.trim(), dueDate: selectedDate, ...(entryTime ? { scheduledTime: entryTime } : {}) }]);
     playFeedback('submit');
     setAnnouncement(`Added ${title} on ${displayDate(selectedDate, settings.language)}.`);
     setSelectedDate(null);
@@ -177,7 +180,7 @@ export default function Calendar() {
                         onDragStart={(event) => handleDragStart(event, e)}
                         onDragEnd={() => { setDraggedEvent(null); setDragOverDate(null); }}
                         className={cx('block w-full min-w-0 cursor-grab truncate rounded border-l-2 px-1 py-0.5 text-left text-[10px] text-slate-800 active:cursor-grabbing dark:text-slate-100 sm:px-1.5 sm:text-[11px]', e.done && 'line-through opacity-60', keyboardMovingEvent?.key === e.key && 'ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-[#0d1016]')}
-                        style={{ background: e.color + '22', borderLeftColor: e.color }}>{e.title}</button>
+                        style={{ background: e.color + '22', borderLeftColor: e.color }}>{e.scheduledTime && <span className="mr-1 font-mono">{e.scheduledTime}</span>}{e.title}</button>
                     ))}
                   </div>
                 </div>
@@ -199,6 +202,7 @@ export default function Calendar() {
                     {evs.map((e, i) => (
                       <div key={e.key} draggable onDragStart={(event) => handleDragStart(event, e)} onDragEnd={() => setDraggedEvent(null)} className="flex min-w-0 flex-wrap items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 transition-colors hover:border-indigo-300 dark:border-white/[.06] dark:hover:border-indigo-500/50 motion-reduce:transition-none">
                         <span className="w-14 shrink-0 text-xs font-semibold muted">{new Date(e.date + 'T00:00:00').toLocaleDateString(localeForLanguage(settings.language), { day: 'numeric', month: 'short' })}</span>
+                        {e.scheduledTime && <span className="shrink-0 rounded-md bg-indigo-500/10 px-1.5 py-0.5 font-mono text-xs text-indigo-700 dark:text-indigo-200">{e.scheduledTime}</span>}
                         <span className="h-2 w-2 rounded-full" style={{ background: e.color }} />
                         <span className="min-w-0 flex-1 break-words text-sm">{e.title}</span><span className="shrink-0 text-xs muted">{e.kind}</span>
                         <label className="flex items-center gap-1 text-xs muted">{tr("Move date")}<input aria-label={`${tr("Move date for")} ${e.title}`} type="date" value={e.date} onChange={(event) => moveEvent(e, event.target.value)} className="max-w-[9.5rem] rounded-md border border-slate-200 bg-transparent px-1.5 py-1 text-slate-700 dark:border-white/10 dark:text-slate-200" /></label>
@@ -244,6 +248,10 @@ export default function Calendar() {
           <div>
             <label className="label" htmlFor="calendar-entry-title">{tr("Title")}</label>
             <input id="calendar-entry-title" className="input" autoFocus required maxLength={200} value={entryTitle} onChange={(event) => setEntryTitle(event.target.value)} placeholder={tr("What do you need to do?")} />
+          </div>
+          <div className="mt-3">
+            <label className="label" htmlFor="calendar-entry-time">{tr("Scheduled time")}<span className="normal-case">{tr("(optional)")}</span></label>
+            <input id="calendar-entry-time" type="time" className="input w-full sm:max-w-xs" value={entryTime} onChange={(event) => setEntryTime(event.target.value)} />
           </div>
           <div className="mt-3">
             <label className="label" htmlFor="calendar-entry-details">{tr("Details")}<span className="normal-case">{tr("(optional)")}</span></label>

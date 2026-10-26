@@ -82,3 +82,14 @@ The first approved implementation should deliver the project-page/mobile fixes, 
 - Use a transparent, idempotent rewards ledger for completed tasks/projects and completed focus sessions, with clear earned badges and optional decorative theme unlocks (including a 50,000-point theme). Rewards never grant data access or modify other users’ work.
 - Protect JSON import/export with fresh Supabase authentication through the account’s existing provider (password re-entry or Google reauthentication), then show validation/preview and an explicit merge-versus-replace choice before any import write. Do not create or store an additional app-specific password.
 - Keep focus logs/rewards in the user's private account data and ensure neither teams nor administrators see them through shared-project tables or cross-account views.
+
+
+## Newly requested: planning-only AI assistant (2026-10-26)
+
+- Keep the assistant scoped to planning and schedule suggestions; it must decline unrelated questions and have no general-purpose tools or autonomous account access.
+- Add a compact launcher above the existing floating Add button. Keep only the launcher visible; open the chat panel on demand, and hide it on public routes.
+- Call a signed-in-only Supabase Edge Function. Keep the Gemini API key in Supabase Function Secrets, never in browser code or Git. Send only the current ephemeral planning conversation, timezone, language, and current date; never inject account snapshots, journals, contacts, or history from other parts of Life OS.
+- The Free Gemini tier has a data-use tradeoff. Before the first request, disclose that prompts may be used to improve Google services and may be reviewed; ask the user to acknowledge this and warn against entering sensitive, confidential, or identifying information.
+- Return schema-constrained proposals, validate them server-side, let the user edit/select them, and write them to the signed-in personal store only after explicit confirmation. Do not persist chat history.
+- Add a per-account daily request guard and handle unconfigured-key, quota, network, and invalid-response states without claiming an unlimited free API.
+- Require fresh provider/account verification before the existing personal-data reset; do not turn that action into account deletion or silently expand its scope.

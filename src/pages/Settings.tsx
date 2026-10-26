@@ -15,6 +15,7 @@ import { csvEscape, download, localeForLanguage, parseCSV, today } from '../lib/
 import { APP_LANGUAGES } from '../lib/locales';
 import { playFeedback } from '../lib/sounds';
 import { EARNED_THEMES, isThemeUnlocked } from '../lib/themes';
+import { createClient } from '@supabase/supabase-js';
 
 function SortableCategoryRow({ category, count, onUpdate, onDelete }: { category: { id: string; icon: string; color: string; name: string }; count: number; onUpdate: (patch: { icon?: string; color?: string; name?: string }) => void; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
@@ -49,6 +50,100 @@ export default function Settings() {
   const [backupCodeSent, setBackupCodeSent] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
   const [importPreview, setImportPreview] = useState<{ format: 'json' | 'csv'; data: any; counts: Record<string, number> } | null>(null);
+  const [eraseOpen, setEraseOpen] = useState(false);
+  const [erasePassword, setErasePassword] = useState('');
+  const [eraseOtp, setEraseOtp] = useState('');
+  const [erasePhrase, setErasePhrase] = useState('');
+  const [eraseCodeSent, setEraseCodeSent] = useState(false);
+  const [eraseBusy, setEraseBusy] = useState(false);
+  const [eraseError, setEraseError] = useState('');
+  const eraseCancelRef = useRef<HTMLButtonElement>(null);
+  const erasePasswordAccount = Boolean(user && ((user.app_metadata?.providers as string[] | undefined) ?? []).some((provider) => provider === 'email' || provider === 'phone'));
+  const eraseCloudAccount = Boolean(user && cloudEnabled);
+  const eraseBlocked = eraseCloudAccount && sync !== 'saved';
+
+  const openEraseDialog = () => {
+    setEraseError(''); setErasePassword(''); setEraseOtp(''); setErasePhrase(''); setEraseCodeSent(false); setEraseOpen(true);
+  };
+  useEffect(() => {
+    if (!eraseOpen) return;
+    eraseCancelRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !eraseBusy) setEraseOpen(false);
+      if (event.key === 'Tab') {
+        const dialog = document.getElementById('erase-data-dialog');
+        const controls = dialog?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)');
+        if (!controls?.length) return;
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [eraseOpen, eraseBusy]);
+
+  const erasePersonalSnapshot = async () => {
+    if (eraseBusy || eraseBlocked) return;
+    if (!eraseCloudAccount && erasePhrase !== tr('ERASE MY DATA')) { setEraseError(tr('Type the exact confirmation phrase to continue.')); return; }
+    setEraseBusy(true); setEraseError('');
+    try {
+      if (eraseCloudAccount) {
+        if (!supabase || !user) throw new Error(tr('Could not verify your account. Please try again.'));
+        if (erasePasswordAccount) {
+          if (!erasePassword) throw new Error(tr('Enter your current account password to continue.'));
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+          if (!supabaseUrl || !supabaseKey) throw new Error(tr('Could not verify your account. Please try again.'));
+          const verifier = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'lifeos-erase-verification' } });
+          try {
+            const verification = user.email
+              ? await verifier.auth.signInWithPassword({ email: user.email, password: erasePassword })
+              : user.phone ? await verifier.auth.signInWithPassword({ phone: user.phone, password: erasePassword }) : null;
+            if (!verification) throw new Error(tr('Could not verify your account. Please try again.'));
+            if (verification.error) throw verification.error;
+            if (verification.data.user?.id !== user.id) throw new Error(tr('Could not verify your account. Please try again.'));
+          } finally {
+            await verifier.auth.signOut({ scope: 'local' });
+          }
+        } else {
+          if (!eraseCodeSent) {
+            const { error } = await supabase.auth.reauthenticate();
+            if (error) throw error;
+            setEraseCodeSent(true);
+            return;
+          }
+          if (!eraseOtp.trim()) throw new Error(tr('Enter the fresh verification code to continue.'));
+          const verification = user.email
+            ? await supabase.auth.verifyOtp({ email: user.email, token: eraseOtp.trim(), type: 'reauthentication' })
+            : user.phone ? await supabase.auth.verifyOtp({ phone: user.phone, token: eraseOtp.trim(), type: 'reauthentication' }) : null;
+          if (!verification) throw new Error(tr('Could not verify your account. Please try again.'));
+          if (verification.error) throw verification.error;
+        }
+      }
+      const current = useStore.getState();
+      const snapshot = {
+        categories: current.categories, items: current.items, goals: current.goals, projects: current.projects,
+        habits: current.habits, journal: current.journal, albums: current.albums, settings: current.settings,
+        trash: current.trash, focusSessions: current.focusSessions, rewardEvents: current.rewardEvents,
+      };
+      useStore.getState().resetAll();
+      if (eraseCloudAccount) {
+        const saved = await syncNow();
+        if (!saved) {
+          useStore.getState().importAll(snapshot);
+          throw new Error(tr('Cloud could not confirm the reset snapshot. Your personal data was restored on this device; nothing was reported as erased.'));
+        }
+      }
+      setEraseOpen(false); setErasePassword(''); setEraseOtp(''); setErasePhrase('');
+      setMsg(tr('Personal snapshot erased.'));
+    } catch (error) {
+      setEraseError(error instanceof Error ? error.message : tr('Account verification failed. Please try again.'));
+    } finally {
+      setErasePassword('');
+      setEraseBusy(false);
+    }
+  };
 
   const exportJSON = () => {
     const { categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents } = useStore.getState();
@@ -94,8 +189,8 @@ export default function Settings() {
     finally { setBackupBusy(false); }
   };
   const exportCSV = () => {
-    const head = ['title', 'category', 'status', 'priority', 'horizon', 'type', 'dueDate', 'tags', 'notes'];
-    const rows = s.items.map((i) => [i.title, s.categories.find((c) => c.id === i.categoryId)?.name, i.status, i.priority, i.horizon, i.type, i.dueDate, i.tags.join(';'), i.notes].map(csvEscape).join(','));
+    const head = ['title', 'category', 'status', 'priority', 'horizon', 'type', 'dueDate', 'scheduledTime', 'tags', 'notes'];
+    const rows = s.items.map((i) => [i.title, s.categories.find((c) => c.id === i.categoryId)?.name, i.status, i.priority, i.horizon, i.type, i.dueDate, i.scheduledTime ?? '', i.tags.join(';'), i.notes].map(csvEscape).join(','));
     download(`life-os-library-${today()}.csv`, [head.join(','), ...rows].join('\n'), 'text/csv');
   };
   const importJSON = async (f: File) => {
@@ -127,6 +222,7 @@ export default function Settings() {
         priority: g('priority') ? (Number(g('priority')) as any) : undefined,
         horizon: (g('horizon') as any) || undefined,
         dueDate: g('duedate') || undefined,
+        scheduledTime: g('scheduledtime') || undefined,
         tags: g('tags') ? g('tags')!.split(/[;|]/).map((x) => x.trim()).filter(Boolean) : [],
         notes: g('notes') ?? '',
       };
@@ -261,7 +357,7 @@ export default function Settings() {
           {sync === 'error' ? `Cloud sync failed: ${syncError || 'Please retry.'}` : sync === 'saved' ? `Synced${lastSynced ? ` · ${new Date(lastSynced).toLocaleString(localeForLanguage(s.settings.language))}` : ''}` : sync === 'offline' ? 'Offline · changes remain on this device and will sync when connected.' : sync === 'saving' ? 'Saving to your private cloud account…' : sync === 'loading' ? 'Loading your private cloud data…' : 'Cloud sync is ready.'}
         </div>}
         <div className="mt-3 text-xs muted">{s.items.length} {tr("items ·")}{s.goals.length} {tr("goals ·")}{s.projects.length} {tr("projects ·")}{s.habits.length} {tr("habits ·")}{s.journal.length} {tr("journal entries ·")}{s.albums.length} {tr("albums")}</div>
-        <button className="btn-danger mt-4" onClick={() => { if (confirm('Erase ALL data permanently? Export a backup first!') && confirm('Are you absolutely sure?')) { s.resetAll(); setMsg('All data erased.'); } }}><Trash2 size={16} /> {tr("Erase all data")}</button>
+        <button className="btn-danger mt-4" type="button" disabled={eraseBlocked || eraseBusy} title={eraseBlocked ? tr('Wait until cloud sync is saved before resetting your personal snapshot.') : undefined} onClick={openEraseDialog}><Trash2 size={16} /> {tr("Erase all data")}</button>
       </section>
 
       <section className="card p-6">
@@ -282,13 +378,34 @@ export default function Settings() {
           <div className="mt-5 flex flex-wrap justify-end gap-2"><button className="btn-outline" type="button" disabled={backupBusy} onClick={() => setBackupAction(null)}>{tr('Cancel')}</button>{(user?.app_metadata?.providers?.includes('email') || user?.app_metadata?.providers?.includes('phone')) && <button className="btn-primary" type="button" disabled={backupBusy || !backupPassword} onClick={() => void verifyBackupIdentity()}>{backupBusy ? tr('Verifying…') : tr('Verify and continue')}</button>}{(!(user?.app_metadata?.providers?.includes('email') || user?.app_metadata?.providers?.includes('phone')) || backupCodeSent) && <button className="btn-primary" type="button" disabled={backupBusy || !backupOtp.trim()} onClick={() => void verifyBackupIdentity()}>{backupBusy ? tr('Verifying…') : tr('Verify and continue')}</button>}</div>
         </section>
       </div>}
+      {eraseOpen && <div className="fixed inset-0 z-[120] grid place-items-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !eraseBusy) setEraseOpen(false); }}>
+        <section id="erase-data-dialog" role="dialog" aria-modal="true" aria-labelledby="erase-data-title" aria-describedby="erase-data-description" className="card my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto p-5 shadow-2xl sm:p-6">
+          <h2 id="erase-data-title" className="text-lg font-semibold text-rose-600 dark:text-rose-400">{tr('Erase all data')}</h2>
+          <p id="erase-data-description" className="mt-2 text-sm leading-6 muted">{tr('This resets your personal Life OS snapshot on this device and, for signed-in cloud accounts, saves the empty snapshot to your account. It does not delete your Supabase Auth account.')}</p>
+          <p className="mt-2 rounded-lg bg-amber-500/10 p-3 text-sm leading-6 text-amber-900 dark:text-amber-200">{tr('Separately stored public posts, shared workspaces, and media resources are outside this personal snapshot reset and are not deleted.')}</p>
+          {eraseCloudAccount && <>
+            <p className="mt-3 text-sm muted">{tr('Confirm your identity before resetting the cloud snapshot.')}</p>
+            {erasePasswordAccount
+              ? <label className="mt-3 block"><span className="label">{tr('Current account password')}</span><input className="input" type="password" autoComplete="current-password" value={erasePassword} onChange={(event) => setErasePassword(event.target.value)} disabled={eraseBusy} /></label>
+              : <div className="mt-3">
+                {!eraseCodeSent
+                  ? <button type="button" className="btn-outline" disabled={eraseBusy} onClick={() => void erasePersonalSnapshot()}>{tr('Send fresh verification code')}</button>
+                  : <label className="block"><span className="label">{tr('Verification code')}</span><input className="input" inputMode="numeric" autoComplete="one-time-code" value={eraseOtp} onChange={(event) => setEraseOtp(event.target.value)} disabled={eraseBusy} /></label>}
+              </div>}
+          </>}
+          {!eraseCloudAccount && <label className="mt-4 block"><span className="label">{tr('Type this phrase to confirm:')} <strong>{tr('ERASE MY DATA')}</strong></span><input className="input" autoComplete="off" value={erasePhrase} onChange={(event) => setErasePhrase(event.target.value)} disabled={eraseBusy} /></label>}
+          {eraseCloudAccount && sync !== 'saved' && <p className="mt-3 text-sm text-rose-600 dark:text-rose-400" role="status">{tr('Reset is unavailable until cloud sync is saved and online.')}</p>}
+          {eraseError && <p className="mt-3 break-words text-sm text-rose-600 dark:text-rose-400" role="alert">{eraseError}</p>}
+          <div className="mt-5 flex flex-wrap justify-end gap-2"><button ref={eraseCancelRef} className="btn-outline" type="button" disabled={eraseBusy} onClick={() => setEraseOpen(false)}>{tr('Cancel')}</button><button className="btn-danger" type="button" disabled={eraseBusy || eraseBlocked || (eraseCloudAccount ? (erasePasswordAccount ? !erasePassword : !eraseCodeSent || !eraseOtp.trim()) : erasePhrase !== tr('ERASE MY DATA'))} onClick={() => void erasePersonalSnapshot()}>{eraseBusy ? tr('Resetting…') : tr('Erase personal snapshot')}</button></div>
+        </section>
+      </div>}
       {importPreview && <div className="fixed inset-0 z-[110] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setImportPreview(null); }}>
         <section role="dialog" aria-modal="true" aria-labelledby="import-preview-title" className="card w-full max-w-lg p-5 shadow-2xl">
           <h2 id="import-preview-title" className="text-lg font-semibold">{tr('Review backup before import')}</h2>
           <p className="mt-1 break-words text-sm muted">{importPreview.format === 'json' ? tr('JSON backup') : tr('CSV library import')} · {tr('Choose merge to keep current records, or replace to replace the matching data.')}</p>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{Object.entries(importPreview.counts).map(([key, count]) => <div key={key} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/[.03]"><span className="block break-words capitalize muted">{key}</span><strong className="tabular-nums">{count}</strong></div>)}</div>
           <p className="mt-4 rounded-lg bg-amber-500/10 p-3 text-xs leading-5 text-amber-900 dark:text-amber-200">{importPreview.format === 'csv' ? tr('Replace affects only the Life Library items. Other account data stays unchanged.') : tr('Replace overwrites the listed account collections. Merge combines records by ID, with imported values taking precedence for matching IDs.')}</p>
-          <div className="mt-5 flex flex-wrap justify-end gap-2"><button className="btn-outline" type="button" onClick={() => setImportPreview(null)}>{tr('Cancel')}</button><button className="btn-outline" type="button" onClick={() => applyImport('merge')}>{tr('Merge')}</button><button className="btn-primary" type="button" onClick={() => { if (confirm(importPreview.format === 'csv' ? 'Replace all current Life Library items with this CSV?' : 'Replace all listed account data with this backup?')) applyImport('replace'); }}>{tr('Replace')}</button></div>
+          <div className="mt-5 flex flex-wrap justify-end gap-2"><button className="btn-outline" type="button" onClick={() => setImportPreview(null)}>{tr('Cancel')}</button><button className="btn-outline" type="button" onClick={() => applyImport('merge')}>{tr('Merge')}</button><button className="btn-primary" type="button" onClick={() => applyImport('replace')}>{tr('Replace')}</button></div>
         </section>
       </div>}
     </div>

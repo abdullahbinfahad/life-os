@@ -93,16 +93,30 @@ export default function PublicJournal() {
   useEffect(() => {
     if (state === 'ready' && entry && slug) {
       const description = entry.excerpt || entry.content.slice(0, 220) || tr('A public journal reflection shared on Life Circle.');
-      return setPublicPageMetadata({
-        path: `public/journal/?slug=${encodeURIComponent(slug)}`,
-        title: entry.title || tr('Journal entry'),
-        description,
-        type: 'article',
-        publishedAt: entry.published_at,
-      });
+      let active = true;
+      const setMetadata = (path: string) => {
+        if (!active) return;
+        setPublicPageMetadata({
+          path,
+          title: entry.title || tr('Journal entry'),
+          description,
+          type: 'article',
+          publishedAt: entry.published_at,
+        });
+      };
+      if (pathSlug) {
+        setMetadata(location.pathname);
+      } else {
+        const cleanPath = `${import.meta.env.BASE_URL}public/journal/${encodeURIComponent(slug)}/`;
+        const cleanUrl = new URL(cleanPath, window.location.origin);
+        fetch(cleanUrl, { method: 'HEAD' })
+          .then((response) => setMetadata(response.ok ? cleanUrl.pathname : `public/journal/?slug=${encodeURIComponent(slug)}`))
+          .catch(() => setMetadata(`public/journal/?slug=${encodeURIComponent(slug)}`));
+      }
+      return () => { active = false; };
     }
     if (state !== 'loading') return setPublicNotFoundMetadata();
-  }, [state, entry, slug, language]);
+  }, [state, entry, slug, pathSlug, location.pathname, language]);
 
   const loadComments = useCallback(async () => {
     if (!slug) return;

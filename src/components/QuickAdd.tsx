@@ -55,6 +55,7 @@ export default function QuickAdd() {
   const [notes, setNotes] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
   const [horizon, setHorizon] = useState<Horizon>('1-3y');
   const [type, setType] = useState<ItemType>('other');
   const [advanced, setAdvanced] = useState(false);
@@ -71,7 +72,7 @@ export default function QuickAdd() {
 
   const openQuickAdd = () => {
     if (!canQuickAdd) return;
-    if (quickKind === 'calendar') setDueDate(today());
+    if (quickKind === 'calendar') { setDueDate(today()); setScheduledTime(''); }
     setOpen(true);
   };
 
@@ -91,6 +92,7 @@ export default function QuickAdd() {
     setOpen(false);
     setAdvanced(false);
     setDueDate(quickKind === 'calendar' ? today() : '');
+    setScheduledTime('');
   }, [page, quickKind]);
 
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -115,11 +117,11 @@ export default function QuickAdd() {
       else if (quickKind === 'habit') createHabit({ title: cleanTitle, categoryId: categoryId || 'health' });
       else if (quickKind === 'journal') createJournal({ title: cleanTitle, content: notes.trim(), visibility: 'private' });
       else if (quickKind === 'album') createAlbum({ title: cleanTitle, description: notes.trim() });
-      else if (quickKind === 'calendar') addItems([{ title: cleanTitle, notes: notes.trim(), status: 'next', priority: 2, dueDate: dueDate || today() }]);
+      else if (quickKind === 'calendar') addItems([{ title: cleanTitle, notes: notes.trim(), status: 'next', priority: 2, dueDate: dueDate || today(), ...(scheduledTime ? { scheduledTime } : {}) }]);
       else addItems([{ title: cleanTitle, notes: notes.trim(), categoryId, type: quickKind === 'today' ? 'other' : type, status: 'next', priority: 2, horizon, tags: [], starred: false, ...(dueDate ? { dueDate } : {}), ...(quickKind === 'today' ? { todayDate: today() } : {}) }]);
       playFeedback('submit');
       toast(quickKind === 'library' ? 'Added to your library' : `${tr(actionLabel)} · ${cleanTitle}`);
-      setTitle(''); setNotes(''); setCategoryId(''); setDueDate(''); setType('other'); setHorizon('1-3y'); setOpen(false);
+      setTitle(''); setNotes(''); setCategoryId(''); setDueDate(''); setScheduledTime(''); setType('other'); setHorizon('1-3y'); setOpen(false);
       return;
     }
     if (!parsed.length) return;
@@ -155,6 +157,7 @@ export default function QuickAdd() {
             </label>
           </div>}
           {(quickKind === 'project' || quickKind === 'library' || quickKind === 'calendar') && <label className="block text-sm font-medium">{tr("Due date")}<span className="font-normal muted">{quickKind === 'calendar' ? '*' : tr("(optional)")}</span><input aria-label={tr("Due date")} type="date" required={quickKind === 'calendar'} className="input mt-1 w-full sm:max-w-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></label>}
+          {quickKind === 'calendar' && <label className="block text-sm font-medium">{tr("Scheduled time")}<span className="font-normal muted">{tr("(optional)")}</span><input aria-label={tr("Scheduled time")} type="time" className="input mt-1 w-full sm:max-w-xs" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} /></label>}
           <label className="block text-sm font-medium">{tr("Notes")}<span className="font-normal muted">{tr("(optional)")}</span>
             <textarea aria-label={tr("Notes")} className="input mt-1 min-h-20 w-full resize-y" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={tr("Add a little detail…")} />
           </label>

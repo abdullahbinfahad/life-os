@@ -13,8 +13,8 @@ Live app: https://abdullahbinfahad.github.io/life-os/
 - Goals, private projects, and a separate multi-account shared-project workspace with membership, roles, invitations, assigned tasks, dependencies, discussion, notes, activity, and project portfolios.
 - Due/overdue reminders and assigned shared tasks in Today; a private focus timer and reward ledger for recorded focus/work, with optional earned-theme milestones.
 - Journal entries with tags, mood, location, search/filter, reorder, goal/plan/project links, and private/public visibility.
-- Public journal reader route: `#/public/journal/<slug>` when a row is published in `public_journals`.
-- Memory albums with compressed, private photo uploads and a visual memory-tree foundation.
+- Public journal reader route: `/public/journal/?slug=<slug>` when an author publishes an entry in `public_journals`.
+- Memory albums with compressed private photo uploads, search and an accessible gallery.
 - Profile fields plus a direct profile-photo upload, compressed locally and stored privately.
 - Recoverable Trash for deleted items, goals, projects/tasks, habits, journal entries, albums and memories.
 - JSON/CSV backup and restore, protected by fresh account-provider verification and import validation/preview.
@@ -53,16 +53,37 @@ npm run build
 2. Run `supabase/schema.sql` (safe to re-run; it creates the private media bucket and owner-only storage policies as well as the app tables).
 3. For an existing installation that already ran the main schema, run `supabase/migrations/20261021_public_journal_comments.sql` if it has not already been applied. It adds public journal comments and the database-verified owner metrics function without changing existing account rows.
 4. Run `supabase/migrations/20261021_owner_admin_tools.sql` to install the audited owner account directory, selected-account workspace viewer/editor, private-media read policy, and global navigation configuration. It depends on `lifeos_is_owner_admin()` from the comments migration (or the matching current `schema.sql`). The migration never changes user snapshots by itself.
-5. Run `supabase/migrations/20261023_shared_projects.sql` to install member-scoped collaboration tables, project roles, one-use expiring invitation tokens, private goal/habit links, activity and recipient notifications. This migration is additive and does not copy or alter private `life_data`.
-6. Run `supabase/migrations/20261024_shared_workspace_upgrade.sql` after the shared-project migration. It adds project-member display names, per-message read receipts, sticky-note styling, and permits portfolio leads to link projects they can already access; it does not grant portfolio members access to linked projects.
-7. Run `supabase/migrations/20261024_private_productivity_admin_shield.sql` after the owner-admin migration. It keeps focus-session and reward history out of cross-account admin snapshots and preserves those fields during other admin snapshot edits.
-8. Run `supabase/migrations/20261024_productivity_navigation.sql` after the owner-admin migration. It extends the audited global-menu validator and appends the two new routes without overwriting existing menu labels, order, or visibility choices.
-9. Confirm Google and email providers are enabled in Auth settings. Phone/password sign-up also requires enabling Phone and configuring an SMS provider; the app sends an SMS verification code when a phone account is created.
-10. Add the public URL to the Auth redirect allow-list.
-11. Add the two `VITE_SUPABASE_*` values to GitHub Actions variables.
+5. Run `supabase/migrations/20261026_owner_account_list_repair.sql` immediately after the owner-admin migration. This safely recreates the audited account-list RPC if it is missing. Run it in the same Supabase project configured in the app, then refresh the app.
+6. Run `supabase/migrations/20261023_shared_projects.sql` to install member-scoped collaboration tables, project roles, one-use expiring invitation tokens, private goal/habit links, activity and recipient notifications. This migration is additive and does not copy or alter private `life_data`.
+7. Run `supabase/migrations/20261024_shared_workspace_upgrade.sql` after the shared-project migration. It adds project-member display names, per-message read receipts, sticky-note styling, and permits portfolio leads to link projects they can already access; it does not grant portfolio members access to linked projects.
+8. Run `supabase/migrations/20261024_private_productivity_admin_shield.sql` after the owner-admin migration. It keeps focus-session and reward history out of cross-account admin snapshots and preserves those fields during other admin snapshot edits.
+9. Run `supabase/migrations/20261024_productivity_navigation.sql` after the owner-admin migration. It extends the audited global-menu validator and appends the two new routes without overwriting existing menu labels, order, or visibility choices.
+10. Confirm Google and email providers are enabled in Auth settings. Phone/password sign-up also requires enabling Phone and configuring an SMS provider; the app sends an SMS verification code when a phone account is created.
+11. Add the public URL to the Auth redirect allow-list.
+12. Add the two `VITE_SUPABASE_*` values to GitHub Actions variables.
 
 If the app shows `Cloud storage is not installed yet`, open the Supabase SQL Editor for the same project and run `supabase/schema.sql`. This creates the private per-user data table, public journal table, private media bucket and row-level security policies. Do not disable RLS or use a service-role key in the browser. Never treat the collaboration schema as installed until the migration has been applied to the same Supabase project used by the app.
 
 ## AI integration
 
 AI should be connected through a server-side Supabase Edge Function or another protected backend. Do not call OpenAI directly from this static client with a secret key. The UI can safely expose prompts and results only through an authenticated server function with rate limits and usage controls.
+
+
+## Optional planning assistant
+
+The floating assistant is limited to planning and scheduling. It has no tools for reading or changing Life OS records. It sends only the user's current session's last six chat turns, selected language, local date, and time zone to the authenticated Edge Function; it does not attach account snapshots or save chat history. Suggested tasks stay in a review form and are added to the account only after the user confirms.
+
+To enable the backend (the GitHub Pages workflow does not deploy Edge Functions):
+
+1. Run `supabase/migrations/20261026_planner_usage.sql` in the SQL Editor for the same Supabase project. It creates a minimal per-user UTC-day request counter (20 calls per account per UTC day) and does not store prompts.
+2. Create a Gemini Developer API key in [Google AI Studio](https://aistudio.google.com/app/apikey). Add it as `GEMINI_API_KEY` under the Supabase project's Edge Function Secrets. Never place it in `VITE_*`, browser code, GitHub Pages files, or a committed `.env` file.
+3. Install/authenticate the Supabase CLI and deploy the function to the same project:
+
+   ```bash
+   supabase link --project-ref qzbcanzmgetdrnlijujh
+   supabase functions deploy lifeos-planner
+   ```
+
+4. Open the app while signed in. The planner is available from its small floating launcher; it requests an explicit acknowledgement of Google's free-tier data-use terms before sending the first prompt. Google's no-cost quota may change or be unavailable, and Google may use prompts/responses to improve services or have them reviewed. Do not enter personal identifiers, journal text, confidential work, or secrets. Create a new key if an earlier key has been exposed; do not reuse a credential pasted into chat.
+
+The function verifies a signed-in caller, enforces the database quota before calling `gemini-2.5-flash-lite`, validates the structured response, and has no direct write permission for Life OS tasks. Users remain responsible for reviewing proposed dates and times.
