@@ -61,7 +61,7 @@ interface State {
   updateMemory: (albumId: string, memoryId: string, patch: Partial<AlbumMemory>) => void;
   deleteMemory: (albumId: string, memoryId: string) => void;
   // settings / data
-  updateSettings: (patch: Partial<Settings>) => void;
+  updateSettings: (patch: Partial<Settings>, verifiedOwnerAdmin?: boolean) => void;
   restoreFromTrash: (id: string) => boolean;
   permanentlyDeleteFromTrash: (id: string) => TrashRecord | undefined;
   permanentlyDeleteManyFromTrash: (ids: string[]) => TrashRecord[];
@@ -356,8 +356,8 @@ export const useStore = create<State>()(
         };
       }),
 
-      updateSettings: (patch) => set((s) => {
-        if (patch.theme && !isThemeUnlocked(patch.theme, s.rewardEvents.reduce((sum, event) => sum + event.points, 0))) return s;
+      updateSettings: (patch, verifiedOwnerAdmin = false) => set((s) => {
+        if (patch.theme && !verifiedOwnerAdmin && !isThemeUnlocked(patch.theme, s.rewardEvents.reduce((sum, event) => sum + event.points, 0))) return s;
         return { settings: { ...s.settings, ...patch } };
       }),
       addFocusSession: (session) => {

@@ -1,6 +1,6 @@
 import { useStore } from './store';
 
-type Feedback = 'confirm' | 'add' | 'refresh' | 'pause' | 'resume' | 'count' | 'submit' | 'failed' | 'popup' | 'notification';
+type Feedback = 'confirm' | 'add' | 'refresh' | 'pause' | 'resume' | 'count' | 'tick' | 'submit' | 'failed' | 'popup' | 'notification';
 let lastFeedbackAt = 0;
 
 const soundNotes: Record<Feedback, number[]> = {
@@ -10,6 +10,7 @@ const soundNotes: Record<Feedback, number[]> = {
   pause: [494],
   resume: [523, 659],
   count: [659, 784],
+  tick: [740],
   submit: [587, 740],
   failed: [330, 262],
   popup: [587],

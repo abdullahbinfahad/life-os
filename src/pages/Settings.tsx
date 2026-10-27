@@ -8,6 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
 import { syncNow, useAuth } from '../lib/auth';
+import { useOwnerAdmin } from '../lib/admin';
 import { compressImage, deletePrivateImage, formatBytes, getPrivateImageUrl, uploadPrivateImage } from '../lib/media';
 import type { Settings as SettingsData } from '../lib/types';
 import { cloudEnabled, supabase } from '../lib/supabase';
@@ -33,6 +34,7 @@ export default function Settings() {
   const s = useStore();
   const navigate = useNavigate();
   const { user, sync, syncError, lastSynced } = useAuth();
+  const ownerAdmin = useOwnerAdmin();
   const rewardPoints = s.rewardEvents.reduce((sum, event) => sum + event.points, 0);
   const categorySensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const reorderCategory = (event: DragEndEvent) => {
@@ -272,7 +274,7 @@ export default function Settings() {
           <div><label className="label">{tr("Location")}</label><input className="input" placeholder={tr("City, country")} value={s.settings.location ?? ''} onChange={(e) => s.updateSettings({ location: e.target.value || undefined })} /></div>
           <div><label className="label">{tr("Week starts")}</label><select className="input" value={s.settings.weekStartsMonday ? 'mon' : 'sun'} onChange={(e) => s.updateSettings({ weekStartsMonday: e.target.value === 'mon' })}><option value="mon">{tr("Monday")}</option><option value="sun">{tr("Sunday")}</option></select></div>
           <div><label className="label" htmlFor="system-language">{tr("System language")}</label><select id="system-language" className="input" value={s.settings.language ?? 'en'} onChange={(e) => s.updateSettings({ language: e.target.value as NonNullable<SettingsData['language']> })}>{APP_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.native} · {language.label}</option>)}</select><p className="mt-1 text-xs muted">{tr("The interface changes immediately. Your entries stay in the language you wrote them.")}</p></div>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/10"><label htmlFor="interaction-sounds" className="min-w-0"><span className="block text-sm font-medium">{tr("Soft interaction sounds")}</span><span className="block text-xs muted">{tr("Optional soft cues for focus, submit, errors, and notifications only.")}</span></label><input id="interaction-sounds" type="checkbox" className="h-5 w-5 shrink-0 accent-indigo-600" checked={s.settings.sounds ?? false} onChange={(e) => { const enabled = e.target.checked; s.updateSettings({ sounds: enabled }); if (enabled) window.setTimeout(() => playFeedback('confirm'), 0); }} /></div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/10"><label htmlFor="interaction-sounds" className="min-w-0"><span className="block text-sm font-medium">{tr("Soft interaction sounds")}</span><span className="block text-xs muted">{tr("Optional focus, countdown, stopwatch-minute, submit, error, and notification sounds.")}</span></label><input id="interaction-sounds" type="checkbox" className="h-5 w-5 shrink-0 accent-indigo-600" checked={s.settings.sounds ?? false} onChange={(e) => { const enabled = e.target.checked; s.updateSettings({ sounds: enabled }); if (enabled) window.setTimeout(() => playFeedback('confirm'), 0); }} /></div>
           <div className="sm:col-span-3">
             <div className="mb-2"><span className="label">{tr("Appearance")}</span><p className="text-xs muted">{tr("Choose your look here. The sidebar stays focused on navigation.")}</p></div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -283,9 +285,9 @@ export default function Settings() {
               ] as const).map((choice) => {
                 const selected = s.settings.theme === choice.value;
                 const milestone = EARNED_THEMES.find((item) => item.id === choice.value);
-                const locked = !isThemeUnlocked(choice.value, rewardPoints) && !selected;
-                const detail = milestone ? `${tr(locked ? 'Unlock at' : 'Unlocked')} · ${milestone.points.toLocaleString(localeForLanguage(s.settings.language))} ${tr('points')}` : tr(choice.detail);
-                return <button key={choice.value} type="button" aria-pressed={selected} aria-disabled={locked} title={locked ? `${tr('Unlock at')} ${milestone?.points.toLocaleString(localeForLanguage(s.settings.language))} ${tr('points')}` : undefined} disabled={locked} onClick={() => s.updateSettings({ theme: choice.value })}
+                const locked = !ownerAdmin && !isThemeUnlocked(choice.value, rewardPoints) && !selected;
+                const detail = milestone ? ownerAdmin ? tr('Owner access') : `${tr(locked ? 'Unlock at' : 'Unlocked')} · ${milestone.points.toLocaleString(localeForLanguage(s.settings.language))} ${tr('points')}` : tr(choice.detail);
+                return <button key={choice.value} type="button" aria-pressed={selected} aria-disabled={locked} title={locked ? `${tr('Unlock at')} ${milestone?.points.toLocaleString(localeForLanguage(s.settings.language))} ${tr('points')}` : undefined} disabled={locked} onClick={() => s.updateSettings({ theme: choice.value }, ownerAdmin)}
                   className={`theme-choice min-w-0 rounded-2xl border p-3 text-left transition duration-200 disabled:cursor-not-allowed disabled:opacity-65 ${selected ? 'is-selected border-indigo-500 ring-2 ring-indigo-500/25' : 'border-slate-200 hover:border-indigo-400/70 dark:border-white/10'}`}>
                   <span className="theme-preview relative mb-3 flex h-14 items-end gap-1.5 overflow-hidden rounded-xl border border-black/5 p-2 dark:border-white/10" style={{ background: choice.preview }} aria-hidden="true">
                     <span className="h-2/3 w-[17%] rounded-t bg-white/15 backdrop-blur-sm" />

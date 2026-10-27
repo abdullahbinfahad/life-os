@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarClock, Check, Loader2, Send, Sparkles, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { translate as tr } from '../lib/locales';
@@ -49,13 +49,31 @@ export default function PlanningAssistant({ onAddItems }: { onAddItems: (proposa
   const appLanguage = useStore((state) => state.settings.language ?? 'en');
   const { user, setGuest } = useAuth();
   const [open, setOpen] = useState(false);
-  const [acknowledged, setAcknowledged] = useState(false);
+  const [acknowledgedForUser, setAcknowledgedForUser] = useState<string | null>(() => {
+    const id = useAuth.getState().user?.id;
+    if (!id || typeof window === 'undefined') return null;
+    try { return window.localStorage.getItem(`lifeos-planner-consent-v1:${id}`) === 'accepted' ? id : null; } catch { return null; }
+  });
   const [input, setInput] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
   const [proposals, setProposals] = useState<PlannerProposal[]>([]);
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const acknowledged = Boolean(user?.id && acknowledgedForUser === user.id);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      if (window.localStorage.getItem(`lifeos-planner-consent-v1:${user.id}`) === 'accepted') setAcknowledgedForUser(user.id);
+    } catch { /* If storage is blocked, acknowledgement lasts for this open session only. */ }
+  }, [user?.id]);
+
+  const acknowledgeDataUse = (accepted: boolean) => {
+    if (!accepted || !user?.id) return;
+    try { window.localStorage.setItem(`lifeos-planner-consent-v1:${user.id}`, 'accepted'); } catch { /* Session-only fallback. */ }
+    setAcknowledgedForUser(user.id);
+  };
 
   async function send() {
     const text = input.trim();
@@ -78,7 +96,7 @@ export default function PlanningAssistant({ onAddItems }: { onAddItems: (proposa
       });
       if (invokeError) {
         const status = (invokeError as { context?: { status?: number } }).context?.status;
-        throw new Error(status === 422 ? 'sensitive' : status === 429 ? 'quota' : status === 401 || status === 403 ? 'auth' : status === 503 ? 'setup' : status === 400 ? 'malformed' : 'network');
+        throw new Error(status === 422 ? 'sensitive' : status === 429 ? 'quota' : status === 401 || status === 403 ? 'auth' : status === 404 || status === 503 ? 'setup' : status === 502 ? 'upstream' : status === 400 ? 'malformed' : 'network');
       }
       const reply = data as Reply;
       if (!reply || typeof reply.message !== 'string' || reply.message.length > 2000 || !Array.isArray(reply.proposals) || reply.proposals.length > 5 || !reply.proposals.every(validProposal)) throw new Error('malformed');
@@ -87,7 +105,7 @@ export default function PlanningAssistant({ onAddItems }: { onAddItems: (proposa
       setSelected(Object.fromEntries(reply.proposals.map((_, index) => [index, true])));
     } catch (caught) {
       const code = caught instanceof Error ? caught.message : 'network';
-      setError(tr(code === 'sensitive' ? 'Sensitive details detected. Remove them before sending; do not share contact details, identity numbers, payment details, passwords, or secrets.' : code === 'auth' ? 'Planning assistant sign-in error.' : code === 'quota' ? 'Daily planning limit reached. Try again tomorrow.' : code === 'setup' ? 'Planning assistant service is not configured or temporarily unavailable.' : code === 'malformed' ? 'The assistant returned an invalid response. Please retry.' : 'Planning assistant is unavailable. Check your connection and try again.'));
+      setError(tr(code === 'sensitive' ? 'Sensitive details detected. Remove them before sending; do not share contact details, identity numbers, payment details, passwords, or secrets.' : code === 'auth' ? 'Planning assistant sign-in error.' : code === 'quota' ? 'Daily planning limit reached. Try again tomorrow.' : code === 'setup' ? 'Planning assistant setup is incomplete. Deploy the lifeos-planner function, apply its planner usage migration, and set the GEMINI_API_KEY secret in Supabase.' : code === 'upstream' ? 'The AI provider is temporarily unavailable. Please try again shortly.' : code === 'malformed' ? 'The assistant returned an invalid response. Please retry.' : 'Planning assistant is unavailable. Check your connection and try again.'));
       setTurns((prev) => prev.slice(0, -1));
       setInput(text);
     } finally { setBusy(false); }
@@ -114,7 +132,8 @@ export default function PlanningAssistant({ onAddItems }: { onAddItems: (proposa
           <p>{tr('Before your first request: Gemini Developer API free-tier prompts and responses may be used to improve Google products and may be reviewed by humans. Do not enter sensitive, confidential, or identifying information.')}</p>
           <p className="text-xs muted">{tr('Only your last six chat messages, selected app language, local date, and timezone are sent. Life OS account records are not attached, and this conversation is not saved by Life OS.')}</p>
           <p className="text-xs muted">{tr('The assistant only helps with planning and scheduling. It cannot read or change your account data. The free provider may impose additional rate limits.')}</p>
-          <label className="flex items-start gap-2"><input type="checkbox" className="mt-1 accent-indigo-600" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} /><span>{tr('I understand and acknowledge this data-use and possible human-review tradeoff.')}</span></label>
+          <label className="flex items-start gap-2"><input type="checkbox" className="mt-1 accent-indigo-600" checked={acknowledged} onChange={(event) => acknowledgeDataUse(event.target.checked)} /><span>{tr('I understand and acknowledge this data-use and possible human-review tradeoff.')}</span></label>
+          <p className="text-xs muted">{tr('This acknowledgement is remembered for this account on this device; you will not be asked again here.')}</p>
         </div> : <>
           <div className="mb-3 max-h-40 space-y-2 overflow-y-auto text-sm" aria-live="polite">
             {turns.map((turn, index) => <p key={index} className={turn.role === 'user' ? 'ml-8 rounded-2xl rounded-br-md bg-indigo-500/10 p-3' : 'mr-8 rounded-2xl rounded-bl-md bg-slate-500/10 p-3'}>{turn.content}</p>)}

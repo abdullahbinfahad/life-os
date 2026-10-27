@@ -1,6 +1,6 @@
 import { translate as tr } from '../lib/locales';
 import { BarChart3, CheckCircle2, Circle, Coffee, Pause, Play, Plus, RotateCcw, Settings2, Sparkles, Timer, Trophy } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Modal, PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
@@ -8,6 +8,7 @@ import type { FocusSession } from '../lib/types';
 import { localeForLanguage, today } from '../lib/utils';
 import { EARNED_THEMES } from '../lib/themes';
 import { playFeedback } from '../lib/sounds';
+import { useOwnerAdmin } from '../lib/admin';
 
 type Mode = 'focus' | 'short' | 'long';
 type TimerConfig = { focus: number; short: number; long: number; longEvery: number };
@@ -18,6 +19,7 @@ const clampMinutes = (n: number) => Math.max(1, Math.min(180, Math.round(n || 1)
 
 export default function Productivity() {
   const state = useStore();
+  const ownerAdmin = useOwnerAdmin();
   const [tab, setTab] = useState<'timer' | 'report' | 'settings'>('timer');
   const [mode, setMode] = useState<Mode>('focus');
   const [config, setConfig] = useState<TimerConfig>(() => {
@@ -39,6 +41,23 @@ export default function Productivity() {
   const [newTaskProjectId, setNewTaskProjectId] = useState('');
   const [focusPending, setFocusPending] = useState<{ startedAt: string; endedAt: string; focusMinutes: number; taskTitle?: string } | null>(null);
   const [distractionMinutesDraft, setDistractionMinutesDraft] = useState('0');
+  const lastStopwatchChimeMinute = useRef(0);
+
+  useEffect(() => {
+    if (running && timerKind === 'pomodoro' && secondsLeft > 0 && secondsLeft <= 5) playFeedback('tick');
+  }, [running, timerKind, secondsLeft]);
+
+  const stopwatchMinute = Math.floor(stopwatchElapsed / 60000);
+  useEffect(() => {
+    if (stopwatchStartedAt === null || timerKind !== 'stopwatch') {
+      lastStopwatchChimeMinute.current = stopwatchMinute;
+      return;
+    }
+    if (stopwatchMinute > 0 && stopwatchMinute !== lastStopwatchChimeMinute.current) {
+      lastStopwatchChimeMinute.current = stopwatchMinute;
+      playFeedback('tick');
+    }
+  }, [stopwatchMinute, stopwatchStartedAt, timerKind]);
 
   useEffect(() => {
     if (stopwatchStartedAt === null) return;
@@ -60,6 +79,7 @@ export default function Productivity() {
           const taskTitle = allTasks.find((task) => task.id === selectedTask)?.title;
           setDistractionMinutesDraft('0');
           setFocusPending({ startedAt: start, endedAt, focusMinutes: modeMinutes(mode, config), taskTitle });
+          playFeedback('notification');
         } else { setMode('focus'); setSecondsLeft(config.focus * 60); setStartedAt(null); setNotice(tr('Break complete. Ready for another focus session?')); playFeedback('notification'); }
       }
     };
@@ -196,7 +216,7 @@ export default function Productivity() {
     ].map(([label, value]) => <section key={label} className="card min-w-0 p-4"><p className="text-sm muted">{label}</p><p className="mt-2 break-words text-2xl font-semibold tabular-nums">{value}</p></section>)}</div>
       <section className="card min-w-0 p-4 sm:p-5"><h2 className="mb-3 flex items-center gap-2 font-semibold"><BarChart3 size={18} />{tr('Recent focus sessions')}</h2>{recentSessions.length ? <div className="divide-y divide-slate-200 dark:divide-white/10">{recentSessions.map((session: FocusSession) => <div key={session.id} className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-3"><div className="min-w-0"><p className="break-words text-sm font-medium">{session.focusMinutes} {tr('min focused')} · {session.distractionMinutes} {tr('min distraction')}</p><time className="text-xs muted" dateTime={session.startedAt}>{new Date(session.startedAt).toLocaleString(localeForLanguage(state.settings.language))}</time>{session.note && <p className="mt-1 break-words text-xs muted">{session.note}</p>}</div><span className="chip shrink-0 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200">+{session.pointsAwarded} {tr('points')}</span></div>)}</div> : <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm muted">{tr('Your focus sessions and progress will appear here.')}</p>}</section>
       <section className="card min-w-0 p-4 sm:p-5"><h2 className="mb-2 flex items-center gap-2 font-semibold"><Trophy size={18} className="text-amber-500" />{tr('Rewards & milestones')}</h2><p className="text-sm muted">{tr('Focus earns 1 point per minute. Personal tasks earn 15 points, due-soon tasks 25, and habits 5. Repeated completions do not award points again.')}</p><div className="mt-3 flex flex-wrap gap-2">{badges.map((badge) => <span key={badge.title} title={tr(badge.detail)} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${badge.earned ? 'border-amber-400/50 bg-amber-100 text-amber-900 dark:bg-amber-400/10 dark:text-amber-200' : 'border-slate-200 text-slate-500 dark:border-white/10 dark:text-slate-400'}`}>{badge.earned ? '🏅 ' : '○ '}{tr(badge.title)}</span>)}</div><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.min(100, rewardPoints / 500)}%` }} /></div><p className="mt-2 text-sm font-medium">{rewardPoints.toLocaleString(localeForLanguage(state.settings.language))} / 50,000 {tr('points for Emerald Night')}</p><div className="mt-3 max-h-56 space-y-1 overflow-y-auto">{state.rewardEvents.slice().reverse().slice(0, 40).map((event) => <p key={event.id} className="flex justify-between gap-2 rounded-lg px-2 py-1.5 text-sm"><span className="min-w-0 break-words">{event.title}</span><span className="shrink-0 font-medium text-indigo-600 dark:text-indigo-300">+{event.points}</span></p>)}</div></section>
-      <section className="card min-w-0 p-4 sm:p-5"><h2 className="mb-3 flex items-center gap-2 font-semibold"><Trophy size={18} className="text-amber-500" />{tr('Awards & theme unlocks')}</h2><div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">{EARNED_THEMES.map((milestone, index) => { const earned = rewardPoints >= milestone.points; const progress = Math.min(100, rewardPoints / milestone.points * 100); return <article key={milestone.id} className={`min-w-0 rounded-xl border p-3 transition ${earned ? 'border-amber-400/45 bg-gradient-to-br from-amber-100/80 to-white dark:from-amber-400/10 dark:to-white/[.02]' : 'border-slate-200 bg-slate-50/70 dark:border-white/10 dark:bg-white/[.025]'}`}><div className="flex items-center justify-between gap-2"><span className={`grid h-9 w-9 place-items-center rounded-xl ${earned ? 'bg-amber-400/20 text-amber-700 dark:text-amber-200' : 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400'}`}><Trophy size={17} /></span><span className="text-[11px] font-semibold uppercase tracking-wide muted">{earned ? tr('Unlocked') : `#${index + 1}`}</span></div><h3 className="mt-3 break-words text-sm font-semibold">{tr(milestone.title)}</h3><p className="mt-1 text-xs muted">{milestone.points.toLocaleString(localeForLanguage(state.settings.language))} {tr('points')}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className={`h-full rounded-full transition-all ${earned ? 'bg-amber-500' : 'bg-indigo-500'}`} style={{ width: `${progress}%` }} /></div></article>; })}</div></section>
+      <section className="card min-w-0 p-4 sm:p-5"><h2 className="mb-3 flex items-center gap-2 font-semibold"><Trophy size={18} className="text-amber-500" />{tr('Awards & theme unlocks')}</h2><div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">{EARNED_THEMES.map((milestone, index) => { const earned = ownerAdmin || rewardPoints >= milestone.points; const progress = ownerAdmin ? 100 : Math.min(100, rewardPoints / milestone.points * 100); return <article key={milestone.id} className={`min-w-0 rounded-xl border p-3 transition ${earned ? 'border-amber-400/45 bg-gradient-to-br from-amber-100/80 to-white dark:from-amber-400/10 dark:to-white/[.02]' : 'border-slate-200 bg-slate-50/70 dark:border-white/10 dark:bg-white/[.025]'}`}><div className="flex items-center justify-between gap-2"><span className={`grid h-9 w-9 place-items-center rounded-xl ${earned ? 'bg-amber-400/20 text-amber-700 dark:text-amber-200' : 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400'}`}><Trophy size={17} /></span><span className="text-[11px] font-semibold uppercase tracking-wide muted">{earned ? tr('Unlocked') : `#${index + 1}`}</span></div><h3 className="mt-3 break-words text-sm font-semibold">{tr(milestone.title)}</h3><p className="mt-1 text-xs muted">{ownerAdmin ? tr('Owner access') : `${milestone.points.toLocaleString(localeForLanguage(state.settings.language))} ${tr('points')}`}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className={`h-full rounded-full transition-all ${earned ? 'bg-amber-500' : 'bg-indigo-500'}`} style={{ width: `${progress}%` }} /></div></article>; })}</div></section>
     </div>}
     {tab === 'settings' && <section className="card max-w-2xl p-4 sm:p-6"><h2 className="mb-1 font-semibold">{tr('Pomodoro settings')}</h2><p className="mb-4 text-sm muted">{tr('Choose session lengths. The countdown stays accurate when your phone locks or Safari suspends the tab.')}</p><div className="grid gap-4 sm:grid-cols-2">{([{ key: 'focus', label: tr('Focus minutes') }, { key: 'short', label: tr('Short break minutes') }, { key: 'long', label: tr('Long break minutes') }, { key: 'longEvery', label: tr('Long break after focus sessions') }] as const).map(({ key, label }) => <label key={key} className="min-w-0"><span className="label">{label}</span><input className="input" type="number" inputMode="numeric" min="1" max="180" value={config[key]} onChange={(event) => saveConfig(key, Number(event.target.value))} /></label>)}</div><p className="mt-4 rounded-xl bg-slate-100 p-3 text-sm muted dark:bg-white/[.04]">{tr('Focus and self-reported distraction logs are private account data. This website cannot read iPhone Screen Time or activity in other apps.')}</p></section>}
   </div>;
