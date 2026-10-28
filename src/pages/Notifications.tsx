@@ -9,7 +9,6 @@ import { cloudEnabled } from '../lib/supabase';
 import { fetchMyAssignedSharedTasks, sharedServiceError, subscribeToSharedWorkspace, updateSharedTask, type AssignedSharedTask } from '../lib/sharedProjects';
 import { collectReminders, reminderTiming, type Reminder } from '../lib/reminders';
 import { fmtDate, today } from '../lib/utils';
-import { playFeedback } from '../lib/sounds';
 
 const sectionCopy = {
   overdue: { title: 'Overdue', color: 'text-rose-700 dark:text-rose-300', surface: 'border-rose-200 bg-rose-50/70 dark:border-rose-500/20 dark:bg-rose-500/[.06]' },
@@ -40,32 +39,13 @@ export default function Notifications() {
     const unsubscribe = subscribeToSharedWorkspace(user.id, () => { if (refreshTimer) clearTimeout(refreshTimer); refreshTimer = setTimeout(refreshShared, 250); });
     return () => { active = false; if (refreshTimer) clearTimeout(refreshTimer); unsubscribe(); };
   }, [user?.id]);
-  useEffect(() => {
-    if (!state.settings.browserNotifications || !('Notification' in window) || Notification.permission !== 'granted') return;
-    const urgent = reminders.filter((reminder) => {
-      const timing = reminderTiming(reminder, todayKey);
-      return timing === 'overdue' || timing === 'today';
-    });
-    if (!urgent.length) return;
-    const storageKey = `lifeos-browser-reminders:${todayKey}`;
-    let already: string[] = [];
-    try { already = JSON.parse(localStorage.getItem(storageKey) ?? '[]'); } catch { /* Ignore corrupt local notification history. */ }
-    const fresh = urgent.filter((reminder) => !already.includes(reminder.id));
-    if (!fresh.length) return;
-    try {
-      const body = fresh.length === 1 ? fresh[0].title : `${fresh.length} items need attention today.`;
-      new Notification('Life OS reminders', { body, tag: `lifeos:${todayKey}`, icon: `${import.meta.env.BASE_URL}runner-mark.svg` });
-      localStorage.setItem(storageKey, JSON.stringify([...already, ...fresh.map((reminder) => reminder.id)]));
-      playFeedback('notification');
-    } catch { /* Browser notifications are an enhancement; the in-app inbox remains available. */ }
-  }, [state.settings.browserNotifications, reminders, todayKey]);
 
   const enableNotifications = async (enabled: boolean) => {
     if (!enabled) { state.updateSettings({ browserNotifications: false }); setPermissionMessage(tr('Browser alerts are off. In-app reminders remain available.')); return; }
     if (!('Notification' in window)) { setPermissionMessage(tr('This browser does not support notifications. In-app reminders are available here.')); return; }
     try {
       const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
-      if (permission === 'granted') { state.updateSettings({ browserNotifications: true }); setPermissionMessage(tr('Browser alerts are enabled; this Reminders page checks them while open. Delivery is best-effort and may be delayed if the browser suspends it.')); }
+      if (permission === 'granted') { state.updateSettings({ browserNotifications: true }); setPermissionMessage(tr('Browser alerts are enabled. Life OS checks reminders while it is open; delivery may be delayed if the browser suspends it.')); }
       else { state.updateSettings({ browserNotifications: false }); setPermissionMessage(tr('Notifications were not allowed. You can still use this in-app reminder list.')); }
     } catch { setPermissionMessage(tr('Could not enable browser notifications. In-app reminders remain available.')); }
   };
@@ -87,7 +67,10 @@ export default function Notifications() {
   return (
     <div className="min-w-0">
       <PageHeader title={tr('Reminders')} subtitle={urgentCount ? `${urgentCount} ${tr('due or overdue items need attention')}` : tr('Due dates and unfinished work, in one quiet place')} actions={<label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-white/[.04]"><Bell size={16} className="shrink-0 text-indigo-600 dark:text-indigo-300" /><span>{tr('Browser alerts')}</span><input type="checkbox" className="h-4 w-4 shrink-0 accent-indigo-600" checked={Boolean(state.settings.browserNotifications && notificationSupported)} disabled={!notificationSupported} onChange={(event) => void enableNotifications(event.target.checked)} aria-label={tr('Enable browser notifications')} /></label>} />
-      <div className="mb-5 flex items-start gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-xs leading-5 muted dark:border-white/10 dark:bg-white/[.03]"><ShieldCheck size={15} className="mt-0.5 shrink-0" /><p>{tr('Browser alerts are optional. They are checked when this Reminders page is open and may be delayed if the browser is suspended. They are not scheduled in the background. Your due dates and habit logs remain in your private account.')}</p></div>
+      <div className="mb-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-xs leading-5 muted dark:border-white/10 dark:bg-white/[.03]"><ShieldCheck size={15} className="mt-0.5 shrink-0" /><p>{tr('Browser alerts are optional. Life OS checks reminders while it is open and may be delayed if the browser is suspended. They are not scheduled in the background. Your due dates and habit logs remain in your private account.')}</p></div>
+      <div className="mb-5 flex min-w-0 flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 dark:border-white/10 dark:bg-white/[.03]">
+        <label className="flex min-w-0 items-center gap-2 text-sm"><Clock3 size={16} className="shrink-0 text-indigo-600 dark:text-indigo-300" /><span className="min-w-0">{tr('Daily reminder time')}</span><input type="time" className="input min-h-10 w-32 shrink-0" value={(state.settings as typeof state.settings & { dailyReminderTime?: string }).dailyReminderTime || '09:00'} onChange={(event) => state.updateSettings({ dailyReminderTime: event.target.value } as Parameters<typeof state.updateSettings>[0])} aria-label={tr('Daily reminder time')} /></label>
+      </div>
       {permissionMessage && <p role="status" className="mb-4 rounded-lg bg-indigo-500/10 px-3 py-2 text-sm text-indigo-800 dark:text-indigo-200">{permissionMessage}</p>}
       {reminders.length === 0 ? <Empty icon={<CheckCircle2 size={28} />} title={tr('All clear for now')} text={tr('You have no due or unfinished items in the next week. New reminders will appear here automatically.')} action={<Link className="btn-outline" to="/projects">{tr('Open projects')} <ExternalLink size={14} /></Link>} /> : (
         <div className="space-y-5">
@@ -102,7 +85,7 @@ export default function Notifications() {
                     <span className="grid h-9 w-9 place-items-center rounded-lg bg-white/80 text-slate-600 dark:bg-white/[.07] dark:text-slate-200">{isRoutine ? <Flame size={17} /> : reminder.overdue ? <Clock3 size={17} /> : <CalendarDays size={17} />}</span>
                     <div className="min-w-0">
                       <Link to={reminder.route} className="block break-words text-sm font-medium leading-5 text-slate-900 underline-offset-2 hover:underline dark:text-slate-100">{reminder.title}</Link>
-                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs muted"><span>{reminder.detail ?? tr(reminder.kind === 'library-item' ? 'Life plan' : reminder.kind === 'project-task' || reminder.kind === 'shared-task' ? 'Project task' : reminder.kind === 'project-date' ? 'Project due date' : reminder.kind === 'goal-date' ? 'Goal deadline' : 'Habit')}</span>{reminder.dueDate && <span className="tabular-nums">{fmtDate(reminder.dueDate, state.settings.language)}</span>}</div>
+                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs muted"><span>{reminder.detail ?? tr(reminder.kind === 'library-item' ? 'Life plan' : reminder.kind === 'project-task' || reminder.kind === 'shared-task' ? 'Project task' : reminder.kind === 'project-date' ? 'Project due date' : reminder.kind === 'goal-date' ? 'Goal deadline' : 'Habit')}</span>{reminder.dueDate && <span className="tabular-nums">{fmtDate(reminder.dueDate, state.settings.language)}</span>}{reminder.scheduledTime && <span className="tabular-nums">{reminder.scheduledTime}</span>}</div>
                     </div>
                     {isRoutine ? <button type="button" className="grid h-9 w-9 place-items-center rounded-lg text-emerald-700 hover:bg-white/75 dark:text-emerald-300 dark:hover:bg-white/10" aria-label={`${tr('Check in')}: ${reminder.title}`} onClick={() => void complete(reminder)}><Check size={17} /></button> : (reminder.itemId || reminder.taskId || reminder.goalId || reminder.sharedTaskId) ? <button type="button" className="grid h-9 w-9 place-items-center rounded-lg text-emerald-700 hover:bg-white/75 dark:text-emerald-300 dark:hover:bg-white/10" aria-label={`${tr('Mark complete')}: ${reminder.title}`} onClick={() => void complete(reminder)}><Circle size={17} /></button> : <Link to={reminder.route} aria-label={tr('Open reminder')} className="grid h-9 w-9 place-items-center rounded-lg hover:bg-white/75 dark:hover:bg-white/10"><ExternalLink size={15} /></Link>}
                   </article>;

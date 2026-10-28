@@ -99,14 +99,16 @@ export default function Today() {
             ) : (
               <div className="space-y-1">
                 {todays.map((i, index) => (
-                  <div key={i.id} data-personal-index={index} onPointerMove={trackPointer} onPointerUp={(event) => { if (dragIndexRef.current === null) return; const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-personal-index]'); finishDrag(row ? Number(row.dataset.personalIndex) : dragIndexRef.current); }} className={cx('group flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-50 dark:hover:bg-white/[.03]', dropIndex === index && dragIndex !== index && 'bg-indigo-500/10', dragIndex === index && 'opacity-50')}>
+                  <div key={i.id} data-personal-index={index} onPointerMove={trackPointer} onPointerUp={(event) => { if (dragIndexRef.current === null) return; const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-personal-index]'); finishDrag(row ? Number(row.dataset.personalIndex) : dragIndexRef.current); }} className={cx('group grid min-w-0 grid-cols-[22px_22px_4px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 rounded-xl px-2 py-2.5 hover:bg-slate-50 dark:hover:bg-white/[.03] sm:flex sm:gap-3', dropIndex === index && dragIndex !== index && 'bg-indigo-500/10', dragIndex === index && 'opacity-50')}>
                     <button type="button" aria-label={`${tr('Reorder item')}: ${i.title}`} title={tr('Drag to reorder')} onPointerDown={(event) => { if (event.button !== 0) return; dragIndexRef.current = index; setDragIndex(index); setDropIndex(index); event.currentTarget.setPointerCapture(event.pointerId); }} onPointerCancel={() => finishDrag(dragIndexRef.current ?? index)} onKeyDown={(event) => { if (event.key === 'ArrowUp' && index > 0) { event.preventDefault(); moveItem(index, index - 1); } else if (event.key === 'ArrowDown' && index < todays.length - 1) { event.preventDefault(); moveItem(index, index + 1); } else if (event.key === 'Home') { event.preventDefault(); moveItem(index, 0); } else if (event.key === 'End') { event.preventDefault(); moveItem(index, todays.length - 1); } }} className="touch-none cursor-grab text-slate-400 hover:text-indigo-500 active:cursor-grabbing" onClick={(event) => event.preventDefault()}><GripVertical size={18} /></button>
                     <button onClick={() => toggleItemDone(i.id)} className={i.status === 'done' ? 'text-emerald-500' : 'muted hover:text-emerald-500'}>{i.status === 'done' ? <CheckCircle2 size={22} /> : <Circle size={22} />}</button>
                     <span className="h-6 w-1 rounded-full" style={{ background: PRIORITY_META[i.priority].color }} />
-                    <span className={cx('flex-1', i.status === 'done' && 'line-through muted')}>{i.title}</span>
-                    <CatBadge cat={catMap[i.categoryId]} />
-                    <button title={tr("Edit item")} onClick={() => setEditing(i.id)} className="opacity-0 group-hover:opacity-100 muted hover:text-indigo-500"><Pencil size={15} /></button>
-                    <button title={tr("Remove from today")} onClick={() => updateItem(i.id, { todayDate: undefined })} className="opacity-0 group-hover:opacity-100 muted"><X size={16} /></button>
+                    <span title={i.title} className={cx('min-w-0 flex-1 truncate whitespace-nowrap', i.status === 'done' && 'line-through muted')}>{i.title}</span>
+                    <span className="col-start-4 flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:col-auto sm:flex-nowrap sm:gap-3">
+                      <span className="shrink-0"><CatBadge cat={catMap[i.categoryId]} /></span>
+                      <button title={tr("Edit item")} onClick={() => setEditing(i.id)} className="shrink-0 opacity-100 muted hover:text-indigo-500 sm:opacity-0 sm:group-hover:opacity-100"><Pencil size={15} /></button>
+                      <button title={tr("Remove from today")} onClick={() => updateItem(i.id, { todayDate: undefined })} className="shrink-0 opacity-100 muted sm:opacity-0 sm:group-hover:opacity-100"><X size={16} /></button>
+                    </span>
                   </div>
                 ))}
               </div>
@@ -117,11 +119,11 @@ export default function Today() {
             <div className="card p-5">
               <h3 className="mb-3 font-semibold">{tr("Project tasks due")}</h3>
               {projectTasks.map((x) => (
-                <div key={x.id} className="flex items-center gap-3 py-2">
+                <div key={x.id} className="flex min-w-0 items-center gap-3 py-2">
                   <button onClick={() => updateTask(x.project.id, x.id, { done: true })} className="muted hover:text-emerald-500"><Circle size={20} /></button>
-                  <span className="flex-1">{x.title}</span>
-                  <span className="text-xs muted">{x.project.title}</span>
-                  {x.dueDate! < t && <span className="chip bg-rose-500/15 text-rose-500">{tr("Overdue")}</span>}
+                  <span title={x.title} className="min-w-0 flex-1 truncate whitespace-nowrap">{x.title}</span>
+                  <span title={x.project.title} className="max-w-[28%] shrink-0 truncate whitespace-nowrap text-xs muted">{x.project.title}</span>
+                  {x.dueDate! < t && <span className="chip shrink-0 bg-rose-500/15 text-rose-500">{tr("Overdue")}</span>}
                 </div>
               ))}
             </div>
@@ -137,10 +139,10 @@ export default function Today() {
             <div className="card border-rose-500/30 p-5">
               <h3 className="mb-3 font-semibold text-rose-500">{tr("Overdue (")}{overdue.length})</h3>
               {overdue.slice(0, 10).map((i) => (
-                <div key={i.id} className="flex items-center gap-3 py-1.5 text-sm">
-                  <span className="flex-1">{i.title}</span>
-                  <span className="text-xs muted">{i.dueDate}</span>
-                  <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => updateItem(i.id, { todayDate: t })}>{tr("Do today")}</button>
+                <div key={i.id} className="flex min-w-0 items-center gap-3 py-1.5 text-sm">
+                  <span title={i.title} className="min-w-0 flex-1 truncate whitespace-nowrap">{i.title}</span>
+                  <span className="shrink-0 text-xs muted">{i.dueDate}</span>
+                  <button className="btn-ghost shrink-0 !px-2 !py-1 text-xs" onClick={() => updateItem(i.id, { todayDate: t })}>{tr("Do today")}</button>
                 </div>
               ))}
             </div>

@@ -1,2 +1,2 @@
 [functions.lifeos-planner]
-verify_jwt = true
+verify_jwt = false

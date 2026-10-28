@@ -59,6 +59,7 @@ export default function ItemEditor({ item, onClose }: { item: LifeItem | null; o
     if (!title) return setErr('Title cannot be empty.');
     if (title.length > 200) return setErr('Title is too long (max 200 characters).');
     if (d.url && !/^https?:\/\/\S+\.\S+/.test(d.url)) return setErr('Link must start with http:// or https://');
+    if (d.durationMinutes != null && (!Number.isInteger(d.durationMinutes) || d.durationMinutes < 5 || d.durationMinutes > 480)) return setErr('Duration must be 5–480 whole minutes.');
     const patch: Partial<LifeItem> = { ...d, title };
     if (d.status === 'done' && item?.status !== 'done') patch.completedAt = new Date().toISOString();
     if (d.status !== 'done') patch.completedAt = undefined;
@@ -158,6 +159,7 @@ export default function ItemEditor({ item, onClose }: { item: LifeItem | null; o
                 {Object.entries(HORIZON_META).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select></div>
           </div>
+          <div><label className="label">{tr("Duration (minutes)")}</label><input type="number" min="5" max="480" step="5" className="input" value={d.durationMinutes ?? ''} onChange={(e) => f({ durationMinutes: e.target.value ? Number(e.target.value) : undefined })} /></div>
           <div><label className="label">{tr("Due date")}</label>
             <input type="date" className="input" value={d.dueDate ?? ''} onChange={(e) => f({ dueDate: e.target.value || undefined })} />
             <div className="mt-1 flex flex-wrap gap-1">

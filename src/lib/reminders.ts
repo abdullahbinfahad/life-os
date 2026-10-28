@@ -7,6 +7,7 @@ export interface Reminder {
   kind: ReminderKind;
   title: string;
   dueDate?: string;
+  scheduledTime?: string;
   route: string;
   overdue: boolean;
   projectId?: string;
@@ -26,7 +27,7 @@ export function collectReminders(data: { items: LifeItem[]; goals: Goal[]; proje
   const reminders: Reminder[] = [];
   for (const item of data.items) {
     if (item.status === 'done' || item.status === 'dropped' || (item.dueDate && !inWindow(item.dueDate, end))) continue;
-    reminders.push({ id: `item:${item.id}`, kind: 'library-item', title: item.title, dueDate: item.dueDate, route: '/library', overdue: overdue(item.dueDate, now), itemId: item.id, detail: item.dueDate ? undefined : 'No due date set' });
+    reminders.push({ id: `item:${item.id}`, kind: 'library-item', title: item.title, dueDate: item.dueDate, scheduledTime: item.scheduledTime, route: '/library', overdue: overdue(item.dueDate, now), itemId: item.id, detail: item.dueDate ? undefined : 'No due date set' });
   }
   for (const project of data.projects) {
     if (project.status !== 'done' && project.dueDate && inWindow(project.dueDate, end)) {
@@ -46,7 +47,7 @@ export function collectReminders(data: { items: LifeItem[]; goals: Goal[]; proje
     if (habit.archived) continue;
     const completed = habit.log.includes(now);
     const weeklyCount = habit.log.filter((date) => date >= addDays(now, -6) && date <= now).length;
-    const needsCheckin = habit.frequency === 'daily' ? !completed : weeklyCount < habit.targetPerWeek;
+    const needsCheckin = habit.frequency === 'daily' ? !completed : !completed && weeklyCount < habit.targetPerWeek;
     if (!needsCheckin) continue;
     reminders.push({ id: `habit:${habit.id}:${now}`, kind: 'habit-checkin', title: habit.title, route: '/habits', overdue: false, habitId: habit.id, detail: habit.frequency === 'daily' ? 'Daily check-in' : `${weeklyCount}/${habit.targetPerWeek} this week` });
   }
