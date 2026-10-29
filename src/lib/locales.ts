@@ -1,6 +1,7 @@
 import type { Settings } from './types';
 import { useStore } from './store';
 
+// English fallback source string: Please clarify whether this should be a task, habit, goal, milestone, or Life Library item.
 export type AppLanguage = NonNullable<Settings['language']>;
 export const APP_LANGUAGES: Array<{ code: AppLanguage; label: string; native: string; direction?: 'rtl' }> = [
   { code: 'en', label: 'English', native: 'English' },

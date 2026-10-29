@@ -95,3 +95,19 @@
 - [ ] “All the features service limited to schedule help and make plan only”: require an authenticated account, send no private account snapshot, provide an editable plan preview, require explicit confirmation before writing, and have the AI decline unrelated tasks.
 - [ ] “Put the chatbot top of the plus button and not always visible”: mount a compact assistant launcher above the existing contextual Add button; open the conversation only when tapped and hide it on public routes.
 - [ ] Keep the Gemini key server-side in Supabase Function Secrets and require the user to deploy the Edge Function and set their own key before the feature becomes active.
+
+
+## 2026-10-29 targeted reliability fixes
+
+### Today title and phone layout
+- [ ] At phone widths, every Today task title remains horizontal and readable on a single line; category and edit/remove actions move to a secondary row instead of squeezing the title into a vertical column. Desktop layout remains as before.
+
+### Habit card movement and planner routing
+- [ ] Hide the visible six-dot habit grip; reorder by pressing/holding and dragging the habit card on touch or mouse while keeping normal scroll, buttons, and keyboard operation usable. Make habit titles modestly larger.
+- [ ] Keep the existing Gemini model; when a user asks for a habit, the assistant previews a Habit with specific recurrence/weekly target and rationale, and saves it only after explicit confirmation. Do not send private account records; allow the user to edit or cancel the proposal.
+
+### Owner account directory
+- [ ] Verify and repair `lifeos_admin_list_users(p_limit, p_offset)` in the same Supabase project used by the app; the function remains owner-checked and its use audit-logged. Resolve overload/schema-cache failures, then confirm the owner directory can load and paginate without exposing data to non-owners.
+
+### Safe loading and caching
+- [ ] Keep the static app shell/assets cache versioned and resilient to offline/stale-shell startup; never cache authenticated API responses, OAuth query values, or private account data. Avoid broad global polling/animation work that makes pages laggy.

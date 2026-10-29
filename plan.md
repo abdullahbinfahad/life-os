@@ -93,3 +93,8 @@ The first approved implementation should deliver the project-page/mobile fixes, 
 - Return schema-constrained proposals, validate them server-side, let the user edit/select them, and write them to the signed-in personal store only after explicit confirmation. Do not persist chat history.
 - Add a per-account daily request guard and handle unconfigured-key, quota, network, and invalid-response states without claiming an unlimited free API.
 - Require fresh provider/account verification before the existing personal-data reset; do not turn that action into account deletion or silently expand its scope.
+
+
+## 2026-10-29: Targeted regression fixes
+
+Keep this repair additive and narrow. On Today, mobile task titles must stay on one readable line with secondary metadata/actions moved below at phone widths; desktop presentation remains unchanged. In Habits, hide the visible six-dot grip, allow accessible press-and-hold drag from the card surface, and make titles slightly larger without blocking normal scrolling or controls. The planning assistant stays on the existing Gemini model (`gemini-2.5-flash-lite`); improve typed routing/review so an explicit habit request creates a Habit with a clear recurrence and rationale, while preserving explicit confirmation and not sending private account records. Recheck the owner-list RPC in the exact app Supabase project and repair its owner-only function/schema cache if missing. Improve static shell caching only where it avoids stale or blank startup; do not cache authenticated API/user data or introduce global work that slows page interaction.

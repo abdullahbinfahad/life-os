@@ -3,7 +3,7 @@ import { BarChart3, Cloud, CloudOff, Crown, LogIn, LogOut, RefreshCw, BookOpen, 
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
-import { cx, today } from '../lib/utils';
+import { cx, today, uid } from '../lib/utils';
 import QuickAdd from './QuickAdd';
 import PlanningAssistant, { type PlannerProposal } from './PlanningAssistant';
 import CommandPalette from './CommandPalette';
@@ -76,20 +76,32 @@ export default function Layout({ children }: { children: ReactNode }) {
   const isPublicPage = loc.pathname.startsWith('/public') || loc.pathname.startsWith('/about');
   const canShowPlanner = !isPublicPage && !['/trash', '/settings', '/admin', '/insights', '/notifications', '/productivity'].includes(loc.pathname);
   const addPlannedItems = (proposals: PlannerProposal[]) => {
-    const dateToday = today();
-    const categoryId = categories.find((category) => category.id === 'productivity')?.id ?? categories.find((category) => /productivity|planning|work/i.test(category.name))?.id;
-    const items = proposals.filter((proposal) => proposal.title.trim()).map((proposal) => ({
-      title: proposal.title.trim().slice(0, 200), notes: proposal.notes.slice(0, 1000), type: 'other' as const,
-      status: 'next' as const, priority: proposal.priority, horizon: 'this-year' as const,
-      tags: [], starred: false, ...(categoryId ? { categoryId } : {}),
-      ...(proposal.dueDate ? { dueDate: proposal.dueDate, ...(proposal.dueDate === dateToday ? { todayDate: dateToday } : {}) } : {}),
-      ...(proposal.scheduledTime ? { scheduledTime: proposal.scheduledTime } : {}),
-    }));
-    if (!items.length) return;
-    addItems(items);
-    toast(tr('Added selected suggestions to your task list.'));
+    const state = useStore.getState();
+    const chosen = proposals.filter((proposal) => proposal.title.trim());
+    const goalIds = new Map<string, string>();
+    chosen.filter((proposal) => proposal.entityType === 'goal').forEach((proposal) => {
+      const id = state.addGoal({
+        title: proposal.title.trim().slice(0, 200),
+        description: (proposal.description ?? proposal.notes).slice(0, 1000),
+        categoryId: proposal.categoryId ?? state.categories[0]?.id ?? 'career',
+        targetDate: proposal.dueDate,
+      });
+      if (proposal.proposalKey) goalIds.set(proposal.proposalKey, id);
+    });
+    const todayDate = today();
+    chosen.forEach((p) => {
+      if (p.entityType === 'goal') return;
+      const title = p.title.trim().slice(0, 200);
+      if (p.entityType === 'task') state.addItems([{ title, notes: p.notes.slice(0, 1000), categoryId: p.categoryId ?? state.categories[0]?.id ?? 'career', type: 'other', status: 'next', priority: p.priority, horizon: 'this-year', tags: [], starred: false, ...(p.dueDate ? { dueDate: p.dueDate } : {}), ...(p.dueDate === todayDate ? { todayDate } : {}), ...(p.scheduledTime ? { scheduledTime: p.scheduledTime } : {}) }]);
+      else if (p.entityType === 'habit') state.addHabit({ title, why: p.rationale?.slice(0, 500), frequency: p.frequency!, targetPerWeek: p.frequency === 'daily' ? 7 : p.targetPerWeek!, categoryId: p.categoryId ?? state.categories.find((category) => category.id === 'health')?.id ?? state.categories[0]?.id ?? 'health' });
+      else if (p.entityType === 'milestone') {
+        const parentId = p.parentGoalId?.startsWith('planned:') ? goalIds.get(p.parentGoalId.slice('planned:'.length)) : p.parentGoalId;
+        const goal = parentId ? useStore.getState().goals.find((candidate) => candidate.id === parentId) : undefined;
+        if (goal) state.updateGoal(goal.id, { milestones: [...goal.milestones, { id: uid(), title, done: false, dueDate: p.dueDate }] });
+      } else state.addItems([{ title, notes: p.notes.slice(0, 1000), categoryId: p.categoryId ?? state.categories[0]?.id ?? 'career', type: p.libraryType ?? 'idea', status: 'someday', priority: p.priority, horizon: '1-3y', tags: [], starred: false }]);
+    });
+    toast(tr('Added selected suggestions to your chosen destinations.'));
   };
-
   useEffect(() => { setMobile(false); }, [loc.pathname]);
   useEffect(() => {
     if (!supabase) return;

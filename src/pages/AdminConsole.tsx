@@ -27,6 +27,23 @@ type Report = {
 type SelectedRecord = { account: AdminAccount; snapshot: Record<string, unknown> | null; updatedAt: string | null };
 const OWNER_PAGE_SIZE = 100;
 
+function accountListError(error: unknown): string {
+  const record = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+  const rawCode = typeof record.code === 'string' ? record.code : '';
+  const code = /^[A-Z0-9]{3,12}$/.test(rawCode) ? rawCode : '';
+  const message = typeof record.message === 'string' ? record.message.toLowerCase() : '';
+  const codeLabel = code ? ` (code ${code})` : '';
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return `Network unavailable${codeLabel}. Reconnect and retry.`;
+  if (error instanceof TypeError || /failed to fetch|networkerror|network request failed|fetch failed/.test(message)) return `Network or offline error${codeLabel}. Check your connection and retry.`;
+  if (code === '42501') return `Permission denied${codeLabel}. Sign in with the owner account and confirm the owner-admin migration is installed.`;
+  if (code === 'PGRST203') return `Ambiguous RPC overload${codeLabel}. Check the deployed function signature in this project and remove conflicting overloads; then refresh.`;
+  if (['PGRST202', 'PGRST205', '42883'].includes(code)) return `RPC function not found in the schema cache${codeLabel}. Confirm the app points to the same Supabase project where the owner-admin migration was applied, verify the function is in the exposed schema (usually public), then refresh the schema cache or wait briefly and retry.`;
+  if (error instanceof Error && error.message === 'Unexpected account directory response') return 'Unexpected response from the account-list RPC. No server details are shown; verify the deployed function response shape and retry.';
+  if (code) return `Unexpected account-list RPC response${codeLabel}. No server details are shown; verify the backend setup and retry.`;
+  return 'Unexpected account-list RPC response. No server details are shown; verify the backend setup and retry.';
+}
+
 function Stat({ label, value, detail, icon: Icon }: { label: string; value: string; detail: string; icon: typeof Activity }) {
   return <section className="card min-w-0 p-4 sm:p-5"><div className="flex items-center justify-between gap-3"><span className="text-sm muted">{label}</span><Icon size={17} className="shrink-0 text-emerald-500" /></div><div className="mt-3 break-words text-xl font-semibold tracking-tight sm:text-2xl">{value}</div><p className="mt-1 break-words text-xs muted">{detail}</p></section>;
 }
@@ -77,11 +94,7 @@ export default function AdminConsole() {
       setHasMoreAccounts(rows.length === OWNER_PAGE_SIZE);
       setAccountPage(0);
     } catch (error) {
-      const code = error && typeof error === 'object' && 'code' in error ? String((error as { code: unknown }).code) : '';
-      if (typeof navigator !== 'undefined' && !navigator.onLine) setAccountError(tr('You appear to be offline. Reconnect and retry.'));
-      else if (code === '42501') setAccountError(tr('The server could not verify owner access. Confirm your owner account, then retry.'));
-      else if (['PGRST202', 'PGRST203', 'PGRST205', '42883'].includes(code)) setAccountError(tr('The owner account-list service is missing or unavailable. Apply the owner-admin migration, then refresh.'));
-      else setAccountError(tr('Could not list accounts. Check your connection and backend setup, then retry.'));
+      setAccountError(tr(accountListError(error)));
     }
     finally { setAccountsBusy(false); }
   }, []);

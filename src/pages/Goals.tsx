@@ -119,7 +119,7 @@ export default function Goals() {
                       <button className={m.done ? 'text-emerald-500' : 'muted'} onClick={() => updateGoal(g.id, { milestones: g.milestones.map((x) => (x.id === m.id ? { ...x, done: !x.done } : x)) })}>
                         {m.done ? <CheckCircle2 size={17} /> : <Circle size={17} />}
                       </button>
-                      <span className={cx('flex-1', m.done && 'line-through muted')}>{m.title}</span>
+                      <div className="min-w-0 flex-1"><span className={cx(m.done && 'line-through muted')}>{m.title}</span>{m.dueDate && <span className="mt-0.5 block text-xs muted">{tr('Due date')}: {fmtDate(m.dueDate)}</span>}</div>
                       <button className="opacity-0 group-hover:opacity-100 muted" onClick={() => updateGoal(g.id, { milestones: g.milestones.filter((x) => x.id !== m.id) })}><Trash2 size={14} /></button>
                     </SortableRow>
                   ))}
