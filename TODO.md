@@ -104,7 +104,7 @@
 
 ### Habit card movement and planner routing
 - [ ] Hide the visible six-dot habit grip; reorder by pressing/holding and dragging the habit card on touch or mouse while keeping normal scroll, buttons, and keyboard operation usable. Make habit titles modestly larger.
-- [ ] Keep the existing Gemini model; when a user asks for a habit, the assistant previews a Habit with specific recurrence/weekly target and rationale, and saves it only after explicit confirmation. Do not send private account records; allow the user to edit or cancel the proposal.
+- [ ] Use Gemini 3.5 Flash-Lite (`gemini-3.5-flash-lite`) for the planner. When a user asks for a habit, the assistant previews a Habit with specific recurrence/weekly target and rationale, and saves it only after explicit confirmation. Do not send private account records; allow the user to edit or cancel the proposal.
 
 ### Owner account directory
 - [ ] Verify and repair `lifeos_admin_list_users(p_limit, p_offset)` in the same Supabase project used by the app; the function remains owner-checked and its use audit-logged. Resolve overload/schema-cache failures, then confirm the owner directory can load and paginate without exposing data to non-owners.

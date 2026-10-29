@@ -86,4 +86,4 @@ To enable the backend (the GitHub Pages workflow does not deploy Edge Functions)
 
 4. Open the app while signed in. The planner is available from its small floating launcher; it requests an explicit acknowledgement of Google's free-tier data-use terms before sending the first prompt. Google's no-cost quota may change or be unavailable, and Google may use prompts/responses to improve services or have them reviewed. Do not enter personal identifiers, journal text, confidential work, or secrets. Create a new key if an earlier key has been exposed; do not reuse a credential pasted into chat.
 
-The function verifies a signed-in caller, enforces the database quota before calling `gemini-2.5-flash-lite`, validates the structured response, and has no direct write permission for Life OS tasks. Users remain responsible for reviewing proposed dates and times.
+The function verifies a signed-in caller, enforces the database quota before calling `gemini-3.5-flash-lite`, validates the structured response, and has no direct write permission for Life OS tasks. Users remain responsible for reviewing proposed dates and times.
