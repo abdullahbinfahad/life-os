@@ -28,8 +28,6 @@ export interface LifeItem {
   checklist?: ChecklistItem[];
   url?: string;
   progress?: number; // 0-100, manual progress
-  /** Optional planned focus duration in minutes. */
-  durationMinutes?: number;
   createdAt: string;
   updatedAt?: string;
   completedAt?: string;
@@ -37,14 +35,7 @@ export interface LifeItem {
 
 export interface ChecklistItem { id: string; title: string; done: boolean }
 
-export interface Milestone {
-  id: string;
-  title: string;
-  done: boolean;
-  dueDate?: string;
-  /** Optional completion criteria for a measurable milestone. */
-  completionCriteria?: string;
-}
+export interface Milestone { id: string; title: string; done: boolean; dueDate?: string }
 
 export interface Goal {
   id: string;
@@ -138,8 +129,6 @@ export interface Settings {
   sounds?: boolean;
   /** Optional browser notifications while the app is open; never enabled without permission. */
   browserNotifications?: boolean;
-  /** Local time used for date-only reminders; defaults to 09:00 when unset. */
-  dailyReminderTime?: string;
   name: string;
   weekStartsMonday: boolean;
   birthday?: string;

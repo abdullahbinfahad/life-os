@@ -78,12 +78,9 @@ export default function AdminConsole() {
       setAccountPage(0);
     } catch (error) {
       const code = error && typeof error === 'object' && 'code' in error ? String((error as { code: unknown }).code) : '';
-      const codeLabel = code ? ` (${code})` : '';
       if (typeof navigator !== 'undefined' && !navigator.onLine) setAccountError(tr('You appear to be offline. Reconnect and retry.'));
-      else if (code === '42501') setAccountError(`${tr('The server could not verify owner access. Confirm your owner account, then retry.')}${codeLabel}`);
-      else if (code === 'PGRST202' || code === '42883') setAccountError(`${tr('The account-list function was not found.')}${codeLabel} ${tr('Run the existing owner account-list repair migration in the exact Supabase project configured for this app. A project mismatch is possible. Wait for the schema cache reload, then retry.')}`);
-      else if (code === 'PGRST203') setAccountError(`${tr('The account-list function is ambiguous because multiple overloads match.')}${codeLabel} ${tr('Run the existing owner account-list repair migration in the exact Supabase project configured for this app. A project mismatch is possible. Wait for the schema cache reload, then retry.')}`);
-      else if (code === 'PGRST205') setAccountError(`${tr('A required relation or schema dependency for the account-list function was not found.')}${codeLabel} ${tr('Check the owner account-list repair migration and its schema dependencies in the exact Supabase project configured for this app. A project mismatch is possible; wait for the schema cache reload, then retry.')}`);
+      else if (code === '42501') setAccountError(tr('The server could not verify owner access. Confirm your owner account, then retry.'));
+      else if (['PGRST202', 'PGRST203', 'PGRST205', '42883'].includes(code)) setAccountError(tr('The owner account-list service is missing or unavailable. Apply the owner-admin migration, then refresh.'));
       else setAccountError(tr('Could not list accounts. Check your connection and backend setup, then retry.'));
     }
     finally { setAccountsBusy(false); }

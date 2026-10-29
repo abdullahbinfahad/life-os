@@ -1,6 +1,6 @@
 import { translate as tr } from '../lib/locales';
 import { BarChart3, Cloud, CloudOff, Crown, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Repeat, Search, Settings, Sunrise, Target, X, Images, Globe2 } from 'lucide-react';
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
 import { cx, today } from '../lib/utils';
@@ -9,7 +9,6 @@ import PlanningAssistant, { type PlannerProposal } from './PlanningAssistant';
 import CommandPalette from './CommandPalette';
 import { APP_NAME, Logo } from './Brand';
 import Toaster from './Toaster';
-import ReminderScheduler from './ReminderScheduler';
 import { toast } from './Toaster';
 import { auth, syncNow, useAuth } from '../lib/auth';
 import { cloudEnabled, supabase } from '../lib/supabase';
@@ -68,12 +67,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const ownerAdmin = useOwnerAdmin();
   const forestTheme = useStore((s) => s.settings.theme === 'forest');
   const addItems = useStore((s) => s.addItems);
-  const addGoal = useStore((s) => s.addGoal);
-  const addHabit = useStore((s) => s.addHabit);
-  const updateGoal = useStore((s) => s.updateGoal);
   const categories = useStore((s) => s.categories);
-  const goals = useStore((s) => s.goals);
-  const planningBusy = useRef(false);
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
   const [navItems, setNavItems] = useState<NavigationItem[]>(() => DEFAULT_NAVIGATION.map(({ to, label, icon, visible }) => ({ to, label, icon, visible })));
@@ -82,41 +76,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const isPublicPage = loc.pathname.startsWith('/public') || loc.pathname.startsWith('/about');
   const canShowPlanner = !isPublicPage && !['/trash', '/settings', '/admin', '/insights', '/notifications', '/productivity'].includes(loc.pathname);
   const addPlannedItems = (proposals: PlannerProposal[]) => {
-    if (planningBusy.current) return;
-    planningBusy.current = true;
-    try {
-      const state = useStore.getState();
-      const dateToday = today();
-      const safeCategory = (id?: string) => state.categories.some((c) => c.id === id) ? id : state.categories.find(c => c.id === 'productivity')?.id ?? state.categories[0]?.id ?? 'experiences';
-      const goalIdsByProposalKey = new Map<string,string>();
-      const goalIdsByTitle = new Map<string,string>();
-      for (const p of proposals.filter(x=>x.entityType==='goal')) {
-        const id = addGoal({title:p.title.trim().slice(0,200), description:(p.description ?? p.notes).slice(0,1000), categoryId:safeCategory(p.categoryId)!, targetDate:p.targetDate || undefined});
-        if (p.proposalKey) goalIdsByProposalKey.set(p.proposalKey,id);
-        goalIdsByTitle.set(p.title.trim().toLowerCase(),id);
-      }
-      let itemCount=0, habitCount=0, goalCount=proposals.filter(x=>x.entityType==='goal').length, milestoneCount=0;
-      for (const p of proposals) {
-        if (!p.title.trim() || p.entityType==='goal') continue;
-        if (p.entityType==='habit') {
-          if (!p.frequency || (p.frequency==='weekly' && !(p.targetPerWeek && p.targetPerWeek>=1 && p.targetPerWeek<=7))) continue;
-          addHabit({title:p.title.trim().slice(0,200), why:(p.why ?? p.notes).slice(0,1000), categoryId:safeCategory(p.categoryId)!, frequency:p.frequency, targetPerWeek:p.frequency==='daily'?7:p.targetPerWeek!}); habitCount++; continue;
-        }
-        if (p.entityType==='milestone') {
-          let gid=p.goalId;
-          if(gid?.startsWith('proposal:')) gid=goalIdsByProposalKey.get(gid.slice(9));
-          if(!gid && p.parentGoalTitle) gid=goalIdsByTitle.get(p.parentGoalTitle.trim().toLowerCase()) ?? state.goals.find(g=>g.title.trim().toLowerCase()===p.parentGoalTitle!.trim().toLowerCase())?.id;
-          const parent=useStore.getState().goals.find(g=>g.id===gid);
-          if(!parent) continue;
-          updateGoal(gid!,{milestones:[...parent.milestones,{id:`planner-${Date.now()}-${Math.random().toString(36).slice(2)}`,title:p.title.trim().slice(0,200),done:false,dueDate:p.dueDate||undefined,completionCriteria:p.completionCriteria?.slice(0,1000)||undefined}]}); milestoneCount++; continue;
-        }
-        const library=p.entityType==='library_item';
-        const linkGoal=p.goalId && useStore.getState().goals.some(g=>g.id===p.goalId) ? p.goalId : undefined;
-        addItems([{title:p.title.trim().slice(0,200),notes:p.notes.slice(0,1000),type:library?'idea':'other',status:library?'someday':'next',priority:p.priority,horizon:library?'lifetime':'this-year',tags:[],starred:false,categoryId:safeCategory(p.categoryId),...(library?{}:{goalId:linkGoal}),...(p.dueDate?{dueDate:p.dueDate,...(p.dueDate===dateToday?{todayDate:dateToday}:{})}:{}),...(p.scheduledTime?{scheduledTime:p.scheduledTime}:{}),...(p.durationMinutes?{durationMinutes:p.durationMinutes}:{})}]); itemCount++;
-      }
-      const summary=[itemCount&&`${itemCount} task/library item${itemCount===1?'':'s'}`,habitCount&&`${habitCount} habit${habitCount===1?'':'s'}`,goalCount&&`${goalCount} goal${goalCount===1?'':'s'}`,milestoneCount&&`${milestoneCount} milestone${milestoneCount===1?'':'s'}`].filter(Boolean).join(', ');
-      if(summary) toast(`Added ${summary} to the selected destinations.`);
-    } finally { planningBusy.current=false; }
+    const dateToday = today();
+    const categoryId = categories.find((category) => category.id === 'productivity')?.id ?? categories.find((category) => /productivity|planning|work/i.test(category.name))?.id;
+    const items = proposals.filter((proposal) => proposal.title.trim()).map((proposal) => ({
+      title: proposal.title.trim().slice(0, 200), notes: proposal.notes.slice(0, 1000), type: 'other' as const,
+      status: 'next' as const, priority: proposal.priority, horizon: 'this-year' as const,
+      tags: [], starred: false, ...(categoryId ? { categoryId } : {}),
+      ...(proposal.dueDate ? { dueDate: proposal.dueDate, ...(proposal.dueDate === dateToday ? { todayDate: dateToday } : {}) } : {}),
+      ...(proposal.scheduledTime ? { scheduledTime: proposal.scheduledTime } : {}),
+    }));
+    if (!items.length) return;
+    addItems(items);
+    toast(tr('Added selected suggestions to your task list.'));
   };
 
   useEffect(() => { setMobile(false); }, [loc.pathname]);
@@ -239,7 +210,6 @@ export default function Layout({ children }: { children: ReactNode }) {
       <nav className="mobile-bottom-nav lg:hidden" aria-label={tr("Primary navigation")}>
         {navItems.filter((item) => item.visible && PRIMARY_ROUTES.includes(item.to)).map(({ to, label, icon }) => { const Icon = NAVIGATION_ICONS[icon]; const defaultLabel = DEFAULT_NAVIGATION.find((item) => item.to === to)?.label; const display = label === defaultLabel ? tr(label) : label; return <NavLink key={to} to={to} end={to === '/'} aria-label={display} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{to === '/' ? tr('Home') : display}</span></NavLink>; })}
       </nav>
-      {!isPublicPage && <ReminderScheduler />}
       {canShowPlanner && <PlanningAssistant onAddItems={addPlannedItems} />}
       <QuickAdd />
       <CommandPalette open={palette} onClose={() => setPalette(false)} navigation={navItems} />
