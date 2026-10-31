@@ -1148,3 +1148,222 @@ html.theme-forest .study-studio .study-welcome {
   white-space: nowrap;
   font-size: clamp(2rem, 5.6vw, 3.1rem);
 }
+
+
+/* One shared section rail: top-aligned, horizontally swipeable on every screen. */
+.study-studio:not(.study-studio--focus) .study-layout {
+  display: block !important;
+  width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+}
+.study-studio:not(.study-studio--focus) .study-rail {
+  display: none !important;
+}
+.study-studio:not(.study-studio--focus) .study-top-rail {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 31;
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  gap: 0.35rem;
+  margin: 0 0 1.15rem;
+  padding: 0.45rem;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  white-space: nowrap;
+  border: 1px solid var(--study-border);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--study-bg, #0b0d12) 92%, transparent);
+  box-shadow: 0 8px 28px rgba(4, 8, 18, 0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+.study-studio:not(.study-studio--focus) .study-top-rail::-webkit-scrollbar {
+  display: none;
+}
+.study-studio:not(.study-studio--focus) .study-top-brand {
+  flex: 0 0 auto;
+  gap: 0.55rem;
+  min-width: max-content;
+  margin-right: 0.2rem;
+  padding: 0 0.75rem 0 0.3rem;
+  border-right: 1px solid var(--study-border);
+  font-size: 0.9rem;
+  line-height: 1.1;
+}
+.study-studio:not(.study-studio--focus) .study-top-brand .study-mark {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+}
+.study-studio:not(.study-studio--focus) .study-top-brand small {
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+}
+.study-studio:not(.study-studio--focus) .study-top-rail button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  color: var(--study-muted-text, #c1c8d9);
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.study-studio:not(.study-studio--focus) .study-top-rail button.active {
+  border-color: color-mix(in srgb, var(--study-indigo) 24%, var(--study-border));
+  background: color-mix(in srgb, var(--study-indigo) 16%, transparent);
+  color: var(--study-text, #eef1fa);
+}
+.study-studio:not(.study-studio--focus) .study-main {
+  width: 100%;
+  min-width: 0;
+}
+.study-studio:not(.study-studio--focus) .study-grid > *,
+.study-studio:not(.study-studio--focus) .study-panel,
+.study-studio:not(.study-studio--focus) .study-tree-course {
+  min-width: 0;
+}
+.study-studio:not(.study-studio--focus) .study-inline-form {
+  min-width: 0;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.study-studio:not(.study-studio--focus) .study-inline-form > input {
+  flex: 1 1 10rem;
+  width: auto;
+  min-width: min(100%, 10rem);
+}
+.study-studio:not(.study-studio--focus) .study-inline-form > select {
+  flex: 0 1 7rem;
+  width: auto;
+  min-width: 6rem;
+}
+.study-studio:not(.study-studio--focus) .study-inline-form > button {
+  flex: 0 0 auto;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .study-studio:not(.study-studio--focus) .study-top-rail {
+    top: calc(env(safe-area-inset-top, 0px) + 3.7rem);
+    gap: 0.25rem;
+    margin-bottom: 0.9rem;
+  }
+  .study-studio:not(.study-studio--focus) .study-top-brand small {
+    display: none;
+  }
+}
+@media (max-width: 620px) {
+  .study-studio:not(.study-studio--focus) .study-top-rail {
+    width: calc(100% + 0.5rem);
+    margin-inline: -0.25rem;
+    padding: 0.35rem;
+  }
+  .study-studio:not(.study-studio--focus) .study-top-rail button {
+    min-height: 40px;
+    padding: 0.5rem 0.72rem;
+    font-size: 0.86rem;
+  }
+  .study-studio:not(.study-studio--focus) .study-inline-form > input {
+    flex-basis: 100%;
+  }
+}
+
+/* A quieter Focus Room: one exit, a clear timer, and no ambient animation. */
+.study-studio--focus {
+  background:
+    radial-gradient(ellipse at 50% 38%, color-mix(in srgb, var(--study-cyan) 5%, transparent), transparent 52%),
+    var(--study-bg, #0b0d12);
+}
+.study-studio--focus::before {
+  display: none !important;
+}
+.study-studio--focus .study-eyebrow {
+  display: none;
+}
+.study-studio--focus .study-heading h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  letter-spacing: 0;
+}
+.study-studio--focus .study-heading p:not(.study-eyebrow) {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+}
+.study-studio--focus .study-focus-panel {
+  border-color: color-mix(in srgb, var(--study-cyan) 14%, var(--study-border));
+  background: color-mix(in srgb, var(--study-bg, #0b0d12) 96%, var(--study-cyan) 4%);
+  box-shadow: none;
+}
+.study-studio--focus .study-timepiece {
+  width: min(66vw, 21rem);
+  filter: none;
+}
+.study-studio--focus .study-timer {
+  color: var(--study-text, #eef1fa);
+  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  letter-spacing: -0.045em;
+  text-shadow: none;
+}
+.study-studio--focus .study-focus-header-actions {
+  gap: 0;
+}
+.study-studio--focus .study-focus-header-actions button {
+  white-space: nowrap;
+}
+
+.study-studio--focus .study-session-context {
+  width: min(100%, 36rem);
+  margin: 0.35rem auto 0;
+  text-align: left;
+}
+.study-studio--focus .study-session-context summary {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  color: var(--study-muted-text, #c1c8d9);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.study-studio--focus .study-session-context[open] {
+  padding: 0.3rem 0.65rem 0.6rem;
+  border: 1px solid var(--study-border);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--study-bg, #0b0d12) 86%, var(--study-text, white) 4%);
+}
+.study-studio--focus .study-session-context .study-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0.2rem 0 0;
+  gap: 0.6rem;
+}
+.study-studio--focus .study-recent-panel {
+  padding: 0.15rem 0.5rem;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.study-studio--focus .study-recent-panel summary {
+  min-height: 34px;
+  justify-content: center;
+  font-size: 0.8rem;
+}
+@media (max-width: 620px) {
+  .study-studio--focus .study-session-context .study-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

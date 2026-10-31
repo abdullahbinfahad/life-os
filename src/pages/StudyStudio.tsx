@@ -60,7 +60,7 @@ export default function StudyStudio() {
   const settings = useStore((state) => state.settings);
   const updateSettings = useStore((state) => state.updateSettings);
   const update = (recipe: (x: StudyState) => StudyState) => updateStudy(recipe);
-  const slug = location.pathname.split('/')[2] || 'overview';
+  const slug = location.pathname.split('/')[2] || 'focus';
   const current = sections.some(([id]) => id === slug) ? slug : 'overview';
 
   const subjects = study?.subjects || [],
@@ -98,44 +98,25 @@ export default function StudyStudio() {
   const description = sectionDescriptions[current] || sectionDescriptions.overview;
   const page = (
     <div className={`study-studio ${current === 'focus' ? 'study-studio--focus' : ''}`}>
-      <div className="study-mobile-rail" aria-label={tr('Study sections')}>
+      <nav className="study-mobile-rail study-top-rail" aria-label={tr('Study sections')}>
+        <div className="study-brand study-top-brand">
+          <span className="study-mark">S</span>
+          <span>
+            Study Studio<small>{tr('your quiet workspace')}</small>
+          </span>
+        </div>
         {sections.map(([id, label]) => (
-          <button key={id} className={current === id ? 'active' : ''} onClick={() => nav(id)}>
+          <button
+            key={id}
+            className={current === id ? 'active' : ''}
+            onClick={() => nav(id)}
+            aria-current={current === id ? 'page' : undefined}
+          >
             {tr(label)}
           </button>
         ))}
-      </div>
+      </nav>
       <div className="study-layout">
-        <nav className="study-rail" aria-label={tr('Study sections')}>
-          <div className="study-brand">
-            <span className="study-mark">{tr('S')}</span>
-            <span>
-              Study Studio<small>{tr('your quiet workspace')}</small>
-            </span>
-          </div>
-          {sections.map(([id, label]) => (
-            <button
-              key={id}
-              className={current === id ? 'active' : ''}
-              onClick={() => nav(id)}
-              aria-current={current === id ? 'page' : undefined}
-            >
-              <span>
-                {[
-                  'overview',
-                  'focus',
-                  'subjects',
-                  'notebooks',
-                  'practice',
-                  'revision',
-                  'analytics',
-                  'settings',
-                ].indexOf(id) + 1}
-              </span>
-              {tr(label)}
-            </button>
-          ))}
-        </nav>
         <main className="study-main">
           <header className="study-heading">
             <div>
@@ -145,9 +126,6 @@ export default function StudyStudio() {
             </div>
             {current === 'focus' ? (
               <div className="study-focus-header-actions">
-                <button className="study-secondary" onClick={enterFullscreen}>
-                  {tr('Enter full screen')}
-                </button>
                 <button className="study-secondary" onClick={exitFocus}>
                   ← {tr('Back to study')}
                 </button>
@@ -387,6 +365,9 @@ function Focus({
   const autoStarted = useRef(false);
   const [tick, setTick] = useState(Date.now());
   useEffect(() => {
+    setObjective(study.activeSession?.objective || '');
+  }, [study.activeSession?.id]);
+  useEffect(() => {
     if (!study.activeSession) return;
     const timer = window.setInterval(() => setTick(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -502,6 +483,75 @@ function Focus({
                 {tr('Started at')} {new Date(a.startedAt).toLocaleTimeString()}
               </p>
             )}
+            <details className="study-session-context" open={Boolean(a.subjectId || a.topicId || a.objective)}>
+              <summary>
+                {tr('Subject')} · {tr('Topic')}
+              </summary>
+              <div className="study-form-grid">
+                <label>
+                  {tr('Subject')}
+                  <select
+                    value={a.subjectId || ''}
+                    onChange={(event) =>
+                      mutate((s) => ({
+                        ...s,
+                        activeSession: s.activeSession
+                          ? { ...s.activeSession, subjectId: event.target.value || undefined, topicId: undefined }
+                          : null,
+                      }))
+                    }
+                  >
+                    <option value="">{tr('Independent study')}</option>
+                    {study.subjects.map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {tr('Topic')}
+                  <select
+                    value={a.topicId || ''}
+                    onChange={(event) =>
+                      mutate((s) => ({
+                        ...s,
+                        activeSession: s.activeSession
+                          ? { ...s.activeSession, topicId: event.target.value || undefined }
+                          : null,
+                      }))
+                    }
+                  >
+                    <option value="">{tr('Choose a topic (optional)')}</option>
+                    {study.topics
+                      .filter((topic) => !a.subjectId || topic.subjectId === a.subjectId)
+                      .map((topic) => (
+                        <option key={topic.id} value={topic.id}>
+                          {topic.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label className="study-wide">
+                  {tr('Objective')}
+                  <input
+                    value={objective}
+                    onChange={(event) => setObjective(event.target.value)}
+                    onBlur={() => {
+                      if (objective === (a.objective || '')) return;
+                      mutate((s) => ({
+                        ...s,
+                        activeSession: s.activeSession
+                          ? { ...s.activeSession, objective: objective.trim() || undefined }
+                          : null,
+                      }));
+                    }}
+                    maxLength={160}
+                    placeholder={tr('What will you work on?')}
+                  />
+                </label>
+              </div>
+            </details>
             {invalid && (
               <p role="alert" className="study-error">
                 Session time data looks invalid. Review or discard this session; time may be
