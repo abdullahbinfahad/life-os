@@ -1,6 +1,6 @@
--- Keep private productivity/focus records outside the verified-owner cross-account
--- console. Personal focus, distraction and reward history remain in the user's
--- ordinary account snapshot and can still be exported by that same user.
+-- Owner-console access remains verified-owner-only and audit-logged. The owner
+-- can inspect and edit the full workspace snapshot; auth credentials, tokens,
+-- API keys, and payment secrets are never part of that snapshot.
 -- Additive: only replaces two already-existing owner-admin RPC bodies.
 
 create or replace function public.lifeos_admin_get_user(p_user_id uuid)
@@ -25,10 +25,10 @@ begin
       'id', u.id,
       'email', u.email,
       'phone', u.phone,
-      'display_name', pg_catalog.left(pg_catalog.coalesce(
-        pg_catalog.nullif(u.raw_user_meta_data ->> 'full_name', ''),
-        pg_catalog.nullif(u.raw_user_meta_data ->> 'name', ''),
-        pg_catalog.nullif(u.raw_user_meta_data ->> 'display_name', ''),
+      'display_name', pg_catalog.left(coalesce(
+        nullif(u.raw_user_meta_data ->> 'full_name', ''),
+        nullif(u.raw_user_meta_data ->> 'name', ''),
+        nullif(u.raw_user_meta_data ->> 'display_name', ''),
         u.email, u.phone, 'Unnamed account'
       ), 120),
       'created_at', u.created_at,
@@ -36,7 +36,7 @@ begin
       'email_confirmed', (u.email_confirmed_at is not null)
     ),
     'life_data', case when d.user_id is null then null else pg_catalog.jsonb_build_object(
-      'data', d.data - array['focusSessions', 'rewardEvents']::text[],
+      'data', d.data,
       'updated_at', d.updated_at
     ) end
   ), (d.user_id is not null)
@@ -84,13 +84,8 @@ begin
     raise exception using errcode = '22023', message = 'p_data exceeds the 1 MiB serialized snapshot limit';
   end if;
 
-  -- Admin edits only apply to the fields visible in the admin editor. Preserve
-  -- the selected user's private productivity records byte-for-byte from the
-  -- current row, even if the admin client submits keys with those names.
   update public.life_data as d
-  set data = (p_data - array['focusSessions', 'rewardEvents']::text[])
-             || case when d.data ? 'focusSessions' then pg_catalog.jsonb_build_object('focusSessions', d.data -> 'focusSessions') else '{}'::jsonb end
-             || case when d.data ? 'rewardEvents' then pg_catalog.jsonb_build_object('rewardEvents', d.data -> 'rewardEvents') else '{}'::jsonb end,
+  set data = p_data,
       updated_at = pg_catalog.clock_timestamp()
   where d.user_id = p_user_id and d.updated_at = p_expected_updated_at
   returning d.updated_at into v_updated_at;
@@ -103,9 +98,9 @@ begin
 
   insert into public.lifeos_admin_audit (actor_id, target_user_id, action, metadata)
   values (auth.uid(), p_user_id, 'snapshot-update', pg_catalog.jsonb_build_object(
-    'data_md5', pg_catalog.md5((p_data - array['focusSessions', 'rewardEvents']::text[])::text),
+    'data_md5', pg_catalog.md5(p_data::text),
     'data_bytes', v_data_bytes,
-    'private_productivity_preserved', true
+    'full_workspace_access', true
   ));
   return v_updated_at;
 end;

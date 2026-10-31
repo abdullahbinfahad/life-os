@@ -1,0 +1,16 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"20px","primaryColor":"#eef2ff","primaryTextColor":"#171923","primaryBorderColor":"#635bff","lineColor":"#475569","secondaryColor":"#f6f7f9","tertiaryColor":"#ffffff"},"flowchart":{"nodeSpacing":48,"rankSpacing":52,"curve":"basis"}}}%%
+flowchart TB
+  UI[Study Studio sections] --> NORMALIZE[Normalize and validate]
+  NORMALIZE --> STATE[study slice · domain v1]
+  STATE --> LOCAL[Local persistence · schema v4]
+  STATE --> CLOUD[Private account snapshot · schema v6]
+  STATE --> LEARNING[Subjects · notebooks · typed blocks]
+  LEARNING --> SVG[Editable SVG vector canvas]
+  STATE --> FOCUS[Timestamp focus and break sessions]
+  FOCUS --> RECOVERY[Recovery and finish reflection]
+  RECOVERY --> ANALYTICS[Recorded-time analytics]
+  STATE --> CARDS[Flashcards and review history]
+  CARDS --> SRS[Again · Hard · Good · Easy<br/>next-due schedule]
+  SRS --> ANALYTICS
+  STATE --> BACKUP[Verified JSON backup<br/>preview · merge / replace]
+  BACKUP --> NORMALIZE

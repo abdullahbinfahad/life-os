@@ -28,6 +28,7 @@ const PublicProduct = lazy(() => import('./pages/PublicProduct'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Trash = lazy(() => import('./pages/Trash'));
 const Today = lazy(() => import('./pages/Today'));
+const StudyStudio = lazy(() => import('./pages/StudyStudio'));
 
 function LoadingStage({ message, fullscreen = false }: { message: string; fullscreen?: boolean }) {
   return <div className={`loading-stage ${fullscreen ? 'loading-stage-full' : 'loading-stage-route'}`} role="status" aria-live="polite">
@@ -65,6 +66,7 @@ function PrivateRoutes() {
     <Route path="/settings" element={<Settings />} />
     <Route path="/trash" element={<Trash />} />
     <Route path="/admin" element={<AdminConsole />} />
+    <Route path="/study/*" element={<StudyStudio />} />
     <Route path="*" element={<Overview />} />
   </Routes></Layout></Suspense>;
 }
@@ -114,7 +116,7 @@ export default function App() {
   // link, GitHub Pages serves 404.html as the app shell and BrowserRouter
   // handles the original path (including the /life-os repository base).
   const rawPath = window.location.pathname.replace(/\/+$/, '') || '/';
-  const direct = rawPath.match(/^(.*?)(\/(?:about(?:\/.*)?|public(?:\/.*)?))$/);
+  const direct = rawPath.match(/^(.*?)(\/(?:about(?:\/.*)?|public(?:\/.*)?|study(?:\/.*)?))$/);
   if (direct) {
     const routes = <Routes><Route path="/about" element={<PublicProduct />} /><Route path="/about/" element={<PublicProduct />} /><Route path="*" element={<RouteContent key={language} />} /></Routes>;
     return <BrowserRouter basename={direct[1] || undefined}>{routes}</BrowserRouter>;

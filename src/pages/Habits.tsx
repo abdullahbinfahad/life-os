@@ -162,7 +162,16 @@ export default function Habits() {
           </SortableContext>
           <div className="hidden overflow-x-auto md:block">
             <div className="card overflow-hidden">
-              <table className="w-full min-w-[820px] text-sm">
+              <table className="w-max min-w-[800px] table-fixed text-sm">
+                <colgroup>
+                  <col style={{ width: '2rem' }} />
+                  <col style={{ width: '13rem' }} />
+                  {week.map((d) => <col key={d} style={{ width: '2.5rem' }} />)}
+                  <col style={{ width: '4rem' }} />
+                  <col style={{ width: '4rem' }} />
+                  <col style={{ width: '3.5rem' }} />
+                  <col style={{ width: '6rem' }} />
+                </colgroup>
                 <thead><tr className="border-b border-slate-200 dark:border-white/[.06]"><th className="w-9" />
                   <th className="p-4 text-left font-medium muted">{tr("Habit")}</th>
                   {week.map((d) => <th key={d} className={cx('w-12 p-2 text-center text-xs font-medium', d === t ? 'text-indigo-600 dark:text-indigo-300' : 'muted')}>{new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' })}<div>{d.slice(8)}</div></th>)}
@@ -170,7 +179,7 @@ export default function Habits() {
                 </tr></thead>
                 <tbody><SortableContext items={list.map((h) => `desktop:${h.id}`)} strategy={verticalListSortingStrategy}>{list.map((h) => <SortableHabitRow key={h.id} id={`desktop:${h.id}`} active={draggingId === `desktop:${h.id}`}>
                   <td className="min-w-0 p-4"><button className="block max-w-[220px] break-words text-left font-medium" onClick={() => openEdit(h)}>{h.title}</button><div className="mt-1 flex flex-wrap items-center gap-1"><CatBadge cat={catMap[h.categoryId]} /><span className="chip bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-300">{h.frequency === 'daily' ? 'Daily' : `${h.targetPerWeek}× / week`}</span></div></td>
-                  {week.map((d) => { const logged = h.log.includes(d); return <td key={d} className="p-2 text-center"><button onClick={() => toggleHabit(h.id, d)} aria-label={`${logged ? 'Uncheck' : 'Check'} ${h.title} for ${d}`} className={cx('h-8 w-8 rounded-lg transition', logged ? 'shadow-md' : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[.05] dark:hover:bg-white/10')} style={logged ? { background: catMap[h.categoryId]?.color ?? '#22c55e' } : {}}>{logged && <span className="text-white">✓</span>}</button></td>; })}
+                  {week.map((d) => { const logged = h.log.includes(d); return <td key={d} className="px-1 py-2 text-center"><button onClick={() => toggleHabit(h.id, d)} aria-label={`${logged ? 'Uncheck' : 'Check'} ${h.title} for ${d}`} className={cx('h-8 w-8 rounded-lg transition', logged ? 'shadow-md' : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[.05] dark:hover:bg-white/10')} style={logged ? { background: catMap[h.categoryId]?.color ?? '#22c55e' } : {}}>{logged && <span className="text-white">✓</span>}</button></td>; })}
                   <td className="p-2 text-center">{h.frequency === 'daily' ? <span className="inline-flex items-center gap-1 font-semibold text-orange-500"><Flame size={14} />{streak(h.log)}</span> : <span className="font-semibold text-indigo-600 dark:text-indigo-300">{weekCount(h.log, t, settings.weekStartsMonday)}/{h.targetPerWeek}</span>}</td>
                   <td className="p-2 text-center text-xs muted">{h.frequency === 'daily' ? bestStreak(h.log) : 'weekly goal'}</td><td className="p-2 text-center text-xs font-semibold">{adherence(h)}%</td>
                   <td className="p-2"><div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button className="btn-ghost !p-1.5" title={tr("Edit")} onClick={() => openEdit(h)}><Pencil size={14} /></button><button className="btn-ghost !p-1.5" title={showArchived ? 'Restore' : 'Archive'} onClick={() => updateHabit(h.id, { archived: !h.archived })}><Archive size={14} /></button><button className="btn-ghost !p-1.5 text-rose-500" title={tr("Move to Trash")} onClick={() => remove(h)}><Trash2 size={14} /></button></div></td>

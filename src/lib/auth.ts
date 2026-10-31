@@ -40,8 +40,8 @@ export const useAuth = create<AuthState>()(
 /* ------------------------------------------------------------------ */
 
 const snapshot = () => {
-  const { categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents } = useStore.getState();
-  return { version: 5, categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents };
+  const { categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents, study } = useStore.getState();
+  return { version: 6, categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents, study };
 };
 
 let unsubscribe: (() => void) | null = null;
@@ -137,10 +137,21 @@ async function startSync(userId: string) {
   const localOwner = localStorage.getItem('life-circle-owner');
 
   if (data?.data && Object.keys(data.data).length) {
+    if (localOwner && localOwner !== userId) useStore.getState().resetAll();
+    const hasStudySnapshot =
+      !!data.data.study && typeof data.data.study === 'object' && !Array.isArray(data.data.study);
+    const importData = hasStudySnapshot
+      ? data.data
+      : { ...data.data, study: localOwner === userId ? useStore.getState().study : undefined };
     applyingRemote = true;
-    useStore.getState().importAll(data.data);
+    useStore.getState().importAll(importData);
     applyingRemote = false;
-    useAuth.setState({ sync: 'saved', lastSynced: data.updated_at, syncError: undefined });
+    if (hasStudySnapshot) {
+      useAuth.setState({ sync: 'saved', lastSynced: data.updated_at, syncError: undefined });
+    } else {
+      // Upgrade this account's legacy snapshot so the preserved Study data is synced too.
+      await pushNow();
+    }
   } else {
     // First sign-in for this account: keep guest data from this device (if it isn't someone else's).
     if (localOwner && localOwner !== userId) useStore.getState().resetAll();
@@ -155,10 +166,19 @@ async function startSync(userId: string) {
       try {
         const { data: latest, error: latestError } = await supabase!.from('life_data').select('data, updated_at').eq('user_id', userId).maybeSingle();
         if (latestError || !latest?.data || currentUserId !== userId || changeRevision !== syncedRevision) return;
+        const hasStudySnapshot =
+          !!latest.data.study && typeof latest.data.study === 'object' && !Array.isArray(latest.data.study);
+        const importData = hasStudySnapshot
+          ? latest.data
+          : { ...latest.data, study: useStore.getState().study };
         applyingRemote = true;
-        useStore.getState().importAll(latest.data);
+        useStore.getState().importAll(importData);
         applyingRemote = false;
-        useAuth.setState({ sync: 'saved', lastSynced: latest.updated_at, syncError: undefined });
+        if (hasStudySnapshot) {
+          useAuth.setState({ sync: 'saved', lastSynced: latest.updated_at, syncError: undefined });
+        } else {
+          await pushNow();
+        }
       } catch (error) {
         applyingRemote = false;
         console.warn('Live sync refresh failed:', syncErrorMessage(error));

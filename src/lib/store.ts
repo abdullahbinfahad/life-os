@@ -4,6 +4,8 @@ import type { Album, AlbumMemory, Category, FocusSession, Goal, Habit, JournalEn
 import { DEFAULT_CATEGORIES } from './library';
 import { addDays, today, uid } from './utils';
 import { isThemeUnlocked } from './themes';
+import { createEmptyStudyData, type StudyData } from './study/types';
+import { normalizeStudyData } from './study/normalize';
 
 type NewItem = Partial<LifeItem> & { title: string };
 
@@ -19,6 +21,8 @@ interface State {
   trash: TrashRecord[];
   focusSessions: FocusSession[];
   rewardEvents: RewardEvent[];
+  study: StudyData;
+  updateStudy: (recipe: (current: StudyData) => StudyData) => void;
 
   // items
   addItems: (items: NewItem[]) => void;
@@ -104,6 +108,7 @@ const initial = {
   trash: [] as TrashRecord[],
   focusSessions: [] as FocusSession[],
   rewardEvents: [] as RewardEvent[],
+  study: createEmptyStudyData(),
   settings: { theme: 'dark', name: '', weekStartsMonday: true } as Settings,
 };
 
@@ -111,6 +116,7 @@ export const useStore = create<State>()(
   persist(
     (set, get) => ({
       ...initial,
+      updateStudy: (recipe) => set((s) => ({ study: normalizeStudyData(recipe(s.study)) })),
 
       addItems: (items) => set((s) => ({ items: [...items.map(makeItem), ...s.items] })),
       updateItem: (id, patch) => set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: now() } : i)) })),
@@ -455,8 +461,9 @@ export const useStore = create<State>()(
           focusSessions: data.focusSessions ?? [],
           rewardEvents: data.rewardEvents ?? [],
           settings: { ...initial.settings, ...(data.settings ?? {}) },
+          study: normalizeStudyData(data.study),
         })),
-      resetAll: () => set(() => ({ ...initial })),
+      resetAll: () => set(() => ({ ...initial, study: createEmptyStudyData() })),
       loadDemo: () => {
         const t = today();
         const s = get();
@@ -507,14 +514,15 @@ export const useStore = create<State>()(
     }),
     {
       name: 'life-os-v1',
-      version: 3,
-      // v2 adds the idea categories; v3 introduces an initially empty Trash.
+      version: 4,
+      // v2 adds the idea categories; v3 introduces Trash; v4 adds private Study Studio data.
       migrate: (persisted: any, version) => {
         if (persisted && version < 2) {
           const have = new Set((persisted.categories ?? []).map((c: Category) => c.id));
           persisted.categories = [...(persisted.categories ?? []), ...DEFAULT_CATEGORIES.filter((c) => !have.has(c.id))];
         }
         if (persisted && version < 3) persisted.trash = [];
+        if (persisted && version < 4) persisted.study = createEmptyStudyData();
         return persisted;
       },
     },

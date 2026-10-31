@@ -1,6 +1,6 @@
 import { translate as tr } from '../lib/locales';
 import { Activity, Crown, Database, Globe2, HardDrive, RefreshCw, ShieldCheck, Smartphone, Wifi } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { useOwnerAdmin } from '../lib/admin';
 import { supabase } from '../lib/supabase';
@@ -10,7 +10,7 @@ import AccountDirectory from '../components/admin/AccountDirectory';
 import AuditLog from '../components/admin/AuditLog';
 import NavigationEditor from '../components/admin/NavigationEditor';
 import PrivatePhotoPreviews from '../components/admin/PrivatePhotoPreviews';
-import { DEFAULT_NAVIGATION, normalizeNavigationItems, type NavigationItem } from '../lib/navigation';
+import { DEFAULT_NAVIGATION, normalizeNavigationItems, upgradeLegacyDefaultNavigation, type NavigationItem } from '../lib/navigation';
 import type { AdminAccount, AdminAuditEntry } from '../components/admin/types';
 import { humanizeAdminError, privatePhotoCandidates } from '../components/admin/types';
 
@@ -38,7 +38,8 @@ function accountListError(error: unknown): string {
   if (error instanceof TypeError || /failed to fetch|networkerror|network request failed|fetch failed/.test(message)) return `Network or offline error${codeLabel}. Check your connection and retry.`;
   if (code === '42501') return `Permission denied${codeLabel}. Sign in with the owner account and confirm the owner-admin migration is installed.`;
   if (code === 'PGRST203') return `Ambiguous RPC overload${codeLabel}. Check the deployed function signature in this project and remove conflicting overloads; then refresh.`;
-  if (['PGRST202', 'PGRST205', '42883'].includes(code)) return `RPC function not found in the schema cache${codeLabel}. Confirm the app points to the same Supabase project where the owner-admin migration was applied, verify the function is in the exposed schema (usually public), then refresh the schema cache or wait briefly and retry.`;
+  if (code === '42883') return `The owner RPC exists, but PostgreSQL cannot resolve an expression inside it${codeLabel}. Apply the corrected owner-admin repair SQL, then refresh the schema cache and retry.`;
+  if (['PGRST202', 'PGRST205'].includes(code)) return `Owner RPC is missing from the API schema cache${codeLabel}. Apply the latest owner-admin repair in this app’s Supabase project, then reload the API schema cache and retry.`;
   if (error instanceof Error && error.message === 'Unexpected account directory response') return 'Unexpected response from the account-list RPC. No server details are shown; verify the deployed function response shape and retry.';
   if (code) return `Unexpected account-list RPC response${codeLabel}. No server details are shown; verify the backend setup and retry.`;
   return 'Unexpected account-list RPC response. No server details are shown; verify the backend setup and retry.';
@@ -77,26 +78,30 @@ export default function AdminConsole() {
   const [audit, setAudit] = useState<AdminAuditEntry[]>([]);
   const [auditBusy, setAuditBusy] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
+  const accountRequestId = useRef(0);
 
-  const loadAccountBatch = useCallback(async (offset: number, replace = false) => {
+  const loadAccountBatch = useCallback(async (offset: number, replace: boolean, search: string) => {
+    const requestId = ++accountRequestId.current;
     if (!supabase) { setAccountError(tr('Cloud connection is not configured.')); setAccountsBusy(false); return; }
     if (replace) offset = 0;
+    if (replace) setAccounts([]);
     setAccountsBusy(true); setAccountError(null);
     try {
-      const { data, error } = await supabase.rpc('lifeos_admin_list_users', { p_limit: OWNER_PAGE_SIZE, p_offset: offset });
+      const { data, error } = await supabase.rpc('lifeos_admin_list_users', { p_limit: OWNER_PAGE_SIZE, p_offset: offset, p_query: search.trim() || null });
       if (error) throw error;
       if (!Array.isArray(data) || data.some((row) => !row || typeof row !== 'object' || typeof (row as Partial<AdminAccount>).user_id !== 'string')) {
         throw new Error('Unexpected account directory response');
       }
       const rows = data as AdminAccount[];
+      if (requestId !== accountRequestId.current) return;
       setAccounts((previous) => replace ? rows : [...previous, ...rows]);
       setAccountOffset(offset + rows.length);
       setHasMoreAccounts(rows.length === OWNER_PAGE_SIZE);
       setAccountPage(0);
     } catch (error) {
-      setAccountError(tr(accountListError(error)));
+      if (requestId === accountRequestId.current) setAccountError(tr(accountListError(error)));
     }
-    finally { setAccountsBusy(false); }
+    finally { if (requestId === accountRequestId.current) setAccountsBusy(false); }
   }, []);
 
   const loadSelected = useCallback(async (account: AdminAccount) => {
@@ -123,7 +128,7 @@ export default function AdminConsole() {
       const { data, error } = await supabase.from('lifeos_menu_config').select('value').eq('key', 'navigation').maybeSingle();
       if (error) throw error;
       const normalized = normalizeNavigationItems(data?.value);
-      if (normalized) setNavigation(normalized);
+      if (normalized) setNavigation(upgradeLegacyDefaultNavigation(normalized));
     } catch (error) { setNavigationError(humanizeAdminError(error, 'Navigation management is not installed')); }
     finally { setNavigationLoading(false); }
   }, []);
@@ -203,21 +208,27 @@ export default function AdminConsole() {
   useEffect(() => {
     const onlineChange = () => setOnline(navigator.onLine);
     window.addEventListener('online', onlineChange); window.addEventListener('offline', onlineChange);
-    if (ownerAdmin && user?.id) { void refresh(); void loadAccountBatch(0, true); void loadNavigation(); void loadAudit(); }
+    if (ownerAdmin && user?.id) { void refresh(); void loadNavigation(); void loadAudit(); }
     return () => { window.removeEventListener('online', onlineChange); window.removeEventListener('offline', onlineChange); };
   }, [ownerAdmin, user?.id, refresh, loadAccountBatch, loadNavigation, loadAudit]);
+
+  useEffect(() => {
+    if (!ownerAdmin || !user?.id) return;
+    const timer = window.setTimeout(() => { void loadAccountBatch(0, true, accountQuery); }, accountQuery.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
+  }, [accountQuery, ownerAdmin, user?.id, loadAccountBatch]);
 
   if (!ownerAdmin) return <div className="card mx-auto max-w-xl p-6 text-center"><ShieldCheck className="mx-auto mb-3 text-rose-500" size={28} /><h1 className="text-xl font-semibold">{tr("Owner access required")}</h1><p className="mt-2 text-sm muted">{tr("Sign in with the system owner account and enable the owner-console migration to open these diagnostics.")}</p></div>;
 
   const activeAccount = selected?.account;
   const photos = selected?.snapshot && activeAccount ? privatePhotoCandidates(selected.snapshot, activeAccount.user_id) : [];
 
-  return <div className="mx-auto max-w-5xl space-y-6">
+  return <div className="mx-auto max-w-5xl space-y-6 lg:space-y-4">
     <div className="admin-hero relative overflow-hidden rounded-3xl border border-amber-300/30 bg-gradient-to-br from-emerald-950 via-slate-900 to-amber-950 p-5 text-white shadow-2xl shadow-emerald-950/15 sm:p-8">
       <div className="pointer-events-none absolute -right-14 -top-20 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div><span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/25 bg-amber-100/10 px-3 py-1 text-xs font-semibold text-amber-100"><Crown size={13} /> {tr("OWNER · PREMIUM")}</span><h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">{tr("System console")}</h1><p className="mt-2 max-w-xl text-sm leading-6 text-emerald-50/75">{tr("A live, privacy-conscious view of this app, your own cloud record, and public service health.")}</p></div>
-        <button className="btn border border-white/15 bg-white/10 text-white hover:bg-white/15" onClick={() => { void refresh(); void loadAccountBatch(0, true); void loadNavigation(); void loadAudit(); }} disabled={busy || accountsBusy}><RefreshCw size={15} className={busy || accountsBusy ? 'animate-spin' : ''} /> {tr("Refresh checks")}</button>
+        <button className="btn border border-white/15 bg-white/10 text-white hover:bg-white/15" onClick={() => { void refresh(); void loadAccountBatch(0, true, accountQuery); void loadNavigation(); void loadAudit(); }} disabled={busy || accountsBusy}><RefreshCw size={15} className={busy || accountsBusy ? 'animate-spin' : ''} /> {tr("Refresh checks")}</button>
       </div>
       <div className="relative mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-emerald-50/70"><span>{user?.email ?? 'Verified owner'}</span><span>{tr("Role: owner")}</span><span>{tr("Database verification:")}{report.backendOwnerVerified ? 'confirmed' : 'pending setup'}</span><span>{tr("Checked")}{report.checkedAt ? new Date(report.checkedAt).toLocaleTimeString() : '—'}</span></div>
     </div>
@@ -239,7 +250,7 @@ export default function AdminConsole() {
     </dl></section>
 
     <section className="card p-4 sm:p-6"><div className="mb-4"><h2 className="font-semibold">{tr("Cross-account administration")}</h2><p className="mt-1 text-sm leading-6 muted">{tr("Account lookup and workspace changes are authorized on the database and recorded in the private audit trail. Never request or store passwords, tokens, or payment details.")}</p></div>
-      <AccountDirectory accounts={accounts} query={accountQuery} onQueryChange={setAccountQuery} page={accountPage} onPageChange={setAccountPage} selectedId={selectedId} onSelect={loadSelected} loading={accountsBusy} error={accountError} onRefresh={() => { setAccounts([]); setAccountOffset(0); setHasMoreAccounts(false); void loadAccountBatch(0, true); }} hasMore={hasMoreAccounts} onLoadMore={() => void loadAccountBatch(accountOffset)} />
+      <AccountDirectory accounts={accounts} query={accountQuery} onQueryChange={setAccountQuery} page={accountPage} onPageChange={setAccountPage} selectedId={selectedId} onSelect={loadSelected} loading={accountsBusy} error={accountError} onRefresh={() => { setAccounts([]); setAccountOffset(0); setHasMoreAccounts(false); void loadAccountBatch(0, true, accountQuery); }} hasMore={hasMoreAccounts} onLoadMore={() => void loadAccountBatch(accountOffset, false, accountQuery)} />
       {accounts.length > 0 && <p className="mt-2 text-xs muted">{accounts.length} account records loaded{hasMoreAccounts ? ' · more available' : ' · end of directory'}.</p>}
       {detailBusy && <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-5 text-sm muted dark:border-white/15" role="status">Loading the selected account’s private workspace…</div>}
       {snapshotNotice && <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-100" role="status">{snapshotNotice}</div>}

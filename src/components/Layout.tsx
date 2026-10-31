@@ -15,7 +15,8 @@ import { cloudEnabled, supabase } from '../lib/supabase';
 import { getPrivateImageUrl } from '../lib/media';
 import { useOwnerAdmin } from '../lib/admin';
 import { playFeedback } from '../lib/sounds';
-import { DEFAULT_NAVIGATION, NAVIGATION_ICONS, normalizeNavigationItems, type NavigationItem } from '../lib/navigation';
+import { DEFAULT_NAVIGATION, NAVIGATION_ICONS, normalizeNavigationItems, upgradeLegacyDefaultNavigation, type NavigationItem } from '../lib/navigation';
+import { StudyFocusWidget } from './study/StudyFocusWidget';
 
 function AccountBox() {
   const { user, sync, syncError, guest, setGuest } = useAuth();
@@ -113,7 +114,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         const normalized = normalizeNavigationItems(data.value);
         if (normalized) {
           const alwaysAvailable = DEFAULT_NAVIGATION.filter((item) => ['/productivity', '/notifications'].includes(item.to) && !normalized.some((entry) => entry.to === item.to));
-          setNavItems([...normalized, ...alwaysAvailable]);
+          setNavItems([...upgradeLegacyDefaultNavigation(normalized), ...alwaysAvailable]);
         }
       } catch { /* Optional owner-managed navigation; keep the built-in menu. */ }
     };
@@ -224,6 +225,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </nav>
       {canShowPlanner && <PlanningAssistant onAddItems={addPlannedItems} />}
       <QuickAdd />
+      {!isPublicPage && <StudyFocusWidget />}
       <CommandPalette open={palette} onClose={() => setPalette(false)} navigation={navItems} />
       <Toaster />
     </div>

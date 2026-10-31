@@ -98,3 +98,47 @@ The first approved implementation should deliver the project-page/mobile fixes, 
 ## 2026-10-29: Targeted regression fixes
 
 Keep this repair additive and narrow. On Today, mobile task titles must stay on one readable line with secondary metadata/actions moved below at phone widths; desktop presentation remains unchanged. In Habits, hide the visible six-dot grip, allow accessible press-and-hold drag from the card surface, and make titles slightly larger without blocking normal scrolling or controls. The planning assistant uses Gemini 3.5 Flash-Lite (`gemini-3.5-flash-lite`); improve typed routing/review so an explicit habit request creates a Habit with a clear recurrence and rationale, while preserving explicit confirmation and not sending private account records. Recheck the owner-list RPC in the exact app Supabase project and repair its owner-only function/schema cache if missing. Improve static shell caching only where it avoids stale or blank startup; do not cache authenticated API/user data or introduce global work that slows page interaction.
+
+
+## Desktop and Android distribution handover (2026-10-29)
+
+Keep the current React/Vite website as the single product UI and backend client; do not fork feature logic or redesign screens for wrappers. Desktop will use a hardened Electron shell loading the existing production Life Circle HTTPS origin, preserving the site's auth origin, local data, service worker, and responsive design. Android will use a Bubblewrap/Trusted Web Activity (TWA) built from the existing PWA manifest, so Chrome renders the same website origin and retains the current OAuth/PWA behavior. The APK will require a persistent Android signing key stored only as a repository Actions secret for upgrades. Full-screen TWA verification additionally requires Digital Asset Links at `https://abdullahbinfahad.github.io/.well-known/assetlinks.json`; the existing repository is published at the `/life-os/` subpath and cannot host that root-origin file itself, so without a root user-site repository or custom domain the Android app can fall back to a Chrome Custom Tab with browser chrome.
+
+Create isolated packaging projects under `desktop/` and `android/`, plus a tag-triggered GitHub Actions release workflow. Desktop builds target Windows, macOS and Linux; unsigned installers can be distributed but Windows SmartScreen/macOS Gatekeeper may warn or block launch until platform signing certificates are supplied. Android release builds must use one stable signing identity; never commit the keystore or passwords. Publish installers and signed APK as public GitHub Release assets, not transient build files in the source tree. The downloadable wrapper must be labeled as an online client of the hosted Life Circle service; app data, auth and server migrations remain shared with the website, and native OS background/push capabilities are not claimed unless separately implemented and verified.
+
+
+## New product area: Study Studio — 2026-10-30
+
+**Product identity:** Study Studio is a first-class Life OS learning workspace, not a separate app or a timer page. Its through-line is **plan → focus → capture → practice → review → understand progress**. Keep the existing Life OS routes, authentication, navigation, themes, local-first store, Supabase client, and GitHub Pages base path intact. Add `/study` and internal Study Studio sections for Overview, Focus Room, My Subjects, Notebooks, Practice & Recall, Revision Planner, Study Analytics, and Study Settings. Do not show inactive tabs as if they work.
+
+### Study Studio design
+
+**Movement:** A quiet contemporary study atelier—editorial typography and paper-like working surfaces paired with a precise instrument-panel timer. It is distinct from a generic SaaS dashboard and avoids copying any named product.
+
+**Core principles:** Keep the student oriented to one next study action; connect every session and notebook to its subject/topic; make time and learning evidence transparent; keep writing and drawing more important than decoration.
+
+**Color philosophy:** Follow the supplied dark-first palette in dark mode: canvas `#0B0F14`, surface `#151B23`, raised surface `#1C2530`, text `#E6EDF3`, muted `#8B98A5`, action indigo `#6C8CFF`, focus cyan `#22D3EE`, break mint `#34D399`, and danger `#F87171`. In light mode use warm paper/canvas and ink text while retaining the same restrained indigo/cyan/mint semantic roles. Contrast and meaning must not rely on color alone. Continue honoring the global theme selection.
+
+**Layout paradigm:** Desktop uses a compact Study Studio rail and a wide subject-aware work surface with one contextual side panel; the content width is allowed to grow without stretching text. Phones collapse to one column with a horizontally scrollable section rail, compact sticky session controls, and safe-area-aware spacing. No fixed-width editor or timer may force page-level horizontal scrolling.
+
+**Signature elements:** The Focus Orb is a crisp, keyboard-operable SVG progress ring for the one canonical timer; a restrained dotted “study paper” texture appears only inside work surfaces; subject colors appear as thin identity marks rather than large gradients.
+
+**Interaction and motion:** Controls remain immediate. Use short opacity/translate transitions around 120–220 ms and a restrained 300–400 ms spring only for opening the Focus Orb. Do not tick the app-wide store every second; derive elapsed time from persisted timestamps and refresh only the timer display. Respect `prefers-reduced-motion`; omit particles and continuous ambient motion.
+
+**Typography:** Reuse the system/Inter stack. Use tabular numerals for the timer, 26–30 px page titles, 16–20 px section titles, 14–16 px body copy, and comfortable line lengths for notebook text.
+
+**Brand essence:** A calm, precise learning studio for turning study intentions into focused work and useful recall; thoughtful, capable, steady.
+
+**Brand voice:** Clear and non-judgmental. Examples: “Choose one topic. We’ll keep the rest out of your way.” “Time shows effort; recall shows what stayed.”
+
+**Wordmark and signature color:** Keep the existing Life OS runner mark and name; pair them with a compact Study Studio wordmark and ownable focus-cyan `#22D3EE` against the app’s indigo action color.
+
+### Implementation and data boundaries
+
+- Add a lazy-loaded `src/pages/StudyStudio.tsx`, focused components under `src/components/study/`, and pure timer/learning logic under `src/lib/study/`. Reuse installed React, TypeScript, Tailwind, Zustand, Lucide icons, Supabase, and the current theme system; add no dependency for a timer or basic vector canvas.
+- Extend the existing private Zustand snapshot with an optional, versioned Study Studio collection and make `importAll` merge missing fields to safe empty defaults. Bump the snapshot version only after preserving every existing collection and unknown compatible field. Account switching and sign-out must clear the on-device workspace exactly as the existing store does.
+- Keep study notes as validated structured text blocks, not executable HTML. Store drawings as bounded vector strokes/shapes rather than a full raster image per pointer movement. Do not embed image bytes in the JSON snapshot; any later attachment feature must use the existing private media storage path.
+- Persist timer transitions, not timer ticks. Keep a single active session with explicit running/paused/break/recovery states; derive elapsed focus from timestamps and exclude pause/break intervals. Finish is idempotent by stable session ID. Re-entry after ambiguous suspension asks whether to resume or discard rather than silently counting time away.
+- Debounce notebook document commits before updating the shared Zustand snapshot so typing does not cause a Supabase write on every keystroke. Keep timer display ticks local to the timer component. Continue using the existing per-user `life_data` RLS and sync unless measured document growth demonstrates a need for an additive study-specific table; do not add a new migration or paid service merely for the first release.
+- Build the supplied release-one core first: subject/topic CRUD, persistent focus and breaks, session journal, notebook autosave, basic touch/mouse drawing, and a functional overview. Implement a section only when its actions and saved data work end-to-end; leave concept maps, AI companion, exam mode, and other later-stage tools out of the active navigation until they are genuinely implemented. Do not claim attention measurement, guaranteed retention, or closed-app notifications.
+- Preserve the current Pages route/base path and public pages. Any new route must be added to `public/manus-routes.json` and the static-page preparation path before dev-server preview or release.
