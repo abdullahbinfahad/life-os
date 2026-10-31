@@ -1,0 +1,14 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"20px","primaryColor":"#eef2ff","primaryTextColor":"#171923","primaryBorderColor":"#635bff","lineColor":"#475569","secondaryColor":"#f6f7f9","tertiaryColor":"#ffffff"},"flowchart":{"nodeSpacing":55,"rankSpacing":55,"curve":"basis"}}}%%
+flowchart LR
+  USER[Person / installed PWA] --> WEB[React + Vite shell<br/>service worker]
+  WEB --> STATE[Zustand workspace<br/>local schema v4]
+  STATE --> LOCAL[Browser persistence]
+  WEB --> AUTH[Supabase Auth]
+  STATE --> SNAP[Private life_data snapshot<br/>cloud schema v6]
+  AUTH --> SNAP
+  SNAP --> RLS[Required RLS boundary<br/>per authenticated user]
+  WEB --> BACKEND[Supabase backend surfaces<br/>shared projects · journal]
+  WEB --> PLANNER[Planning assistant]
+  PLANNER --> EDGE[lifeos-planner<br/>Edge Function]
+  EDGE --> AI[Gemini API]
+  EDGE --> DRAFT[Validated suggestions<br/>no direct snapshot write]

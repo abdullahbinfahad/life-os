@@ -54,8 +54,8 @@ export default function AccountDirectory({ accounts, query, onQueryChange, page,
           </button>;
         })}
       </div>
-      <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-3 text-xs dark:border-white/10"><span className="muted">{filtered.length} {query.trim() ? 'matching' : 'loaded'} {tr("account")}{filtered.length === 1 ? '' : 's'} {tr("· page")}{currentPage + 1} {tr("of")}{pages}</span><span className="flex gap-2"><button className="btn-outline !px-2.5 !py-1.5" onClick={() => onPageChange(Math.max(0, currentPage - 1))} disabled={currentPage === 0}>{tr("Previous")}</button><button className="btn-outline !px-2.5 !py-1.5" onClick={() => onPageChange(Math.min(pages - 1, currentPage + 1))} disabled={currentPage >= pages - 1}>{tr("Next")}</button></span></div>
-      {hasMore && <button className="btn-outline mt-3 w-full" onClick={onLoadMore} disabled={loading}>{loading ? 'Loading accounts…' : 'Load next 100 accounts'}</button>}
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-3 text-xs dark:border-white/10"><span className="muted">{filtered.length} {query.trim() ? 'matches loaded' : 'accounts loaded'} {tr("· page")}{currentPage + 1} {tr("of")}{pages}{hasMore ? ' · more available' : ''}</span><span className="flex gap-2"><button className="btn-outline !px-2.5 !py-1.5" onClick={() => onPageChange(Math.max(0, currentPage - 1))} disabled={currentPage === 0}>{tr("Previous")}</button><button className="btn-outline !px-2.5 !py-1.5" onClick={() => onPageChange(Math.min(pages - 1, currentPage + 1))} disabled={currentPage >= pages - 1}>{tr("Next")}</button></span></div>
+      {hasMore && <button className="btn-outline mt-3 w-full" onClick={onLoadMore} disabled={loading}>{loading ? 'Loading accounts…' : query.trim() ? 'Load next 100 matching accounts' : 'Load next 100 accounts'}</button>}
     </section>
   );
 }

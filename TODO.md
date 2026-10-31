@@ -111,3 +111,51 @@
 
 ### Safe loading and caching
 - [ ] Keep the static app shell/assets cache versioned and resilient to offline/stale-shell startup; never cache authenticated API responses, OAuth query values, or private account data. Avoid broad global polling/animation work that makes pages laggy.
+
+
+## 2026-10-29 desktop spacing and owner directory
+
+- [ ] On desktop Habits, tighten the oversized whitespace between the habit title/category and the first weekly check-in column; keep all seven date columns, streak metrics, and actions legible and contained without horizontal layout drift.
+- [ ] Move Habits higher in the primary sidebar, near the top-level Today/Library items, while preserving the existing navigation structure.
+- [ ] Repair the owner account directory's PostgreSQL runtime 42883 failure without weakening verified-owner authorization, add bounded server-side search across all account pages, and retain paginated account inspection, auditing, and private workspace access only through existing guarded RPCs.
+- [ ] Reduce the excessive desktop gap between the first and second Admin Console content cards while preserving the current responsive mobile spacing.
+
+
+## Handover book and downloadable applications (2026-10-29)
+
+- [ ] Deliver a detailed system handover book for the next maintainer covering actual frontend, backend, design, auth, state/sync, features, deployment, troubleshooting, safe change process, privacy boundaries, and verified/unverified operational state. Do not include personal data, credentials, signing keys, or API secrets.
+- [ ] Package the same hosted Life Circle experience as a desktop app for Windows/macOS/Linux and an Android APK without duplicating feature logic or changing the existing web design; document unavoidable browser/native permission, signing, or background-delivery differences.
+- [ ] Add reproducible GitHub build/release workflows and publish installers/APK as public GitHub Release assets; keep all signing material outside source control and preserve Android signing identity across updates.
+
+
+## 2026-10-30 Study Studio — first complete release
+
+### Connected learning workspace
+- [ ] Add a Study Studio route and its own internal Overview, Focus Room, My Subjects, Notebooks, Practice & Recall, Revision Planner, Study Analytics and Study Settings sections inside the current authenticated Life OS shell. Keep all existing routes and the GitHub Pages subpath working; do not show any nonfunctional feature button as if it works.
+- [ ] Organize learning as Subject → Course/Book → Chapter → Topic → Study Resources. Users can create, edit, archive/restore, search, reorder and resume from subjects/topics; topics distinguish Not Started, Learning, Practicing, Needs Review and Mastered, and can link study records without orphaning children.
+- [ ] Overview shows genuine today/week focus time, a useful study target, active/resumable session, subject/topic progress, recent notebooks, due reviews and session history. Empty data gives one clear first subject/session action rather than empty charts.
+
+### Accurate focus timer and session record
+- [ ] Maintain one persistent session across Study Studio sections and Life OS navigation, with Idle, Running, Paused, Break, Completed and Recovery states. Support start, pause, resume, break, skip/extend break, finish and confirmed discard, with configurable focus/break durations and an optional subject/topic/objective.
+- [ ] Derive focus time from timestamps; exclude paused and break intervals; persist transitions immediately; recover after route changes/reload; handle invalid timestamps/suspension explicitly; avoid duplicate sessions/completions; and update only timer UI each second, not the full app store.
+- [ ] Completed sessions record date, subject/topic, focused duration and optional quick reflection (covered topics, outcome/confidence, unfinished work/next note). Make Finish idempotent and use only real recorded sessions for progress.
+- [ ] A compact Focus Orb/widget shows time, subject/topic, state and pause/resume/expand/finish controls without covering essential mobile controls; its display always reflects the single underlying session.
+
+### Notes, notebooks and drawing
+- [ ] Create subject/topic-linked notebooks with multiple pages, searchable text, useful headings/checklists/code/quote/callout/divider/formula blocks, undo/redo through native editing, page add/duplicate/reorder and Markdown/plain-text export or clean print.
+- [ ] Show Saving/Saved/Error status; debounce document commits; preserve edits across section changes/reload; recover an interrupted draft; use validated structured text only and never execute or render arbitrary unsanitized HTML.
+- [ ] Provide a touch/mouse/stylus-capable canvas with pen, eraser, stroke width/color, lines/arrows/basic shapes, grid/paper, undo/redo, zoom/fit, clear confirmation and PNG export. Persist bounded vector edits rather than saving a raster image for every pointer move.
+
+### Practice, revision, analytics and settings
+- [ ] Users can create topic-linked question/answer flashcards, reveal the answer, self-rate recall, and see review history. A deterministic spaced-review schedule derives due/upcoming/overdue dates from actual review outcomes, and offers rescheduling; it never promises guaranteed retention.
+- [ ] Analytics are derived from saved sessions/reviews and distinguish minutes tracked from demonstrated recall/mastery; show readable daily/weekly focus, subject/topic distribution, consistency, session duration and recall/revision trends, including correct empty/timezone states.
+- [ ] Study Settings configure focus/short/long-break durations and daily/weekly study targets; reuse global theme, sound, notification, reduced-motion, authentication and data-export behavior instead of silently duplicating them.
+
+### Data safety and responsive design
+- [ ] Study records remain private to the signed-in account and backward-compatible with older Life OS snapshots; missing Study Studio fields receive safe defaults, data is never exposed to teammates, and logout/account switching cannot leak a prior account's study data.
+- [ ] Keep notes responsive by debouncing shared-snapshot writes; store drawings as bounded vector records, not large base64 payloads; avoid a new dependency or database migration unless the existing sync model demonstrably cannot safely support the first release.
+- [ ] Use the existing themes/design components with the supplied dark-first focus-cyan/break-mint/indigo roles, controlled contrast, restrained motion, `prefers-reduced-motion`, accessible labels/focus/touch targets, and thoughtful loading/empty/error states.
+- [ ] Desktop keeps a compact section rail and spacious readable work surface; tablet/mobile collapse to one column with a horizontal section rail, safe-area-aware persistent timer controls, no clipped text, no forced zoom, and no page-wide horizontal overflow.
+
+### Later concepts from the supplied spec (defer until their workflows are genuinely complete)
+- [ ] Add portable formula library, active recall beyond flashcard self-rating, Mistake Bank, concept maps, study missions, exam mode, universal search, quick capture, season/badges and optional soundscapes as coherent features; do not imply handwriting recognition, AI, attention monitoring, or background delivery without implementing and verifying those capabilities.

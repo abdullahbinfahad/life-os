@@ -127,7 +127,7 @@ export default function Settings() {
       const snapshot = {
         categories: current.categories, items: current.items, goals: current.goals, projects: current.projects,
         habits: current.habits, journal: current.journal, albums: current.albums, settings: current.settings,
-        trash: current.trash, focusSessions: current.focusSessions, rewardEvents: current.rewardEvents,
+        trash: current.trash, focusSessions: current.focusSessions, rewardEvents: current.rewardEvents, study: current.study,
       };
       useStore.getState().resetAll();
       if (eraseCloudAccount) {
@@ -148,8 +148,8 @@ export default function Settings() {
   };
 
   const exportJSON = () => {
-    const { categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents } = useStore.getState();
-    download(`life-circle-backup-${today()}.json`, JSON.stringify({ version: 5, categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents }, null, 2));
+    const { categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents, study } = useStore.getState();
+    download(`life-circle-backup-${today()}.json`, JSON.stringify({ version: 6, categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents, study }, null, 2));
   };
   const beginBackup = (action: NonNullable<typeof backupAction>) => {
     if (!user) { setMsg('Sign in before importing or exporting private account data.'); return; }
@@ -199,9 +199,10 @@ export default function Settings() {
     try {
       const data = JSON.parse(await f.text());
       if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Backup must be a JSON object.');
-      const supported = ['categories', 'items', 'goals', 'projects', 'habits', 'journal', 'albums', 'settings', 'trash', 'focusSessions', 'rewardEvents'];
+      const supported = ['categories', 'items', 'goals', 'projects', 'habits', 'journal', 'albums', 'settings', 'trash', 'focusSessions', 'rewardEvents', 'study'];
       const present = supported.filter((key) => key in data);
-      if (!present.length || present.some((key) => Array.isArray(data[key]) === false && key !== 'settings')) throw new Error('Backup has no valid Life OS collections.');
+      if ('study' in data && (!data.study || typeof data.study !== 'object' || Array.isArray(data.study))) throw new Error('Study backup data must be an object.');
+      if (!present.length || present.some((key) => Array.isArray(data[key]) === false && key !== 'settings' && key !== 'study')) throw new Error('Backup has no valid Life OS collections.');
       const counts = Object.fromEntries(present.map((key) => [key, Array.isArray(data[key]) ? data[key].length : 1]));
       setImportPreview({ format: 'json', data, counts });
     } catch { setMsg('Invalid backup file.'); }
@@ -244,14 +245,39 @@ export default function Settings() {
       if (mode === 'replace') useStore.getState().importAll(incoming);
       else {
         const current = useStore.getState() as unknown as Record<string, unknown>;
+        const mergeRows = (before: unknown, after: unknown, childKey?: string, grandchildKey?: string): Record<string, unknown>[] => {
+          const rows = (value: unknown) => Array.isArray(value) ? value.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object' && !Array.isArray(row) && typeof (row as Record<string, unknown>).id === 'string') : [];
+          const byId = new Map<string, Record<string, unknown>>();
+          for (const row of rows(before)) byId.set(row.id as string, { ...row });
+          for (const row of rows(after)) {
+            const prior = byId.get(row.id as string);
+            const mergedRow = { ...prior, ...row };
+            if (childKey && Array.isArray(row[childKey])) mergedRow[childKey] = mergeRows(prior?.[childKey], row[childKey], grandchildKey);
+            byId.set(row.id as string, mergedRow);
+          }
+          return [...byId.values()];
+        };
         const arrayKeys = ['categories', 'items', 'goals', 'projects', 'habits', 'journal', 'albums', 'trash', 'focusSessions', 'rewardEvents'];
         const merged: Record<string, unknown> = { ...current, ...incoming };
         for (const key of arrayKeys) if (Array.isArray(incoming[key])) {
-          const byId = new Map<string, Record<string, unknown>>();
-          for (const row of [...(Array.isArray(current[key]) ? current[key] as Record<string, unknown>[] : []), ...(incoming[key] as Record<string, unknown>[])]) if (row && typeof row.id === 'string') byId.set(row.id, row);
-          merged[key] = [...byId.values()];
+          merged[key] = mergeRows(current[key], incoming[key]);
         }
         merged.settings = { ...(current.settings as object ?? {}), ...(incoming.settings as object ?? {}) };
+        const beforeStudy = current.study && typeof current.study === 'object' ? current.study as Record<string, unknown> : {};
+        const afterStudy = incoming.study && typeof incoming.study === 'object' ? incoming.study as Record<string, unknown> : {};
+        if (Object.keys(afterStudy).length) {
+          const study = { ...beforeStudy, ...afterStudy };
+          for (const [key, child, grandchild] of [
+            ['subjects', undefined, undefined], ['courses', undefined, undefined], ['chapters', undefined, undefined],
+            ['topics', undefined, undefined], ['notebooks', 'pages', 'blocks'], ['canvases', 'objects', undefined],
+            ['sessions', undefined, undefined], ['flashcards', 'reviewHistory', undefined],
+          ] as const) if (Array.isArray(afterStudy[key])) study[key] = mergeRows(beforeStudy[key], afterStudy[key], child, grandchild);
+          study.activeSession = afterStudy.activeSession ?? beforeStudy.activeSession ?? null;
+          const beforePreferences = beforeStudy.preferences && typeof beforeStudy.preferences === 'object' ? beforeStudy.preferences as Record<string, unknown> : {};
+          const afterPreferences = afterStudy.preferences && typeof afterStudy.preferences === 'object' ? afterStudy.preferences as Record<string, unknown> : {};
+          study.preferences = { ...beforePreferences, ...afterPreferences, widgets: { ...(beforePreferences.widgets as object ?? {}), ...(afterPreferences.widgets as object ?? {}) } };
+          merged.study = study;
+        }
         useStore.getState().importAll(merged);
       }
       setMsg(`Backup ${mode === 'merge' ? 'merged' : 'restored'}.`);

@@ -32,9 +32,122 @@ alter table public.lifeos_admin_audit enable row level security;
 alter table public.lifeos_admin_audit force row level security;
 revoke all on table public.lifeos_admin_audit from public, anon, authenticated;
 
+-- Repair the account-detail RPC as well; this is full workspace data, never
+-- auth credentials, API keys, session tokens, or payment secrets.
+create or replace function public.lifeos_admin_get_user(p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_result jsonb;
+  v_has_snapshot boolean;
+begin
+  if not public.lifeos_is_owner_admin() then
+    raise insufficient_privilege using message = 'Owner authorization required';
+  end if;
+  if p_user_id is null then
+    raise exception using errcode = '22023', message = 'p_user_id is required';
+  end if;
+
+  select pg_catalog.jsonb_build_object(
+    'account', pg_catalog.jsonb_build_object(
+      'id', u.id,
+      'email', u.email,
+      'phone', u.phone,
+      'display_name', pg_catalog.left(coalesce(
+        nullif(u.raw_user_meta_data ->> 'full_name', ''),
+        nullif(u.raw_user_meta_data ->> 'name', ''),
+        nullif(u.raw_user_meta_data ->> 'display_name', ''),
+        u.email, u.phone, 'Unnamed account'
+      ), 120),
+      'created_at', u.created_at,
+      'last_sign_in_at', u.last_sign_in_at,
+      'email_confirmed', (u.email_confirmed_at is not null)
+    ),
+    'life_data', case when d.user_id is null then null else pg_catalog.jsonb_build_object(
+      'data', d.data,
+      'updated_at', d.updated_at
+    ) end
+  ), (d.user_id is not null)
+  into v_result, v_has_snapshot
+  from auth.users as u
+  left join public.life_data as d on d.user_id = u.id
+  where u.id = p_user_id;
+
+  if not found then raise no_data_found using message = 'Account not found'; end if;
+
+  insert into public.lifeos_admin_audit (actor_id, target_user_id, action, metadata)
+  values (auth.uid(), p_user_id, 'user-view', pg_catalog.jsonb_build_object('has_snapshot', v_has_snapshot));
+  return v_result;
+end;
+$$;
+
+revoke all on function public.lifeos_admin_get_user(uuid) from public, anon;
+grant execute on function public.lifeos_admin_get_user(uuid) to authenticated;
+
+create or replace function public.lifeos_admin_update_user_snapshot(
+  p_user_id uuid,
+  p_data jsonb,
+  p_expected_updated_at timestamptz
+)
+returns timestamptz
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_updated_at timestamptz;
+  v_data_bytes integer;
+begin
+  if not public.lifeos_is_owner_admin() then
+    raise insufficient_privilege using message = 'Owner authorization required';
+  end if;
+  if p_user_id is null then raise exception using errcode = '22023', message = 'p_user_id is required'; end if;
+  if p_expected_updated_at is null then raise exception using errcode = '22023', message = 'p_expected_updated_at is required'; end if;
+  if p_data is null or pg_catalog.jsonb_typeof(p_data) <> 'object' then
+    raise exception using errcode = '22023', message = 'p_data must be a JSON object';
+  end if;
+
+  v_data_bytes := pg_catalog.octet_length(p_data::text);
+  if v_data_bytes > 1048576 then
+    raise exception using errcode = '22023', message = 'p_data exceeds the 1 MiB serialized snapshot limit';
+  end if;
+
+  update public.life_data as d
+  set data = p_data,
+      updated_at = pg_catalog.clock_timestamp()
+  where d.user_id = p_user_id and d.updated_at = p_expected_updated_at
+  returning d.updated_at into v_updated_at;
+
+  if not found then
+    perform 1 from public.life_data as d where d.user_id = p_user_id;
+    if found then raise exception using errcode = '40001', message = 'Snapshot has changed; reload before saving'; end if;
+    raise no_data_found using message = 'Snapshot not found; admin updates never create snapshots';
+  end if;
+
+  insert into public.lifeos_admin_audit (actor_id, target_user_id, action, metadata)
+  values (auth.uid(), p_user_id, 'snapshot-update', pg_catalog.jsonb_build_object(
+    'data_md5', pg_catalog.md5(p_data::text),
+    'data_bytes', v_data_bytes,
+    'full_workspace_access', true
+  ));
+  return v_updated_at;
+end;
+$$;
+
+revoke all on function public.lifeos_admin_update_user_snapshot(uuid, jsonb, timestamptz) from public, anon;
+grant execute on function public.lifeos_admin_update_user_snapshot(uuid, jsonb, timestamptz) to authenticated;
+
+-- Replace the older two-argument version so PostgREST has one unambiguous RPC
+-- signature and can perform searches across all paginated account records.
+drop function if exists public.lifeos_admin_list_users(integer, integer);
+
 create or replace function public.lifeos_admin_list_users(
   p_limit integer default 25,
-  p_offset integer default 0
+  p_offset integer default 0,
+  p_query text default null
 )
 returns table (
   user_id uuid,
@@ -51,6 +164,8 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_query text := pg_catalog.lower(pg_catalog.btrim(coalesce(p_query, '')));
 begin
   if not public.lifeos_is_owner_admin() then
     raise insufficient_privilege using message = 'Owner authorization required';
@@ -61,10 +176,15 @@ begin
       errcode = '22023',
       message = 'p_limit must be between 1 and 100';
   end if;
-  if p_offset is null or p_offset < 0 or p_offset > 10000 then
+  if p_offset is null or p_offset < 0 or p_offset > 1000000 then
     raise exception using
       errcode = '22023',
-      message = 'p_offset must be between 0 and 10000';
+      message = 'p_offset must be between 0 and 1000000';
+  end if;
+  if pg_catalog.char_length(v_query) > 200 then
+    raise exception using
+      errcode = '22023',
+      message = 'p_query must be at most 200 characters';
   end if;
 
   insert into public.lifeos_admin_audit (actor_id, target_user_id, action, metadata)
@@ -81,10 +201,10 @@ begin
     u.email,
     u.phone,
     pg_catalog.left(
-      pg_catalog.coalesce(
-        pg_catalog.nullif(u.raw_user_meta_data ->> 'full_name', ''),
-        pg_catalog.nullif(u.raw_user_meta_data ->> 'name', ''),
-        pg_catalog.nullif(u.raw_user_meta_data ->> 'display_name', ''),
+      coalesce(
+        nullif(u.raw_user_meta_data ->> 'full_name', ''),
+        nullif(u.raw_user_meta_data ->> 'name', ''),
+        nullif(u.raw_user_meta_data ->> 'display_name', ''),
         u.email,
         u.phone,
         'Unnamed account'
@@ -98,17 +218,31 @@ begin
     (d.user_id is not null) as has_snapshot
   from auth.users as u
   left join public.life_data as d on d.user_id = u.id
+  where v_query = ''
+    or pg_catalog.strpos(pg_catalog.lower(coalesce(u.email, '')), v_query) > 0
+    or pg_catalog.strpos(pg_catalog.lower(coalesce(u.phone, '')), v_query) > 0
+    or pg_catalog.strpos(
+      pg_catalog.lower(coalesce(
+        nullif(u.raw_user_meta_data ->> 'full_name', ''),
+        nullif(u.raw_user_meta_data ->> 'name', ''),
+        nullif(u.raw_user_meta_data ->> 'display_name', ''),
+        u.email,
+        u.phone,
+        'Unnamed account'
+      )),
+      v_query
+    ) > 0
   order by u.created_at desc nulls last, u.id asc
   limit p_limit
   offset p_offset;
 end;
 $$;
 
-revoke all on function public.lifeos_admin_list_users(integer, integer) from public, anon;
-grant execute on function public.lifeos_admin_list_users(integer, integer) to authenticated;
+revoke all on function public.lifeos_admin_list_users(integer, integer, text) from public, anon;
+grant execute on function public.lifeos_admin_list_users(integer, integer, text) to authenticated;
 
 -- Read-only catalog verification; this returns the resolved function signature.
-select pg_catalog.to_regprocedure('public.lifeos_admin_list_users(integer,integer)')
+select pg_catalog.to_regprocedure('public.lifeos_admin_list_users(integer,integer,text)')
   as installed_function;
 
 notify pgrst, 'reload schema';

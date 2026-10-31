@@ -1,0 +1,28 @@
+{
+  "routes": [
+    { "path": "/", "title": "Overview" },
+    { "path": "/today", "title": "Today" },
+    { "path": "/habits", "title": "Habits" },
+    { "path": "/library", "title": "Life Library" },
+    { "path": "/goals", "title": "Goals" },
+    { "path": "/projects", "title": "Projects" },
+    { "path": "/productivity", "title": "Productivity" },
+    { "path": "/notifications", "title": "Reminders" },
+    { "path": "/calendar", "title": "Calendar & Timeline" },
+    { "path": "/insights", "title": "Insights" },
+    { "path": "/journal", "title": "Journal" },
+    { "path": "/albums", "title": "Albums" },
+    { "path": "/settings", "title": "Settings" },
+    { "path": "/trash", "title": "Trash" },
+    { "path": "/admin", "title": "Admin Console" },
+    { "path": "/study", "title": "Study Studio" },
+    { "path": "/study/:section", "title": "Study Studio section" },
+    { "path": "/study/subject/:subjectId", "title": "Study subject" },
+    { "path": "/study/topic/:topicId", "title": "Study topic" },
+    { "path": "/study/notebook/:notebookId", "title": "Study notebook" },
+    { "path": "/about", "title": "About Life Circle" },
+    { "path": "/public", "title": "Public journal" },
+    { "path": "/public/journal", "title": "Public journals" },
+    { "path": "/public/journal/:slug", "title": "Public journal post" }
+  ]
+}

@@ -93,10 +93,10 @@ begin
     u.email,
     u.phone,
     pg_catalog.left(
-      pg_catalog.coalesce(
-        pg_catalog.nullif(u.raw_user_meta_data ->> 'full_name', ''),
-        pg_catalog.nullif(u.raw_user_meta_data ->> 'name', ''),
-        pg_catalog.nullif(u.raw_user_meta_data ->> 'display_name', ''),
+      coalesce(
+        nullif(u.raw_user_meta_data ->> 'full_name', ''),
+        nullif(u.raw_user_meta_data ->> 'name', ''),
+        nullif(u.raw_user_meta_data ->> 'display_name', ''),
         u.email,
         u.phone,
         'Unnamed account'
@@ -146,10 +146,10 @@ begin
         'email', u.email,
         'phone', u.phone,
         'display_name', pg_catalog.left(
-          pg_catalog.coalesce(
-            pg_catalog.nullif(u.raw_user_meta_data ->> 'full_name', ''),
-            pg_catalog.nullif(u.raw_user_meta_data ->> 'name', ''),
-            pg_catalog.nullif(u.raw_user_meta_data ->> 'display_name', ''),
+          coalesce(
+            nullif(u.raw_user_meta_data ->> 'full_name', ''),
+            nullif(u.raw_user_meta_data ->> 'name', ''),
+            nullif(u.raw_user_meta_data ->> 'display_name', ''),
             u.email,
             u.phone,
             'Unnamed account'

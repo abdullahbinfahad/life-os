@@ -1,0 +1,69 @@
+.study-focus-widget {
+  position: fixed;
+  z-index: 45;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.45rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--primary, #62d9e8) 42%, transparent);
+  border-radius: 0.9rem;
+  background: var(--card, Canvas);
+  box-shadow: 0 5px 20px #0002;
+  color: var(--foreground, CanvasText);
+  font: inherit;
+}
+.study-widget-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #22d3ee;
+  flex: none;
+}
+.is-break .study-widget-dot {
+  background: #34d399;
+}
+.study-widget-time {
+  font:
+    600 0.9rem ui-monospace,
+    monospace;
+}
+.study-widget-state {
+  font-size: 0.74rem;
+  opacity: 0.75;
+}
+.study-widget-actions {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+.study-widget-actions button,
+.study-widget-actions a {
+  min-height: 40px;
+  min-width: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, currentColor 9%, transparent);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.study-widget-actions a {
+  font-size: 0.72rem;
+  padding: 0 0.5rem;
+}
+@media (max-width: 620px) {
+  .study-focus-widget {
+    left: max(0.55rem, env(safe-area-inset-left));
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+    gap: 0.4rem;
+    padding: 0.35rem 0.45rem;
+  }
+  .study-widget-state {
+    display: none;
+  }
+}
