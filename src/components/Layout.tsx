@@ -184,6 +184,13 @@ export default function Layout({ children }: { children: ReactNode }) {
           const Icon = NAVIGATION_ICONS[icon];
           return (
           <NavLink key={to} to={to} end={to === '/'}
+            onClick={() => {
+              if (to !== '/study' || document.fullscreenElement) return;
+              try {
+                const request = document.documentElement.requestFullscreen?.();
+                if (request) void request.catch(() => undefined);
+              } catch { /* The Focus Room keeps a full-viewport CSS fallback. */ }
+            }}
             className={({ isActive }) => cx(
               'sidebar-link group flex min-h-10 items-center gap-2.5 rounded-xl px-2 py-1.5 text-[13px] font-medium leading-tight transition duration-200',
               isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:translate-x-0.5 hover:bg-slate-100/90 dark:text-slate-300 dark:hover:bg-white/[.055]',
