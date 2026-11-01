@@ -3,12 +3,12 @@ import { CheckCircle2, Circle, Flame, GripVertical, Pencil, Plus, Star, Sunrise,
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { CatBadge, Empty, PageHeader, PRIORITY_META, Ring } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
-import { cx, pct, streak, today, weekCount } from '../lib/utils';
+import { cx, pct, streak, today, toISODate, weekCount } from '../lib/utils';
 import ItemEditor from '../components/ItemEditor';
 import { useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
 import { fetchMyAssignedSharedTasks, subscribeToSharedWorkspace, updateSharedTask, type AssignedSharedTask } from '../lib/sharedProjects';
-import ReverseTodoList, { selectCompletedToday } from '../components/ReverseTodoList';
+import DailyWrapUp from '../components/DailyWrapUp';
 
 export default function Today() {
   const { items, habits, projects, settings, toggleItemDone, updateItem, addItems, toggleHabit, updateTask } = useStore();
@@ -33,7 +33,7 @@ export default function Today() {
     return () => { alive = false; unsubscribe(); };
   }, [user?.id]);
 
-  const completedToday = selectCompletedToday(items, t);
+  const completedToday = items.filter((i) => i.status === 'done' && (i.completedAt ? toISODate(new Date(i.completedAt)) === t : i.todayDate === t || i.dueDate === t));
   const todays = items.filter((i) => (i.todayDate === t || i.dueDate === t) && i.status !== 'done' && i.status !== 'dropped');
   const overdue = items.filter((i) => i.dueDate && i.dueDate < t && i.status !== 'done' && i.status !== 'dropped' && i.todayDate !== t);
   const projectTasks = projects.filter((p) => p.status !== 'done').flatMap((p) => p.tasks.filter((x) => x.dueDate && x.dueDate <= t && !x.done).map((x) => ({ ...x, project: p })));
@@ -119,7 +119,7 @@ export default function Today() {
             )}
           </div>
 
-          <ReverseTodoList items={items} todayDate={t} language={settings.language} onReopen={toggleItemDone} />
+          <DailyWrapUp />
           {projectTasks.length > 0 && (
             <div className="card p-5">
               <h3 className="mb-3 font-semibold">{tr("Project tasks due")}</h3>

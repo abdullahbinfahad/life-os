@@ -4,11 +4,11 @@ import { ArrowRight, CheckCircle2, Flame, Plus, Sunrise, Target } from 'lucide-r
 import { Link } from 'react-router-dom';
 import { CatBadge, PageHeader, Progress, Ring } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
-import { pct, streak, today } from '../lib/utils';
+import { pct, streak, today, toISODate } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
 import { fetchMyAssignedSharedTasks, type AssignedSharedTask } from '../lib/sharedProjects';
-import ReverseTodoList, { selectCompletedToday } from '../components/ReverseTodoList';
+import DailyWrapUp from '../components/DailyWrapUp';
 
 export default function Overview() {
   const { items, goals, habits, settings } = useStore();
@@ -19,7 +19,7 @@ export default function Overview() {
   const catMap = useCategoryMap();
   const t = today();
   const activeGoals = goals.filter((g) => g.status === 'active');
-  const completedToday = selectCompletedToday(items, t);
+  const completedToday = items.filter((i) => i.status === 'done' && (i.completedAt ? toISODate(new Date(i.completedAt)) === t : i.todayDate === t || i.dueDate === t));
   const todayItems = items.filter((i) => (i.todayDate === t || i.dueDate === t) && i.status !== 'done' && i.status !== 'dropped');
   const todayDone = completedToday.length;
   const activeHabits = habits.filter((h) => !h.archived);
@@ -93,7 +93,7 @@ export default function Overview() {
               )}
             </div>
           )}
-          {(todayDone > 0 || todayItems.length > 0) && <ReverseTodoList items={items} todayDate={t} language={settings.language} onReopen={(id) => useStore.getState().toggleItemDone(id)} limit={3} compact />}
+          <DailyWrapUp compact />
         </section>
 
         <section className="card p-5">
