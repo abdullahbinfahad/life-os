@@ -8,6 +8,7 @@ import { pct, streak, today } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
 import { fetchMyAssignedSharedTasks, type AssignedSharedTask } from '../lib/sharedProjects';
+import ReverseTodoList, { selectCompletedToday } from '../components/ReverseTodoList';
 
 export default function Overview() {
   const { items, goals, habits, settings } = useStore();
@@ -18,8 +19,9 @@ export default function Overview() {
   const catMap = useCategoryMap();
   const t = today();
   const activeGoals = goals.filter((g) => g.status === 'active');
-  const todayItems = items.filter((i) => i.todayDate === t || i.dueDate === t);
-  const todayDone = todayItems.filter((i) => i.status === 'done').length;
+  const completedToday = selectCompletedToday(items, t);
+  const todayItems = items.filter((i) => (i.todayDate === t || i.dueDate === t) && i.status !== 'done' && i.status !== 'dropped');
+  const todayDone = completedToday.length;
   const activeHabits = habits.filter((h) => !h.archived);
   const habitsToday = activeHabits.filter((h) => h.log.includes(t)).length;
   const bestStreak = Math.max(0, ...activeHabits.filter((h) => h.frequency === 'daily').map((h) => streak(h.log)));
@@ -61,8 +63,37 @@ export default function Overview() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="card p-3 sm:p-5 lg:col-span-2">
-          <div className="mb-2 flex items-center justify-between gap-3 sm:mb-4"><div><h3 className="text-sm font-semibold sm:text-base">{tr("Today’s plan")}</h3><p className="mt-0.5 text-xs muted sm:mt-1 sm:text-sm">{todayItems.length ? `${todayDone} of ${todayItems.length} complete` : 'Choose a small action to focus on today.'}</p></div><Link to="/today" className="shrink-0 rounded-md px-2 py-2 text-xs text-indigo-500 sm:text-sm">{tr("Open plan")}<ArrowRight size={14} className="inline" /></Link></div>
-          {todayItems.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 p-3 text-center sm:p-6 dark:border-white/15"><Sunrise className="mx-auto text-amber-500" size={26} /><p className="mt-1 text-sm font-medium sm:mt-2 sm:text-base">{tr("Nothing planned yet")}</p><p className="mt-1 text-xs muted sm:text-sm">{tr("Add a task or choose one action to make today feel manageable.")}</p><button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn-primary mt-3 min-h-11 sm:mt-4"><Plus size={15} /> {tr("Add a task")}</button></div> : <div className="space-y-1.5 sm:space-y-2">{todayItems.slice(0, 5).map((item) => <div key={item.id} className="flex items-center gap-2 rounded-xl bg-slate-50 px-2.5 py-1.5 text-xs sm:px-3 sm:py-2.5 sm:text-sm dark:bg-white/[.04]"><CheckCircle2 size={16} className={item.status === 'done' ? 'text-emerald-500' : 'muted'} /><span className={item.status === 'done' ? 'line-through muted' : 'truncate'}>{item.title}</span></div>)}{todayItems.length > 5 && <Link to="/today" className="inline-block min-h-11 pt-2 text-xs text-indigo-500 sm:text-sm">{tr("See all")}{todayItems.length} {tr("items")}<ArrowRight size={14} className="inline" /></Link>}</div>}
+          <div className="mb-2 flex items-center justify-between gap-3 sm:mb-4"><div><h3 className="text-sm font-semibold sm:text-base">{tr("Today’s plan")}</h3><p className="mt-0.5 text-xs muted sm:mt-1 sm:text-sm">{todayItems.length || todayDone ? `${todayDone} of ${todayItems.length + todayDone} complete` : 'Choose a small action to focus on today.'}</p></div><Link to="/today" className="shrink-0 rounded-md px-2 py-2 text-xs text-indigo-500 sm:text-sm">{tr("Open plan")}<ArrowRight size={14} className="inline" /></Link></div>
+          {todayItems.length === 0 ? (
+            todayDone > 0 ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 text-center dark:border-emerald-400/15 dark:bg-emerald-500/[.06]">
+                <CheckCircle2 className="mx-auto text-emerald-600 dark:text-emerald-300" size={24} />
+                <p className="mt-1 text-sm font-semibold">{tr('All planned tasks are complete')}</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-300 p-3 text-center sm:p-6 dark:border-white/15">
+                <Sunrise className="mx-auto text-amber-500" size={26} />
+                <p className="mt-1 text-sm font-medium sm:mt-2 sm:text-base">{tr("Nothing planned yet")}</p>
+                <p className="mt-1 text-xs muted sm:text-sm">{tr("Add a task or choose one action to make today feel manageable.")}</p>
+                <button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn-primary mt-3 min-h-11 sm:mt-4"><Plus size={15} /> {tr("Add a task")}</button>
+              </div>
+            )
+          ) : (
+            <div className="space-y-1.5 sm:space-y-2">
+              {todayItems.slice(0, 5).map((item) => (
+                <div key={item.id} className="flex items-center gap-2 rounded-xl bg-slate-50 px-2.5 py-1.5 text-xs sm:px-3 sm:py-2.5 sm:text-sm dark:bg-white/[.04]">
+                  <CheckCircle2 size={16} className="muted" />
+                  <span className="truncate">{item.title}</span>
+                </div>
+              ))}
+              {todayItems.length > 5 && (
+                <Link to="/today" className="inline-block min-h-11 pt-2 text-xs text-indigo-500 sm:text-sm">
+                  {tr("See all")}{todayItems.length} {tr("items")}<ArrowRight size={14} className="inline" />
+                </Link>
+              )}
+            </div>
+          )}
+          {(todayDone > 0 || todayItems.length > 0) && <ReverseTodoList items={items} todayDate={t} language={settings.language} onReopen={(id) => useStore.getState().toggleItemDone(id)} limit={3} compact />}
         </section>
 
         <section className="card p-5">

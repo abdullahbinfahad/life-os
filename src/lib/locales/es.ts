@@ -358,5 +358,18 @@ const dictionary: Record<string, string> = {"(optional)":"(opcional)","+ Add mil
   "Enter full screen": "Entrar en pantalla completa",
   "Back to study": "Volver al estudio",
   "Started at": "Iniciado a las",
+  "Edit project": "Editar proyecto",
+  "Task title": "Título de la tarea",
+  "Save title": "Guardar título",
+  "Edit task title": "Editar título de la tarea",
+  "Edit note": "Editar nota",
+  "Edit message": "Editar mensaje",
+  "Reverse To-Do": "Lista de tareas inversa",
+  "No tasks completed today yet": "Todavía no has completado ninguna tarea hoy",
+  "Completed tasks will appear here, newest first.": "Las tareas completadas aparecerán aquí, primero las más recientes.",
+  "Reopen": "Reabrir",
+  "And": "y",
+  "more completed": "más completadas",
+  "All planned tasks are complete": "Todas las tareas planificadas están completas",
 };
 export default dictionary;

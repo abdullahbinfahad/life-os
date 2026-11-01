@@ -358,5 +358,18 @@ const dictionary: Record<string, string> = {"(optional)":"(वैकल्पि
   "Enter full screen": "पूर्ण स्क्रीन में जाएँ",
   "Back to study": "पढ़ाई पर वापस जाएँ",
   "Started at": "शुरू हुआ",
+  "Edit project": "प्रोजेक्ट संपादित करें",
+  "Task title": "कार्य का शीर्षक",
+  "Save title": "शीर्षक सहेजें",
+  "Edit task title": "कार्य का शीर्षक संपादित करें",
+  "Edit note": "नोट संपादित करें",
+  "Edit message": "संदेश संपादित करें",
+  "Reverse To-Do": "उलटी कार्य-सूची",
+  "No tasks completed today yet": "आज अभी तक कोई कार्य पूरा नहीं हुआ",
+  "Completed tasks will appear here, newest first.": "पूरे किए गए कार्य यहाँ दिखेंगे, सबसे नए पहले।",
+  "Reopen": "फिर से खोलें",
+  "And": "और",
+  "more completed": "अधिक पूरे किए गए",
+  "All planned tasks are complete": "सभी नियोजित कार्य पूरे हो गए हैं",
 };
 export default dictionary;

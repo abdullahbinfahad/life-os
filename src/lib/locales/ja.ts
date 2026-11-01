@@ -358,5 +358,18 @@ const dictionary: Record<string, string> = {"(optional)":"（任意）","+ Add m
   "Enter full screen": "全画面表示",
   "Back to study": "学習に戻る",
   "Started at": "開始時刻",
+  "Edit project": "プロジェクトを編集",
+  "Task title": "タスク名",
+  "Save title": "タイトルを保存",
+  "Edit task title": "タスク名を編集",
+  "Edit note": "メモを編集",
+  "Edit message": "メッセージを編集",
+  "Reverse To-Do": "逆順To-Do",
+  "No tasks completed today yet": "今日はまだ完了したタスクはありません",
+  "Completed tasks will appear here, newest first.": "完了したタスクは新しい順にここに表示されます。",
+  "Reopen": "再開",
+  "And": "と",
+  "more completed": "件完了",
+  "All planned tasks are complete": "予定されていたタスクはすべて完了しました",
 };
 export default dictionary;
