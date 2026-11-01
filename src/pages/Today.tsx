@@ -8,6 +8,7 @@ import ItemEditor from '../components/ItemEditor';
 import { useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
 import { fetchMyAssignedSharedTasks, subscribeToSharedWorkspace, updateSharedTask, type AssignedSharedTask } from '../lib/sharedProjects';
+import ReverseTodoList, { selectCompletedToday } from '../components/ReverseTodoList';
 
 export default function Today() {
   const { items, habits, projects, settings, toggleItemDone, updateItem, addItems, toggleHabit, updateTask } = useStore();
@@ -32,13 +33,14 @@ export default function Today() {
     return () => { alive = false; unsubscribe(); };
   }, [user?.id]);
 
-  const todays = items.filter((i) => i.todayDate === t || (i.dueDate === t && i.status !== 'dropped')).map((item, index) => ({ item, index })).sort((a, b) => Number(a.item.status === 'done') - Number(b.item.status === 'done') || a.index - b.index).map(({ item }) => item);
+  const completedToday = selectCompletedToday(items, t);
+  const todays = items.filter((i) => (i.todayDate === t || i.dueDate === t) && i.status !== 'done' && i.status !== 'dropped');
   const overdue = items.filter((i) => i.dueDate && i.dueDate < t && i.status !== 'done' && i.status !== 'dropped' && i.todayDate !== t);
   const projectTasks = projects.filter((p) => p.status !== 'done').flatMap((p) => p.tasks.filter((x) => x.dueDate && x.dueDate <= t && !x.done).map((x) => ({ ...x, project: p })));
   const activeHabits = habits.filter((h) => !h.archived);
   const candidates = items.filter((i) => i.todayDate !== t && (i.status === 'next' || i.status === 'active' || i.starred)).sort((a, b) => a.priority - b.priority).slice(0, 12);
-  const doneCount = todays.filter((i) => i.status === 'done').length + activeHabits.filter((h) => h.log.includes(t)).length;
-  const total = todays.length + activeHabits.length;
+  const doneCount = completedToday.length + activeHabits.filter((h) => h.log.includes(t)).length;
+  const total = todays.length + completedToday.length + activeHabits.length;
 
   const add = () => { if (!text.trim()) return; addItems([{ title: text, todayDate: t, status: 'next', priority: 2 }]); setText(''); };
 
@@ -94,7 +96,9 @@ export default function Today() {
                 </div>
               </div>
             )}
-            {todays.length === 0 ? (
+            {todays.length === 0 ? completedToday.length > 0 ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 text-center dark:border-emerald-400/15 dark:bg-emerald-500/[.06]"><CheckCircle2 className="mx-auto text-emerald-600 dark:text-emerald-300" size={26} /><p className="mt-2 font-semibold">{tr('All planned tasks are complete')}</p></div>
+            ) : (
               <Empty icon={<Sunrise size={28} />} title={tr("Nothing planned yet")} text="Add a few priorities or pick from your library. Keep it to 3–5 important things." />
             ) : (
               <div className="space-y-1">
@@ -115,6 +119,7 @@ export default function Today() {
             )}
           </div>
 
+          <ReverseTodoList items={items} todayDate={t} language={settings.language} onReopen={toggleItemDone} />
           {projectTasks.length > 0 && (
             <div className="card p-5">
               <h3 className="mb-3 font-semibold">{tr("Project tasks due")}</h3>

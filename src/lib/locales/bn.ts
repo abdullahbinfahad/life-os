@@ -358,5 +358,5 @@ const dictionary: Record<string, string> = {"(optional)":"(ঐচ্ছিক)",
   "Enter full screen": "পূর্ণ পর্দায় যান",
   "Back to study": "পড়াশোনায় ফিরে যান",
   "Started at": "শুরু হয়েছে",
-};
+"Edit project":"প্রকল্প সম্পাদনা","Task title":"কাজের শিরোনাম","Save title":"শিরোনাম সংরক্ষণ","Edit task title":"কাজের শিরোনাম সম্পাদনা","Edit note":"নোট সম্পাদনা","Edit message":"বার্তা সম্পাদনা","Reverse To-Do":"উল্টো করণীয় তালিকা","No tasks completed today yet":"আজ এখনো কোনো কাজ সম্পন্ন হয়নি","Completed tasks will appear here, newest first.":"সম্পন্ন কাজগুলো এখানে দেখা যাবে, সর্বশেষটি আগে।","Reopen":"আবার খুলুন","And":"এবং","more completed":"টি সম্পন্ন কাজ বাকি","All planned tasks are complete":"পরিকল্পিত সব কাজ সম্পন্ন হয়েছে",};
 export default dictionary;

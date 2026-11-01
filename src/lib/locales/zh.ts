@@ -358,5 +358,18 @@ const dictionary: Record<string, string> = {"(optional)":"（可选）","+ Add m
   "Enter full screen": "进入全屏",
   "Back to study": "返回学习",
   "Started at": "开始时间",
+  "Edit project": "编辑项目",
+  "Task title": "任务标题",
+  "Save title": "保存标题",
+  "Edit task title": "编辑任务标题",
+  "Edit note": "编辑笔记",
+  "Edit message": "编辑消息",
+  "Reverse To-Do": "逆序待办",
+  "No tasks completed today yet": "今天还没有完成任何任务",
+  "Completed tasks will appear here, newest first.": "已完成的任务将按最新顺序显示在这里。",
+  "Reopen": "重新打开",
+  "And": "和",
+  "more completed": "项已完成",
+  "All planned tasks are complete": "所有计划任务均已完成",
 };
 export default dictionary;

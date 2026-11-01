@@ -358,5 +358,18 @@ const dictionary: Record<string, string> = {"(optional)":"(선택 사항)","+ Ad
   "Enter full screen": "전체 화면으로 보기",
   "Back to study": "공부로 돌아가기",
   "Started at": "시작 시각",
+  "Edit project": "프로젝트 편집",
+  "Task title": "작업 제목",
+  "Save title": "제목 저장",
+  "Edit task title": "작업 제목 편집",
+  "Edit note": "메모 편집",
+  "Edit message": "메시지 편집",
+  "Reverse To-Do": "역순 할 일 목록",
+  "No tasks completed today yet": "오늘 완료한 작업이 아직 없습니다",
+  "Completed tasks will appear here, newest first.": "완료한 작업은 최신순으로 여기에 표시됩니다.",
+  "Reopen": "다시 열기",
+  "And": "및",
+  "more completed": "개 더 완료",
+  "All planned tasks are complete": "계획한 작업을 모두 완료했습니다",
 };
 export default dictionary;

@@ -358,5 +358,5 @@ const dictionary: Record<string, string> = {"(optional)":"(اختياري)","+ A
   "Enter full screen": "ملء الشاشة",
   "Back to study": "العودة إلى الدراسة",
   "Started at": "بدأت في",
-};
+"Edit project":"تعديل المشروع","Task title":"عنوان المهمة","Save title":"حفظ العنوان","Edit task title":"تعديل عنوان المهمة","Edit note":"تعديل الملاحظة","Edit message":"تعديل الرسالة","Reverse To-Do":"عكس قائمة المهام","No tasks completed today yet":"لم تُنجز أي مهام اليوم بعد","Completed tasks will appear here, newest first.":"ستظهر المهام المكتملة هنا، الأحدث أولًا.","Reopen":"إعادة الفتح","And":"و","more completed":"مهام مكتملة أخرى","All planned tasks are complete":"اكتملت جميع المهام المخططة",};
 export default dictionary;
