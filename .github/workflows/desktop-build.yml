@@ -1,0 +1,51 @@
+name: Build Life OS Desktop
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/desktop-build.yml'
+      - 'desktop/**'
+      - 'src/lib/auth.ts'
+      - 'src/vite-env.d.ts'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/desktop-build.yml'
+      - 'desktop/**'
+      - 'src/lib/auth.ts'
+      - 'src/vite-env.d.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test and build (${{ matrix.label }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            label: Linux
+          - runner: windows-latest
+            label: Windows
+          - runner: macos-latest
+            label: macOS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci --prefix desktop
+      - run: npm test --prefix desktop
+      - run: npm run make --prefix desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lifeos-desktop-${{ matrix.label }}
+          path: desktop/out/make/**
+          if-no-files-found: error
+          retention-days: 30

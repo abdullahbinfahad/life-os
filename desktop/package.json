@@ -1,0 +1,19 @@
+{
+  "name": "lifeos-desktop",
+  "productName": "Life OS",
+  "version": "1.0.0",
+  "description": "A secure desktop shell for the Life OS web application.",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "8.0.1",
+    "@electron-forge/maker-zip": "8.0.1",
+    "electron": "45.2.1"
+  }
+}

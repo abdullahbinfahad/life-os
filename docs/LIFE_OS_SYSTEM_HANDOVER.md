@@ -1,6 +1,6 @@
 # Life OS System Handover Handbook
 
-> **Evidence boundary.** This handbook distinguishes inspected source, local verification, and live deployment status. A clean TypeScript/Vite build and an isolated Study Studio smoke check (including 390 px mobile screens) passed on 2026-10-31. The live GitHub Pages deployment, deployed Supabase migrations/RLS, Edge Function, and production data behavior were not verified. Secrets, owner identity material, and private user data are omitted.
+> **Evidence boundary.** This handbook distinguishes inspected source, local verification, and live deployment status. Clean TypeScript/Vite builds and local responsive checks passed on 2026-10-31 and 2026-11-01. The GitHub Pages deployment workflow for PR #5 succeeded, and the live HTML plus lazy feature bundles were fetched successfully on 2026-11-01. This does not verify deployed Supabase migrations/RLS, the Edge Function, end-to-end provider authentication, or real production account data behavior. Secrets, owner identity material, and private user data are omitted.
 
 ## 1. Executive overview
 
@@ -10,7 +10,7 @@ Life OS (with “Life Circle” still used in PWA metadata and backup filenames)
 
 Backend capabilities are delivered through ordered Supabase migrations, row-level security (RLS), narrowly granted RPCs, and the `lifeos-planner` Edge Function. Private productivity snapshots, shared collaboration records, public journal comments/publication, owner operations, and planner usage are separate data domains with distinct access paths. The SQL sources describe significant authorization controls, but the audits did not inspect a live project or confirm which migrations are deployed.
 
-Release source describes GitHub Actions building the application, generating static public pages and a sitemap, copying the app shell to `404.html`, and publishing to GitHub Pages. A production-only service worker caches the shell and selected same-origin assets. Neither the current workflow history nor the live production site was verified.
+Release source describes GitHub Actions building the application, generating static public pages and a sitemap, copying the app shell to `404.html`, and publishing to GitHub Pages. A production-only service worker caches the shell and selected same-origin assets. The current site and successful Pages runs for PRs #2–#5 were checked; these checks cover static delivery, not production Supabase services or user records.
 
 ### Non-goals and cautions
 
@@ -39,7 +39,7 @@ Release source describes GitHub Actions building the application, generating sta
 | Personal state/contracts | `src/lib/store.ts`, `src/lib/types.ts`, `src/lib/utils.ts` |
 | Supabase client/auth references | `src/lib/supabase.ts`, `src/lib/auth.ts` |
 | Reminder computation | `src/lib/reminders.ts`; requested `src/components/ReminderScheduler.tsx` was absent |
-| Feature pages | `src/pages/Today.tsx`, `Overview.tsx`, `Library.tsx`, `Goals.tsx`, `Habits.tsx`, `Projects.tsx`, `Calendar.tsx`, `Journal.tsx`, `Albums.tsx`, `Notifications.tsx`, `Productivity.tsx`, `AdminConsole.tsx`, plus public journal pages |
+| Feature pages | `src/pages/Today.tsx`, `Overview.tsx`, `Library.tsx`, `Goals.tsx`, `Habits.tsx`, `Projects.tsx`, `Calendar.tsx`, `Journal.tsx`, `Albums.tsx`, `Notifications.tsx`, `Productivity.tsx`, `AdminConsole.tsx`, `src/components/DailyWrapUp.tsx`, plus public journal pages |
 | Shared/admin UI | `src/components/projects/SharedProjectsWorkspace.tsx`, `src/components/admin/*` |
 | Study Studio | `src/pages/StudyStudio.tsx`, `src/pages/StudyStudio.css`, `src/components/study/StudyNotebookEditor.tsx`, `StudyCanvas.tsx`, `StudyFocusWidget.tsx`, `src/lib/study/*` |
 | Visual/localization system | `src/index.css`, `src/lib/locales.ts`, `src/lib/locales/{ar,bn,es,hi,ja,ko,zh}.ts`, `src/components/ui.tsx` |
@@ -138,6 +138,7 @@ Apply through the repository's normal migration mechanism in a non-production pr
 - **Productivity:** Selects eligible private items and private-project tasks; completed focus sessions enter store and can produce rewards. Timer config uses separate localStorage key `life-os-pomodoro-config-v1`; timer-running state is component state.
 - **Study Studio:** A separate private learning domain provides subject/course/book/chapter/topic hierarchy, structured notebook pages, vector canvases, timestamp-based focus sessions with recovery/reflection, flashcards with graded review history, preferences, and analytics. It does not reuse the general productivity focus-session model.
 - **Journal and public pages:** Local `JournalEntry` state and backend `public_journals` lifecycle are distinct. Publish/unpublish/delete is explicit; a failed backend operation prevents the local transition. Public comment policies are distinct from journal publication.
+- **Daily Wrap-Up:** `src/components/DailyWrapUp.tsx` adds a prose reflection editor to Overview and Today; it is not a reverse task checklist. It uses a stable `daily-wrap-up-YYYY-MM-DD` ID with the existing `saveEntry` action, writes one private-by-default `JournalEntry` per local date, and preserves the entry's existing mood/tags/creation time when updated. Existing task progress counts remain separate. The entry follows the same private store, account snapshot, and JSON backup paths as other journal records; no new table or migration is introduced.
 - **Albums/media:** Album memories reference private media paths rendered through signed URL helpers, with legacy external URL fallback. Do not expose object paths or signed URLs. Record trash restoration does not prove binary retention.
 - **Admin:** UI is gated through `useOwnerAdmin()` and sensitive RPCs enforce authorization again. Account listing, audit, navigation editing, metrics and selected snapshots are administrative data; never include user-specific contents in routine handover/logs.
 
@@ -173,9 +174,9 @@ The preparation script writes about/public/public-journal pages, optional articl
 
 `public/sw.js` uses cache `life-circle-static-v2`, best-effort shell precache, deletes older `life-circle-static-*` caches on activation, then claims clients. Same-origin GET navigations are network-first; successful no-query responses are cached. Offline fallback tries exact cached page then shell. Query-bearing navigation is not stored and does not use exact-page fallback. A narrow set of assets uses cache-first with background refresh. REST/Auth/Storage APIs and other origins are bypassed. This is not a general offline data cache. Cache version changes should be deliberate and tested against upgrade/storage behavior.
 
-### Production verification (local checks completed; live deployment pending)
+### Production verification (static delivery checked; backend verification remains pending)
 
-The local production build and Study smoke checks passed on 2026-10-31. After a release, still verify GitHub Actions build/deploy jobs and the live URL; inspect generated `dist` routes, assets, `404.html`, sitemap, and metadata; test hash navigation, direct `/about` and `/public` links, repository basename, query/hash handling, service-worker registration/scope, and fresh/offline/upgrade behavior in a production browser. This pass did not query the live deployment or confirm current Supabase migration status. The source comment about GitHub Pages serving `404.html` is not independently verified.
+Clean local production builds passed on 2026-10-31 and 2026-11-01. The GitHub Pages run for PR #5 (run ID `41262365428`) completed successfully; on 2026-11-01 the live root returned successfully and its lazy Study, shared-project, and Daily Wrap-Up feature chunks were fetched and inspected. Mobile screenshots were reviewed at 390 px; desktop Today was reviewed at 1440 px. Still verify direct public routes, service-worker upgrade/offline behavior and Safari/iOS behavior after deployment. No authenticated production data operation, deployed migration/RLS status, planner Edge Function, or full provider callback was tested. The source comment about GitHub Pages serving `404.html` is not independently verified.
 
 ## 9. Operator troubleshooting playbook
 
@@ -233,7 +234,7 @@ The local production build and Study smoke checks passed on 2026-10-31. After a 
 - The release source has multiple path/base settings (`./`, `/life-os/`, fixed site URL, service-worker base). Only generated output and a live deployment can prove they align.
 - Unknown routes silently fall back to Overview or public journal index in the inspected shell.
 - Translation coverage/quality, contrast, focus trapping/return, screen-reader behavior, browser storage quota/corruption handling, media retention on trash, and complete offline functionality were not validated.
-- A clean TypeScript/Vite production build passed on 2026-10-31. An isolated production preview was smoke-tested for Study Overview, focus timing, subject/course CRUD, notebook/page/block creation, and vector-canvas mounting, including 390 px screenshots. No automated test suite, full end-to-end test, security assessment, accessibility audit, or live deployment verification was performed.
+- A clean TypeScript/Vite production build passed on 2026-10-31 after the final Study navigation/entry changes. Local production-preview screenshots checked the horizontal top rail at desktop and 390 px mobile widths, plus automatic timestamp focus timing on the default `/study` route. Earlier smoke tests covered subject/course CRUD and notebook/page/block/canvas mounting. No full end-to-end auth test, security assessment, accessibility audit, or production deployment check was performed for this feature branch.
 
 **Handover rule:** treat all operational conclusions as source-confirmed behavior until the corresponding deployment, migration, and runtime checks have been performed and recorded in the intended environment.
 
@@ -265,7 +266,7 @@ Settings JSON exports contain `study` and snapshot version 6. Backup actions req
 
 ### Route, focus widget, and theme
 
-The sections are Overview, Focus, Subjects, Notebooks, Practice, Revision, Analytics, and Settings. `src/lib/navigation.ts` registers Study Studio; `Layout` mounts one global `StudyFocusWidget` for private shell routes and hides it on public routes. Its one-second render interval is active only while a session exists. The widget offers pause/resume, break-end, return-to-Focus, and finish/reflection entry points. Entering the Focus route starts a timestamp session if none exists. The Focus Room portals to the document root and covers the normal shell; browser-native fullscreen is optional. The mobile section rail is horizontally swipeable. Keep contrast aligned to selected app theme and respect reduced-motion preferences.
+The sections are Overview, Focus, Subjects, Notebooks, Practice, Revision, Analytics, and Settings. `src/lib/navigation.ts` registers Study Studio; `Layout` mounts one global `StudyFocusWidget` for private shell routes and hides it on public routes. Its one-second render interval is active only while a session exists. The widget offers pause/resume, break-end, return-to-Focus, and finish/reflection entry points. The bare `/study` route opens Focus and starts a timestamp session if none exists; the main-menu click requests browser fullscreen when supported. Focus portals to the document root and uses a full-viewport CSS fallback. Other Study sections share a horizontal, swipeable top rail on desktop and mobile. Focus tracks wall-clock session intervals, not attention or device-wide use. Keep contrast aligned to the selected app theme and respect reduced-motion preferences.
 
 ### Study maintenance checklist
 
@@ -273,21 +274,40 @@ When adding a Study record type, update its model, empty-state factory, normaliz
 
 ## 14. Desktop and Android distribution readiness
 
-The live PWA manifest is `https://abdullahbinfahad.github.io/life-os/site.webmanifest`; it uses a project-site scope under `/life-os/`. The parity approach is to reuse the existing hosted app and Supabase backend rather than fork its React UI. Electron can host the HTTPS app in a hardened window; a TWA wraps the same PWA through a supported browser. Bubblewrap can generate an Android wrapper from the PWA manifest once application identity and signing inputs are settled [3]. This preserves one web feature source but does not remove network dependence for uncached resources.
+The live PWA manifest is `https://abdullahbinfahad.github.io/life-os/site.webmanifest`; it uses a project-site scope under `/life-os/`. The parity approach is to reuse the hosted app and Supabase backend rather than fork the React UI. Bubblewrap can generate an Android wrapper from the PWA manifest once application identity and signing inputs are settled [3]. This preserves one web feature source but does not remove network dependence for uncached resources.
 
-An Electron wrapper must load only the expected HTTPS origin, disable Node integration for remote content, enable context isolation and sandboxing, restrict navigation/new windows, and grant permissions narrowly. Google installed-app guidance calls for a system browser and PKCE; Google sign-in should not run inside an embedded renderer [6]. A custom protocol callback and a matching Supabase Auth redirect allowlist are required for OAuth [7] [8]. Email confirmation and password-recovery callback paths also need end-to-end testing before desktop auth is called complete. Electron security recommendations are documented by the project [4].
+The `desktop/` Electron wrapper loads the hosted HTTPS app and enables context isolation, sandboxing, web security, and disabled Node integration. It restricts app navigation to the project path, limits remote permissions to notifications, and opens external HTTPS/mailto links in the system browser. Google OAuth starts in the system browser and returns through `lifeos://auth/callback?app_state=<random 32-byte state>`. The main process checks the configured Supabase Google endpoint, requires S256 PKCE, validates and consumes the one-time local app state (10-minute lifetime), then forwards only the authorization code. Token-bearing query parameters and callback fragments are rejected. Supabase must allowlist `lifeos://auth/callback\?app_state=*`. Email confirmation and password recovery use the hosted HTTPS app route in the system browser; they do not use the custom-protocol callback. The callback validator has automated regression tests, but sign-in and hosted email/recovery flows still need end-to-end checks against configured provider settings [4] [6] [7] [8] [9].
+
+A Linux x64 ZIP was built locally from the wrapper source as a packaging smoke test. It is unsigned and is not a public release; the Windows/macOS CI matrix has not yet been run. Electron 45.2.1 with Forge 8.0.1 builds successfully but its toolchain currently reports 13 moderate npm audit findings and no high/critical findings. A tested Forge 7.11.2 downgrade introduced high/critical findings, so it was not retained. The desktop workflow runs callback tests and platform builds on relevant pull requests/main changes or manual dispatch; it uploads temporary artifacts and does not publish a public release from tags. Review this build-time dependency risk before a separately reviewed release; do not call the toolchain audit-clean.
 
 A verified full-screen Android Trusted Web Activity needs a stable application ID, a release signing key, and a Digital Asset Links statement served at the origin root: `https://abdullahbinfahad.github.io/.well-known/assetlinks.json`. That URL is outside `/life-os/`. At the time checked, no readable file was served there, and the current GitHub authorization did not resolve an `abdullahbinfahad.github.io` repository. A project-site asset cannot by itself host the origin-root statement. Without the statement or a matching certificate fingerprint, the browser falls back to a Custom Tab with browser UI [1] [2]. Keep signing material out of source control; the statement must match the release key's SHA-256 fingerprint.
 
-**Release status:** no signed APK, verified TWA, or Electron installer is claimed. Before public Android distribution, freeze the package ID, establish owner control of a persistent release signing key, and provide a host for the origin-root association file. Before desktop is feature-complete, implement and test system-browser sign-in callbacks, email confirmation, password recovery, and secure external navigation, then package and install-test each target OS. Code signing/notarization credentials remain separate owner-controlled secrets.
+**Release status:** no APK, verified TWA, or signed desktop installer is claimed. Android still needs a permanent package ID, a securely retained signing key, an origin-root Digital Asset Links host, and an Android SDK build environment. Desktop still needs the state-aware redirect allowlist configuration, end-to-end Google sign-in and hosted email/recovery checks, Windows/macOS/Linux installation tests, dependency-advisory review, and platform signing/notarization where required. The CI workflow does not publish public release assets automatically. Do not place passwords, OAuth secrets, or signing material in Git or chat.
+
+## 15. Glossary
+
+- **Daily Wrap-Up:** A private date-specific journal reflection written in the user's own words; it is not a generated list of completed tasks.
+- **Edge Function:** A server-side request handler deployed separately from the static GitHub Pages frontend.
+- **JWT:** JSON Web Token; a signed token commonly used to carry authenticated identity and authorization claims.
+- **`life_data`:** The Supabase row storing a signed-in user's versioned private workspace document.
+- **PKCE:** Proof Key for Code Exchange; an OAuth authorization-code protection that binds a callback to the client which began sign-in.
+- **PWA:** Progressive Web App; a web application that can be installed and may use browser-managed caching and standalone display.
+- **RLS:** Row-Level Security; database policies that restrict which rows an authenticated role may read or change.
+- **RPC:** Remote Procedure Call; a client-invoked database function with explicit server-side validation and grants.
+- **SRS:** Spaced Repetition System; a review schedule that adjusts a card's next due time from recall ratings and past reviews.
+- **Supabase Auth:** The identity and session service used by the app's authenticated data calls.
+- **SVG:** Scalable Vector Graphics; a vector image format used by Study Canvas to store editable drawing objects.
+- **TWA:** Trusted Web Activity; an Android browser-backed wrapper for an owned website, with full-screen display dependent on Digital Asset Links verification.
+- **Zustand:** The client state library used by Life OS for workspace data and actions.
 
 ## References
 
-[1]: https://developer.android.com/develop/ui/views/layout/webapps/guide-trusted-web-activities-version2 "Android Developers Trusted Web Activities Quick Start Guide"
-[2]: https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages "About GitHub Pages"
-[3]: https://github.com/GoogleChromeLabs/bubblewrap/blob/main/packages/cli/README.md "Bubblewrap CLI"
-[4]: https://www.electronjs.org/docs/latest/tutorial/security "Electron Security Recommendations"
-[5]: https://www.electronforge.io/ "Electron Forge"
-[6]: https://developers.google.com/identity/protocols/oauth2/native-app "Google OAuth 2.0 for Desktop Apps"
-[7]: https://supabase.com/docs/guides/auth/redirect-urls "Supabase Auth Redirect URLs"
-[8]: https://supabase.com/docs/guides/auth/native-mobile-deep-linking "Supabase Native Deep Linking"
+1. [Android Developers: Trusted Web Activities Quick Start Guide](https://developer.android.com/develop/ui/views/layout/webapps/guide-trusted-web-activities-version2)
+2. [GitHub Pages: About GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages)
+3. [Bubblewrap CLI](https://github.com/GoogleChromeLabs/bubblewrap/blob/main/packages/cli/README.md)
+4. [Electron: Security Recommendations](https://www.electronjs.org/docs/latest/tutorial/security)
+5. [Electron Forge](https://www.electronforge.io/)
+6. [Google OAuth 2.0 for Desktop Apps](https://developers.google.com/identity/protocols/oauth2/native-app)
+7. [Supabase Auth Redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls)
+8. [Supabase Native Deep Linking](https://supabase.com/docs/guides/auth/native-mobile-deep-linking)
+9. [Electron: Launch App from URL](https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app)
