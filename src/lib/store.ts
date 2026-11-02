@@ -509,7 +509,7 @@ export const useStore = create<State>()(
         s.addHabit({ title: 'Morning workout', categoryId: 'health', log: log(0.7) });
         s.addHabit({ title: 'Read 20 pages', categoryId: 'learning', log: log(0.8) });
         s.addHabit({ title: 'Meditate 10 min', categoryId: 'mind', log: log(0.5) });
-        s.saveEntry({ title: 'A good start', content: 'Set up my Life Circle today. Feeling clear about what matters.', mood: 4, tags: ['reflection'] });
+        s.saveEntry({ title: 'A good start', content: 'Set up my Life OS today. Feeling clear about what matters.', mood: 4, tags: ['reflection'] });
       },
     }),
     {

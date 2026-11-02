@@ -54,7 +54,7 @@ export default function Notifications() {
     if (!fresh.length) return;
     try {
       const body = fresh.length === 1 ? fresh[0].title : `${fresh.length} items need attention today.`;
-      new Notification('Life OS reminders', { body, tag: `lifeos:${todayKey}`, icon: `${import.meta.env.BASE_URL}runner-mark.svg` });
+      new Notification('Life OS reminders', { body, tag: `lifeos:${todayKey}`, icon: `${import.meta.env.BASE_URL}lifeos-mark.svg` });
       localStorage.setItem(storageKey, JSON.stringify([...already, ...fresh.map((reminder) => reminder.id)]));
       playFeedback('notification');
     } catch { /* Browser notifications are an enhancement; the in-app inbox remains available. */ }

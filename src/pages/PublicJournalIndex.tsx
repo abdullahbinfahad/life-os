@@ -149,12 +149,12 @@ export default function PublicJournalIndex() {
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 dark:bg-[#0b0d12] dark:text-slate-100">
       <div className="mx-auto max-w-3xl">
         <Link to="/public" className="mb-10 inline-flex items-center gap-2 text-sm muted" aria-label={tr("Public journals home")}>
-          <Logo size={28} /> {tr("Life Circle")}</Link>
+          <Logo size={28} /> {tr("Life OS")}</Link>
         <header className="relative isolate mb-8 min-w-0 overflow-hidden rounded-3xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-violet-50 shadow-sm dark:border-indigo-300/10 dark:from-indigo-500/[.10] dark:via-slate-900 dark:to-violet-500/[.08]">
           <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-64 w-64 rounded-full bg-indigo-400/15 blur-3xl" />
           <div aria-hidden="true" className="pointer-events-none absolute right-12 top-9 hidden h-36 w-28 rotate-6 rounded-2xl border border-white/80 bg-white/50 shadow-lg backdrop-blur-sm dark:border-white/10 dark:bg-white/[.04] sm:block"><div className="m-4 h-1.5 w-12 rounded-full bg-indigo-400/40" /><div className="mx-4 mt-3 h-1 w-16 rounded-full bg-slate-400/20" /><div className="mx-4 mt-2 h-1 w-12 rounded-full bg-slate-400/20" /><div className="mx-4 mt-2 h-1 w-14 rounded-full bg-slate-400/20" /></div>
           <div className="relative max-w-2xl p-6 sm:p-8">
-            <p className="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[.16em] text-indigo-700 dark:border-indigo-300/15 dark:bg-white/[.04] dark:text-indigo-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{tr("Life Circle")}</p>
+            <p className="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[.16em] text-indigo-700 dark:border-indigo-300/15 dark:bg-white/[.04] dark:text-indigo-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{tr("Life OS")}</p>
             <h1 className="mt-4 break-words text-3xl font-bold tracking-tight sm:text-4xl">{tr("Public journals")}</h1>
             <p className="mt-3 max-w-xl text-base leading-7 muted sm:text-lg">{tr("Reflections shared for anyone to read.")}</p>
             <div className="mt-6 inline-flex items-center gap-2 rounded-xl border border-white/80 bg-white/70 px-3 py-2 text-sm shadow-sm dark:border-white/10 dark:bg-white/[.04]" aria-label={`${entries.length} ${tr('Public journals')}`}><BookOpen size={16} className="text-indigo-600 dark:text-indigo-300" /><span className="font-semibold tabular-nums">{entries.length}</span><span className="muted">{tr("Public journals")}</span></div>

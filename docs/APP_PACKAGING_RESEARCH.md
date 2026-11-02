@@ -4,7 +4,7 @@ Checked 2026-10-31. These notes distinguish verified repository/live-page facts 
 
 ## Current web app facts
 
-The deployed manifest is available at `https://abdullahbinfahad.github.io/life-os/site.webmanifest`. It currently names the app “Life Circle,” uses relative `start_url` and `scope` (`./`), declares `display: standalone`, and points to `icon-192.png` and `icon-512.png`. The project website is served from `https://abdullahbinfahad.github.io/life-os/`, not from the origin root.
+The deployed manifest is available at `https://abdullahbinfahad.github.io/life-os/site.webmanifest`. It currently names the app “Life OS,” uses relative `start_url` and `scope` (`./`), declares `display: standalone`, and points to `icon-192.png` and `icon-512.png`. The project website is served from `https://abdullahbinfahad.github.io/life-os/`, not from the origin root.
 
 The public origin does not currently serve a readable `https://abdullahbinfahad.github.io/.well-known/assetlinks.json` file. The authenticated GitHub check did not resolve a repository named `abdullahbinfahad/abdullahbinfahad.github.io`; no repository or Pages settings were changed as part of this check.
 

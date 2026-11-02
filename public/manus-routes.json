@@ -20,7 +20,7 @@
     { "path": "/study/subject/:subjectId", "title": "Study subject" },
     { "path": "/study/topic/:topicId", "title": "Study topic" },
     { "path": "/study/notebook/:notebookId", "title": "Study notebook" },
-    { "path": "/about", "title": "About Life Circle" },
+    { "path": "/about", "title": "About Life OS" },
     { "path": "/public", "title": "Public journal" },
     { "path": "/public/journal", "title": "Public journals" },
     { "path": "/public/journal/:slug", "title": "Public journal post" }

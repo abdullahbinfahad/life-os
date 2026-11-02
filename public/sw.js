@@ -1,4 +1,4 @@
-const CACHE = 'life-circle-static-v2';
+const CACHE = 'life-circle-static-v3';
 const SHELL = new URL('./', self.location.href).href;
 
 self.addEventListener('install', (event) => {
@@ -50,7 +50,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Hashed Vite assets are immutable; query-bearing URLs are deliberately network-only.
-  if (!url.search && /\/(assets\/|icon-|runner-mark|site\.webmanifest|favicon)/.test(url.pathname)) {
+  if (!url.search && /\/(assets\/|icon-|lifeos-mark|site\.webmanifest|favicon)/.test(url.pathname)) {
     event.respondWith((async () => {
       let cache;
       try { cache = await caches.open(CACHE); } catch { /* Continue with network when storage is unavailable. */ }

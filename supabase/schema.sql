@@ -1,7 +1,7 @@
--- Life Circle — database schema
+-- Life OS — database schema
 -- Run once in Supabase: Dashboard → SQL Editor → New query → paste → Run.
 --
--- Each user's whole Life Circle lives in one JSON document, keyed by their
+-- Each user's whole Life OS lives in one JSON document, keyed by their
 -- auth user id. Ordinary signed-in users can only see and change their own row.
 -- The optional owner-admin migration adds separately verified, audited
 -- cross-account administrative access; it never exposes auth secrets.
@@ -42,7 +42,7 @@ revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
 
 -- Optional public journal publishing. Only explicitly published entries are public;
--- private Life Circle data remains protected by the life_data policies above.
+-- private Life OS data remains protected by the life_data policies above.
 create table if not exists public.public_journals (
   slug text primary key,
   owner_id uuid not null references auth.users (id) on delete cascade,
