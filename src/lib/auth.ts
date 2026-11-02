@@ -229,18 +229,51 @@ export function initAuth() {
 /* Actions                                                             */
 /* ------------------------------------------------------------------ */
 
-const redirectTo = () => window.location.origin + window.location.pathname;
+const desktopBridge = () => window.lifeOSDesktop;
+const webRedirectTo = () => window.location.origin + window.location.pathname;
+function createDesktopOAuthState() {
+  const bytes = new Uint8Array(32);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 export const auth = {
-  google: () => supabase!.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirectTo() } }),
+  async google() {
+    const desktop = desktopBridge();
+    let oauthRedirect = webRedirectTo();
+    if (desktop) {
+      try {
+        oauthRedirect = `lifeos://auth/callback?app_state=${createDesktopOAuthState()}`;
+      } catch {
+        return {
+          data: { provider: 'google' as const, url: null },
+          error: new Error('Secure desktop sign-in could not be prepared.'),
+        };
+      }
+    }
+    const result = await supabase!.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: oauthRedirect, skipBrowserRedirect: Boolean(desktop) },
+    });
+    if (result.error || !desktop || !result.data.url) return result;
+    try {
+      await desktop.openOAuth(result.data.url);
+      return result;
+    } catch (error) {
+      return {
+        ...result,
+        error: error instanceof Error ? error : new Error('Could not open Google sign-in in your browser.'),
+      };
+    }
+  },
   signUpEmail: (email: string, password: string, name: string) =>
-    supabase!.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo(), data: { full_name: name } } }),
+    supabase!.auth.signUp({ email, password, options: { emailRedirectTo: webRedirectTo(), data: { full_name: name } } }),
   signInEmail: (email: string, password: string) => supabase!.auth.signInWithPassword({ email, password }),
   signUpPhone: (phone: string, password: string, name: string) =>
     supabase!.auth.signUp({ phone, password, options: { data: { full_name: name } } }),
   verifyPhone: (phone: string, token: string) => supabase!.auth.verifyOtp({ phone, token, type: 'sms' }),
   signInPhone: (phone: string, password: string) => supabase!.auth.signInWithPassword({ phone, password }),
-  resetPassword: (email: string) => supabase!.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() }),
+  resetPassword: (email: string) => supabase!.auth.resetPasswordForEmail(email, { redirectTo: webRedirectTo() }),
   updatePassword: (password: string) => supabase!.auth.updateUser({ password }),
   async signOut() {
     const saved = await syncNow();

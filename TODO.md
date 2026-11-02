@@ -1,5 +1,16 @@
 # Life OS collaboration and UX TODO
 
+## Latest implementation checkpoint — 2026-10-31
+
+- [x] Study Studio has authenticated Overview, Focus, Subjects, Notebooks, Practice, Revision, Analytics, and Settings sections backed by the private, normalized Study snapshot; structured notes, native SVG drawing, timestamp sessions, recovery/reflection, and spaced-repetition records are implemented.
+- [x] Study section navigation is a horizontal top rail on desktop and mobile, with touch/trackpad horizontal scrolling. Opening bare `/study` starts a timestamped Focus session and enters the full-viewport Focus Room; browser-native fullscreen is requested when supported, with a CSS full-viewport fallback.
+- [x] A clean production build passed, and the built preview was checked at 1461 px desktop and 390 px mobile widths for Subjects navigation plus automatic Focus timing.
+- [x] The maintainer book and packaging notes describe the verified Study data flow and the distribution limitations. See `docs/LIFE_OS_SYSTEM_HANDOVER.md`, `docs/LIFE_OS_SYSTEM_HANDOVER.pdf`, and `docs/APP_PACKAGING_RESEARCH.md`.
+- [x] The hardened Electron source and cross-platform CI build workflow exist; an unsigned Linux x64 ZIP was built locally as a smoke test. This does not yet constitute a public or signed release.
+- [ ] Verify desktop Google/email/password-recovery callbacks after the owner adds `lifeos://auth/callback` to the Supabase Auth redirect allowlist; run the Windows/macOS build matrix and review the Forge dependency advisories before any public desktop release.
+- [ ] Produce an Android APK only after a permanent app ID, owner-controlled signing key, origin-root Digital Asset Links host, and Android SDK build environment are available. The current `/life-os/` project path cannot serve the required origin-root association file.
+- [ ] Publish public release assets only after the relevant auth, install, signing, and platform tests pass.
+
 ## Pending outcomes
 
 ### Repair production Pages delivery
@@ -159,3 +170,17 @@
 
 ### Later concepts from the supplied spec (defer until their workflows are genuinely complete)
 - [ ] Add portable formula library, active recall beyond flashcard self-rating, Mistake Bank, concept maps, study missions, exam mode, universal search, quick capture, season/badges and optional soundscapes as coherent features; do not imply handwriting recognition, AI, attention monitoring, or background delivery without implementing and verifying those capabilities.
+
+
+## Clarified request — shared project editing and end-of-day reflection (2026-11-01)
+
+### Shared-project editing and workspace presentation
+- [x] Project detail has a readable summary and a reversible edit mode for title, description, status, and due date; project metadata controls are role-aware and database authorization remains authoritative.
+- [x] Working members can edit shared-task titles; notes support editing type, title, body, date, color, and pin; discussion authors can edit their own messages. Failed writes leave drafts available for retry, and existing RLS remains the enforcement boundary.
+- [x] Project status/progress/metadata and task/note cards use a restrained responsive design that remains readable on desktop and phone without horizontal page overflow.
+
+### Daily reflection on Overview and Today
+- [x] The feature is an end-of-day written reflection about what the user actually did today—including effort, moments, learning, and small wins—not a list derived from completed tasks.
+- [x] Overview provides a compact writing surface; Today provides a roomier reflection editor with optional localized sentence starters. Both views show and edit the same local-day reflection.
+- [x] Saving creates or updates one date-specific `JournalEntry` using the existing journal store action, explicitly sets visibility to private, and makes it available in Journal, account sync, and export/import without adding a new database schema.
+- [x] Keep task completion counts separate from the reflection; never auto-populate the reflection from checked-off tasks or publish it. Show clear save status and support the existing eight-language UI system.
