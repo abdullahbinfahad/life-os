@@ -189,3 +189,8 @@
 - [x] Use “Life OS” consistently as the visible product name across the app shell, sign-in/recovery, public journal and product pages, static SEO fallbacks, browser/app metadata, and desktop wrapper without changing URLs, database tables, storage keys, or OAuth protocols.
 - [x] Replace the running-person brand artwork with a distinctive scalable Life OS symbol and matching favicon/PWA/iOS home-screen icons; add restrained motion to the shared app mark and public product hero, with responsive layout and `prefers-reduced-motion` support.
 - [x] Preserve the current app structure and feature behavior, and make brand-specific localization strings identify the product as Life OS across all eight supported languages.
+
+
+## 2026-11-02 Circular logo refinement
+- [x] Replace the rounded-square treatment with a clear circular Life OS emblem and a balanced indigo/violet/cyan grade; use deliberate orbit-only motion around a stable center, smooth pacing, and respect reduced-motion preferences.
+- [x] Apply the same mark to the browser, PWA/iOS, and desktop icons without changing app routes, authentication, stored data, or feature layout.

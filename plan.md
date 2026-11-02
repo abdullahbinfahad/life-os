@@ -131,7 +131,7 @@ Create isolated packaging projects under `desktop/` and `android/`, plus a tag-t
 
 **Brand voice:** Clear and non-judgmental. Examples: “Choose one topic. We’ll keep the rest out of your way.” “Time shows effort; recall shows what stayed.”
 
-**Wordmark and signature color:** Use the Life OS orbit-and-compass mark and wordmark; pair them with a compact Study Studio wordmark and ownable focus-cyan `#22D3EE` against the app’s indigo action color.
+**Wordmark and signature color:** Use the circular Life OS orbit-and-compass medallion with a steady center, indigo/violet/cyan grading, and a single slow orbit accent; pair it with a compact Study Studio wordmark and ownable focus-cyan `#22D3EE` against the app’s indigo action color.
 
 ### Implementation and data boundaries
 
