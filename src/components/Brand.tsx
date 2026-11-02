@@ -12,12 +12,13 @@ export function Logo({ size = 36, className }: { size?: number; className?: stri
       className={cx('brand-mark inline-flex shrink-0 select-none', className)}
       style={{ width: size, height: size }}
     >
+      <span className="brand-mark-orbit" aria-hidden="true"><i /></span>
       <img src={MARK_URL} alt="" draggable={false} className="brand-mark-image" />
     </span>
   );
 }
 
-const LOADER_COLORS = ['#34d399', '#60a5fa', '#a78bfa', '#fbbf24', '#fb7185'];
+const LOADER_COLORS = ['#6957e8', '#5546d8', '#27b8cc', '#655bd6'];
 let pageLoaderColor = LOADER_COLORS[Math.floor(Math.random() * LOADER_COLORS.length)];
 try {
   const previous = Number(sessionStorage.getItem('life-circle-loader-color-index') ?? '-1');
