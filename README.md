@@ -1,4 +1,4 @@
-# Life Circle
+# Life OS
 
 **Your life, organized — goals, plans, journals, habits and memories in one calm workspace.**
 
@@ -7,7 +7,7 @@ Live app: https://abdullahbinfahad.github.io/life-os/
 ## What is included
 
 - Google, email/password and phone/password sign-in through Supabase Auth.
-- Row-level security isolates regular account reads and writes. A verified system owner can also inspect and edit other users' Life Circle snapshots through audited admin operations; users are shown an access notice before signing in or creating an account.
+- Row-level security isolates regular account reads and writes. A verified system owner can also inspect and edit other users' Life OS snapshots through audited admin operations; users are shown an access notice before signing in or creating an account.
 - Local-first mode when Supabase variables are not configured.
 - 1,000+ life ideas and an expanded 100+ area taxonomy.
 - Goals, private projects, and a separate multi-account shared-project workspace with membership, roles, invitations, assigned tasks, dependencies, discussion, notes, activity, and project portfolios.

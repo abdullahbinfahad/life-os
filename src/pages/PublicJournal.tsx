@@ -92,7 +92,7 @@ export default function PublicJournal() {
 
   useEffect(() => {
     if (state === 'ready' && entry && slug) {
-      const description = entry.excerpt || entry.content.slice(0, 220) || tr('A public journal reflection shared on Life Circle.');
+      const description = entry.excerpt || entry.content.slice(0, 220) || tr('A public journal reflection shared on Life OS.');
       let active = true;
       const setMetadata = (path: string) => {
         if (!active) return;
@@ -184,7 +184,7 @@ export default function PublicJournal() {
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 dark:bg-[#0b0d12] dark:text-slate-100">
       <article className="mx-auto min-w-0 max-w-3xl break-words">
         <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
-          <Link to="/public" className="flex items-center gap-2 text-sm muted" aria-label={tr("Public journals home")}><Logo size={28} /> {tr("Life Circle")}</Link>
+          <Link to="/public" className="flex items-center gap-2 text-sm muted" aria-label={tr("Public journals home")}><Logo size={28} /> {tr("Life OS")}</Link>
           <Link to="/public" className="btn-primary"><ArrowLeft size={16} /> {tr("All public journals")}</Link>
         </div>
 

@@ -200,6 +200,7 @@ if (!gotSingleInstanceLock) {
       minHeight: 620,
       show: false,
       backgroundColor: '#0b0d12',
+      icon: path.join(__dirname, 'assets', 'lifeos.png'),
       webPreferences: {
         preload: path.join(__dirname, 'preload.cjs'),
         contextIsolation: true,

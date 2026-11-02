@@ -135,7 +135,7 @@
 ## Handover book and downloadable applications (2026-10-29)
 
 - [ ] Deliver a detailed system handover book for the next maintainer covering actual frontend, backend, design, auth, state/sync, features, deployment, troubleshooting, safe change process, privacy boundaries, and verified/unverified operational state. Do not include personal data, credentials, signing keys, or API secrets.
-- [ ] Package the same hosted Life Circle experience as a desktop app for Windows/macOS/Linux and an Android APK without duplicating feature logic or changing the existing web design; document unavoidable browser/native permission, signing, or background-delivery differences.
+- [ ] Package the same hosted Life OS experience as a desktop app for Windows/macOS/Linux and an Android APK without duplicating feature logic or changing the existing web design; document unavoidable browser/native permission, signing, or background-delivery differences.
 - [ ] Add reproducible GitHub build/release workflows and publish installers/APK as public GitHub Release assets; keep all signing material outside source control and preserve Android signing identity across updates.
 
 
@@ -184,3 +184,8 @@
 - [x] Overview provides a compact writing surface; Today provides a roomier reflection editor with optional localized sentence starters. Both views show and edit the same local-day reflection.
 - [x] Saving creates or updates one date-specific `JournalEntry` using the existing journal store action, explicitly sets visibility to private, and makes it available in Journal, account sync, and export/import without adding a new database schema.
 - [x] Keep task completion counts separate from the reflection; never auto-populate the reflection from checked-off tasks or publish it. Show clear save status and support the existing eight-language UI system.
+
+## 2026-11-02 Life OS brand refresh
+- [x] Use “Life OS” consistently as the visible product name across the app shell, sign-in/recovery, public journal and product pages, static SEO fallbacks, browser/app metadata, and desktop wrapper without changing URLs, database tables, storage keys, or OAuth protocols.
+- [x] Replace the running-person brand artwork with a distinctive scalable Life OS symbol and matching favicon/PWA/iOS home-screen icons; add restrained motion to the shared app mark and public product hero, with responsive layout and `prefers-reduced-motion` support.
+- [x] Preserve the current app structure and feature behavior, and make brand-specific localization strings identify the product as Life OS across all eight supported languages.

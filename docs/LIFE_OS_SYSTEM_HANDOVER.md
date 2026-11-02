@@ -4,9 +4,9 @@
 
 ## 1. Executive overview
 
-Life OS (with “Life Circle” still used in PWA metadata and backup filenames) is a React/TypeScript client built with Vite. Its application shell initializes auth, chooses hash-based app navigation or direct-path public pages, loads language resources, applies theme/direction metadata, and wraps private route content in a responsive `Layout`. Personal workspace state is held in Zustand under `life-os-v1`, local persistence schema version 4. Signed-in account snapshots use `life_data` with snapshot version 6; Study Studio is a private field in that snapshot, not a separate public table. A Supabase client is created only when the expected build-time URL and public anon key are configured.
+Life OS (with “Life OS” still used in PWA metadata and backup filenames) is a React/TypeScript client built with Vite. Its application shell initializes auth, chooses hash-based app navigation or direct-path public pages, loads language resources, applies theme/direction metadata, and wraps private route content in a responsive `Layout`. Personal workspace state is held in Zustand under `life-os-v1`, local persistence schema version 4. Signed-in account snapshots use `life_data` with snapshot version 6; Study Studio is a private field in that snapshot, not a separate public table. A Supabase client is created only when the expected build-time URL and public anon key are configured.
 
-![Life Circle public product page](assets/life-circle-public-about.png)
+![Life OS public product page](assets/life-circle-public-about.png)
 
 Backend capabilities are delivered through ordered Supabase migrations, row-level security (RLS), narrowly granted RPCs, and the `lifeos-planner` Edge Function. Private productivity snapshots, shared collaboration records, public journal comments/publication, owner operations, and planner usage are separate data domains with distinct access paths. The SQL sources describe significant authorization controls, but the audits did not inspect a live project or confirm which migrations are deployed.
 

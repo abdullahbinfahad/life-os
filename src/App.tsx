@@ -1,7 +1,7 @@
 import { translate as tr } from './lib/locales';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { LoadingLogo } from './components/Brand';
+import { APP_NAME, LoadingLogo } from './components/Brand';
 import Layout from './components/Layout';
 import { useAuth } from './lib/auth';
 import { cloudEnabled } from './lib/supabase';
@@ -33,7 +33,7 @@ const StudyStudio = lazy(() => import('./pages/StudyStudio'));
 function LoadingStage({ message, fullscreen = false }: { message: string; fullscreen?: boolean }) {
   return <div className={`loading-stage ${fullscreen ? 'loading-stage-full' : 'loading-stage-route'}`} role="status" aria-live="polite">
     <div className="loading-card"><LoadingLogo size={fullscreen ? 68 : 54} />
-      <div className="loading-copy"><span className="loading-brand">{tr("LIFE CIRCLE")}</span><p>{message}</p></div>
+      <div className="loading-copy"><span className="loading-brand">{APP_NAME}</span><p>{message}</p></div>
       <span className="loading-progress" aria-hidden="true"><i /></span>
     </div>
   </div>;

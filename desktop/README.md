@@ -6,6 +6,8 @@ This Electron Forge project loads the deployed Life OS PWA at `https://abdullahb
 
 From this directory, run `npm ci`, then `npm start` for development or `npm run make` to create a ZIP for the host platform. Run `npm test` to execute the OAuth URL/callback security regression suite. The Forge project pins Electron `45.2.1` and Forge `8.0.1`; keep Electron current and review security advisories before each release.
 
+The shared brand source is `../public/lifeos-mark.svg`; `assets/lifeos.png`, `assets/lifeos.ico`, and `assets/lifeos.icns` are the desktop window and platform package icons. When the mark changes, refresh these checked-in icons together so Linux, Windows, and macOS remain visually consistent.
+
 ## Authentication setup required
 
 Google authorization starts in the system browser and returns through the `lifeos://auth/callback` protocol. The renderer generates a 32-byte random `app_state`; the main process accepts the callback only if it matches the pending state, is no older than ten minutes, and contains a PKCE authorization code. The authorization request must target the configured Supabase Google endpoint and use `code_challenge_method=s256`. The state is one-time and stored locally for cold-start callbacks. Bearer-token query parameters and all callback fragments (including implicit access/refresh tokens) are rejected and never forwarded to the hosted renderer.

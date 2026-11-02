@@ -28,7 +28,7 @@ function staticArticleBody(content) {
   const text = String(content ?? '').slice(0, MAX_STATIC_CONTENT).replace(/\r\n?/g, '\n');
   return text.split(/\n{2,}/).map((block) => plainText(block)).filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n');
 }
-async function writeRoute(path, title, description, fallback, { canonical, robots = 'noindex,follow', type = 'website', image = `${base}/apple-touch-icon.png`, jsonLd = '' } = {}) {
+async function writeRoute(path, title, description, fallback, { canonical, robots = 'noindex,follow', type = 'website', image = `${base}/icon-512.png`, jsonLd = '' } = {}) {
   let html = shell;
   html = html.replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(title)}</title>`);
   html = html.replace(/<meta name="description" content="[^"]*"\s*\/>/, `<meta name="description" content="${escapeHtml(description)}" />`);
@@ -54,17 +54,17 @@ async function writeRoute(path, title, description, fallback, { canonical, robot
   return target;
 }
 
-const indexFallback = `<main id="public-seo-fallback" class="seo-fallback"><section><p>Life Circle · Open Journal</p><h1>Public journals</h1><p>Read reflections and stories that authors have chosen to share publicly. Browse without an account.</p><a href="/life-os/public/">Open public journals</a></section></main>`;
-const aboutFallback = `<main id="public-seo-fallback" class="seo-fallback"><article><p>Life Circle · Personal planning</p><h1>Your life, organized in one calm workspace</h1><p>Life Circle brings personal planning, goals, habits, projects, journaling and memory albums together. Use it for personal planning, work or study, at your own pace.</p><h2>Plan, build routines and collaborate</h2><p>Collect life ideas, plan goals and days, track habits, and organize private or shared projects. Shared project tools include memberships, roles, invitations, assigned tasks, dependencies, discussion, notes and activity.</p><h2>Journal and keep memories</h2><p>Write journal entries with tags, mood and location, search and filter entries, and link them to goals, plans or projects. Entries can remain private or be published. Memory albums support compressed private photo uploads.</p><p>The responsive interface supports eight languages, including right-to-left Arabic layout. Journal entries are public only when explicitly published; albums and photo uploads are private.</p><p><a href="/life-os/">Sign in or open Life Circle</a></p><p><a href="/life-os/public/">Browse public journals</a></p></article></main>`;
+const indexFallback = `<main id="public-seo-fallback" class="seo-fallback"><section><p>Life OS · Open Journal</p><h1>Public journals</h1><p>Read reflections and stories that authors have chosen to share publicly. Browse without an account.</p><a href="/life-os/public/">Open public journals</a></section></main>`;
+const aboutFallback = `<main id="public-seo-fallback" class="seo-fallback"><article><p>Life OS · Personal planning</p><h1>Your life, organized in one calm workspace</h1><p>Life OS brings personal planning, goals, habits, projects, journaling and memory albums together. Use it for personal planning, work or study, at your own pace.</p><h2>Plan, build routines and collaborate</h2><p>Collect life ideas, plan goals and days, track habits, and organize private or shared projects. Shared project tools include memberships, roles, invitations, assigned tasks, dependencies, discussion, notes and activity.</p><h2>Journal and keep memories</h2><p>Write journal entries with tags, mood and location, search and filter entries, and link them to goals, plans or projects. Entries can remain private or be published. Memory albums support compressed private photo uploads.</p><p>The responsive interface supports eight languages, including right-to-left Arabic layout. Journal entries are public only when explicitly published; albums and photo uploads are private.</p><p><a href="/life-os/">Sign in or open Life OS</a></p><p><a href="/life-os/public/">Browse public journals</a></p></article></main>`;
 const aboutDescription = 'A personal Life OS for planning goals, habits and days, organizing private or shared projects, journaling, and keeping photo memories together.';
 const productSchema = safeJsonLd([
-  { '@context': 'https://schema.org', '@type': 'WebPage', name: 'About Life Circle', description: aboutDescription, url: `${base}/about/`, isPartOf: { '@type': 'WebSite', name: 'Life Circle', url: `${base}/` } },
-  { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'Life Circle', applicationCategory: 'ProductivityApplication', operatingSystem: 'Web', description: aboutDescription, url: `${base}/`, image: `${base}/apple-touch-icon.png`, featureList: ['Personal goals and planning', 'Habits and reminders', 'Private and shared projects', 'Journaling with private or public visibility', 'Memory albums with private photo uploads'] },
+  { '@context': 'https://schema.org', '@type': 'WebPage', name: 'About Life OS', description: aboutDescription, url: `${base}/about/`, isPartOf: { '@type': 'WebSite', name: 'Life OS', url: `${base}/` } },
+  { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'Life OS', applicationCategory: 'ProductivityApplication', operatingSystem: 'Web', description: aboutDescription, url: `${base}/`, image: `${base}/icon-512.png`, featureList: ['Personal goals and planning', 'Habits and reminders', 'Private and shared projects', 'Journaling with private or public visibility', 'Memory albums with private photo uploads'] },
 ]);
 
-await writeRoute('about/index.html', 'Life Circle | Personal Life OS for Goals, Habits & Projects', aboutDescription, aboutFallback, { canonical: `${base}/about/`, robots: 'index,follow', jsonLd: productSchema });
-await writeRoute('public/index.html', 'Public Journals · Life Circle', 'Read journal reflections and stories that Life Circle authors have chosen to share publicly.', indexFallback, { canonical: `${base}/public/`, robots: 'index,follow' });
-await writeRoute('public/journal/index.html', 'Public Journal · Life Circle', 'Open a public Life Circle journal entry by its shared link.', '<main id="public-seo-fallback" class="seo-fallback"><article><p>Life Circle · Public journal</p><h1>Public journal</h1><p>Open a public journal entry from its author’s shared link.</p><a href="/life-os/public/">Browse all public journals</a></article></main>', { robots: 'noindex,follow', type: 'article' });
+await writeRoute('about/index.html', 'Life OS | Goals, Habits, Projects & Personal Planning', aboutDescription, aboutFallback, { canonical: `${base}/about/`, robots: 'index,follow', jsonLd: productSchema });
+await writeRoute('public/index.html', 'Public Journals · Life OS', 'Read journal reflections and stories that Life OS authors have chosen to share publicly.', indexFallback, { canonical: `${base}/public/`, robots: 'index,follow' });
+await writeRoute('public/journal/index.html', 'Public Journal · Life OS', 'Open a public Life OS journal entry by its shared link.', '<main id="public-seo-fallback" class="seo-fallback"><article><p>Life OS · Public journal</p><h1>Public journal</h1><p>Open a public journal entry from its author’s shared link.</p><a href="/life-os/public/">Browse all public journals</a></article></main>', { robots: 'noindex,follow', type: 'article' });
 
 async function requestRows(select, params = {}) {
   const projectUrl = process.env.VITE_SUPABASE_URL;
@@ -113,15 +113,15 @@ for (let offset = 0; offset < staticEntries.length; offset += 100) {
       if (!row || typeof row.title !== 'string') continue;
       const entry = { slug: listed.slug, title: row.title.slice(0, 200), excerpt: typeof row.excerpt === 'string' ? row.excerpt.slice(0, 400) : '', content: typeof row.content === 'string' ? row.content : '', published_at: typeof row.published_at === 'string' ? row.published_at : listed.published_at };
       const canonical = `${base}/public/journal/${encodeURIComponent(entry.slug)}/`;
-      const cleanExcerpt = plainText(entry.excerpt) || plainText(entry.content).slice(0, 220) || 'A public journal entry shared on Life Circle.';
+      const cleanExcerpt = plainText(entry.excerpt) || plainText(entry.content).slice(0, 220) || 'A public journal entry shared on Life OS.';
       const description = cleanExcerpt.slice(0, 300);
       const published = Number.isFinite(Date.parse(entry.published_at)) ? new Date(entry.published_at).toISOString() : undefined;
-      const articleSchema = safeJsonLd({ '@context': 'https://schema.org', '@type': 'Article', headline: entry.title, description, ...(published ? { datePublished: published } : {}), mainEntityOfPage: canonical, publisher: { '@type': 'Organization', name: 'Life Circle' } });
-      const fallback = `<main id="public-seo-fallback" class="seo-fallback"><article><p>Life Circle · Public journal${published ? ` · <time datetime="${escapeHtml(published)}">${escapeHtml(published.slice(0, 10))}</time>` : ''}</p><h1>${escapeHtml(entry.title)}</h1><p>${escapeHtml(description)}</p>${staticArticleBody(entry.content)}<p><a href="/life-os/public/">Browse all public journals</a></p></article></main>`;
+      const articleSchema = safeJsonLd({ '@context': 'https://schema.org', '@type': 'Article', headline: entry.title, description, ...(published ? { datePublished: published } : {}), mainEntityOfPage: canonical, publisher: { '@type': 'Organization', name: 'Life OS' } });
+      const fallback = `<main id="public-seo-fallback" class="seo-fallback"><article><p>Life OS · Public journal${published ? ` · <time datetime="${escapeHtml(published)}">${escapeHtml(published.slice(0, 10))}</time>` : ''}</p><h1>${escapeHtml(entry.title)}</h1><p>${escapeHtml(description)}</p>${staticArticleBody(entry.content)}<p><a href="/life-os/public/">Browse all public journals</a></p></article></main>`;
       const targetPath = `public/journal/${entry.slug}/index.html`;
       const target = resolve(root, targetPath);
       if (!target.startsWith(`${resolve(root)}/`)) continue;
-      await writeRoute(targetPath, `${entry.title} · Public Journal · Life Circle`, description, fallback, { canonical, robots: 'index,follow', type: 'article', jsonLd: articleSchema });
+      await writeRoute(targetPath, `${entry.title} · Public Journal · Life OS`, description, fallback, { canonical, robots: 'index,follow', type: 'article', jsonLd: articleSchema });
       generatedSlugs.add(entry.slug);
     }
   } catch (error) {
