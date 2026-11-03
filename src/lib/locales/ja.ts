@@ -387,5 +387,10 @@ const dictionary: Record<string, string> = {"(optional)":"（任意）","+ Add m
   "Private journal entry": "非公開の日記エントリー",
   "Public journal entry": "公開日記のエントリー",
   "Study Studio": "学習スタジオ",
+  "Project overview": "プロジェクト概要",
+  "No private projects yet": "プライベートプロジェクトはまだありません",
+  "View private projects": "プライベートプロジェクトを見る",
+  "View shared projects": "共有プロジェクトを見る",
+  "Sending…": "送信中…",
 };
 export default dictionary;

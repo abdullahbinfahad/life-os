@@ -156,7 +156,18 @@ export async function updateSharedTask(id: string, patch: Partial<Pick<SharedTas
 export async function deleteSharedTask(id: string) { const { error } = await getClient().from('shared_project_tasks').delete().eq('id', id); throwIfError(error); }
 export async function addSharedDependency(projectId: string, taskId: string, dependsOnTaskId: string, userId: string) { const { error } = await getClient().from('shared_task_dependencies').insert({ project_id: projectId, task_id: taskId, depends_on_task_id: dependsOnTaskId, created_by: userId }); throwIfError(error); }
 export async function removeSharedDependency(projectId: string, taskId: string, dependsOnTaskId: string) { const { error } = await getClient().from('shared_task_dependencies').delete().eq('project_id', projectId).eq('task_id', taskId).eq('depends_on_task_id', dependsOnTaskId); throwIfError(error); }
-export async function addSharedComment(projectId: string, userId: string, body: string, taskId?: string, mentionedUserIds: string[] = []) { const { error } = await getClient().from('shared_project_comments').insert({ project_id: projectId, task_id: taskId || null, author_id: userId, body, mentioned_user_ids: mentionedUserIds }); throwIfError(error); }
+export async function fetchSharedProjectOverview(): Promise<{ projects: Array<Pick<SharedProject, 'id' | 'title' | 'status' | 'due_date' | 'updated_at'>>; total: number }> {
+  const { data, error, count } = await getClient().from('shared_projects').select('id,title,status,due_date,updated_at', { count: 'exact' }).order('updated_at', { ascending: false }).limit(3);
+  throwIfError(error);
+  return { projects: empty(data as Array<Pick<SharedProject, 'id' | 'title' | 'status' | 'due_date' | 'updated_at'>> | null), total: count ?? 0 };
+}
+
+export async function addSharedComment(projectId: string, userId: string, body: string, taskId?: string, mentionedUserIds: string[] = []) {
+  const { data, error } = await getClient().from('shared_project_comments').insert({ project_id: projectId, task_id: taskId || null, author_id: userId, body, mentioned_user_ids: mentionedUserIds }).select('id,project_id,task_id,author_id,body,mentioned_user_ids,created_at,updated_at').single();
+  throwIfError(error);
+  if (!data) throw new Error('Message could not be confirmed.');
+  return data as SharedComment;
+}
 export async function addSharedNote(projectId: string, userId: string, noteType: SharedNoteType, title: string, body: string, occurredOn?: string, color: SharedNote['color'] = 'paper', isPinned = false) { const { error } = await getClient().from('shared_project_notes').insert({ project_id: projectId, created_by: userId, note_type: noteType, title, body, occurred_on: occurredOn || null, color, is_pinned: isPinned }); throwIfError(error); }
 export async function updateSharedNote(id: string, patch: Partial<Pick<SharedNote, 'note_type' | 'title' | 'body' | 'occurred_on' | 'color' | 'is_pinned'>>) { const { error } = await getClient().from('shared_project_notes').update(patch).eq('id', id); throwIfError(error); }
 export async function updateSharedComment(id: string, body: string) { const { error } = await getClient().from('shared_project_comments').update({ body }).eq('id', id); throwIfError(error); }

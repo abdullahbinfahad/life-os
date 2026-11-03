@@ -387,5 +387,10 @@ const dictionary: Record<string, string> = {"(optional)":"(opcional)","+ Add mil
   "Private journal entry": "Entrada del diario privado",
   "Public journal entry": "Entrada pública del diario",
   "Study Studio": "Estudio de aprendizaje",
+  "Project overview": "Resumen de proyectos",
+  "No private projects yet": "Aún no hay proyectos privados",
+  "View private projects": "Ver proyectos privados",
+  "View shared projects": "Ver proyectos compartidos",
+  "Sending…": "Enviando…",
 };
 export default dictionary;

@@ -194,3 +194,8 @@
 ## 2026-11-02 Circular logo refinement
 - [x] Replace the rounded-square treatment with a clear circular Life OS emblem and a balanced indigo/violet/cyan grade; use deliberate orbit-only motion around a stable center, smooth pacing, and respect reduced-motion preferences.
 - [x] Apply the same mark to the browser, PWA/iOS, and desktop icons without changing app routes, authentication, stored data, or feature layout.
+
+## 2026-11-03 Faster team discussion and project overview
+- [x] In shared project discussion, show a message immediately on send, clear the composer without waiting for a full workspace refresh, reconcile it with the persisted row, restore the draft and report failure if saving is denied, and use the existing opt-in submit/failure sounds.
+- [x] Add a current private/shared project overview with counts and quick-open shortcuts, including one-tap opening of an individual shared project; keep results protected by the existing Supabase row-level access rules.
+- [x] Keep the change responsive and lightweight without altering project data structure, authorization, or app navigation.
