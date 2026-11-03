@@ -374,5 +374,10 @@ const dictionary: Record<string, string> = {"(optional)":"(ঐচ্ছিক)",
   "Private journal entry": "ব্যক্তিগত জার্নালের লেখা",
   "Public journal entry": "সর্বজনীন জার্নাল এন্ট্রি",
   "Study Studio": "স্টাডি স্টুডিও",
+  "Project overview": "প্রকল্পের সারসংক্ষেপ",
+  "No private projects yet": "এখনও কোনো ব্যক্তিগত প্রকল্প নেই",
+  "View private projects": "ব্যক্তিগত প্রকল্প দেখুন",
+  "View shared projects": "শেয়ার করা প্রকল্প দেখুন",
+  "Sending…": "পাঠানো হচ্ছে…",
 };
 export default dictionary;

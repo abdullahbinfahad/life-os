@@ -387,5 +387,10 @@ const dictionary: Record<string, string> = {"(optional)":"(선택 사항)","+ Ad
   "Private journal entry": "비공개 일지 항목",
   "Public journal entry": "공개 일지 항목",
   "Study Studio": "스터디 스튜디오",
+  "Project overview": "프로젝트 개요",
+  "No private projects yet": "아직 비공개 프로젝트가 없습니다",
+  "View private projects": "비공개 프로젝트 보기",
+  "View shared projects": "공유 프로젝트 보기",
+  "Sending…": "보내는 중…",
 };
 export default dictionary;

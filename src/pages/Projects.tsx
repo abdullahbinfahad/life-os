@@ -1,14 +1,14 @@
 import { translate as tr } from '../lib/locales';
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { CheckCircle2, Circle, FolderKanban, GripVertical, Link2, Lock, Plus, Share2, Trash2, Users } from 'lucide-react';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { CatBadge, Empty, Modal, PageHeader, Progress } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
 import type { Project } from '../lib/types';
 import { cx, fmtDate, pct, today } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
-import { addSharedDependency, createSharedProject, createSharedTask, updateSharedProject, updateSharedTask } from '../lib/sharedProjects';
+import { addSharedDependency, createSharedProject, createSharedTask, fetchSharedProjectOverview, updateSharedProject, updateSharedTask } from '../lib/sharedProjects';
 const SharedProjectsWorkspace = lazy(() => import('../components/projects/SharedProjectsWorkspace'));
 
 const COLS: { id: Project['status']; label: string; color: string; tone: string }[] = [
@@ -71,6 +71,9 @@ export default function Projects() {
   const [selectedStatus, setSelectedStatus] = useState<Project['status']>('active');
   const [workspaceMode, setWorkspaceMode] = useState<'private' | 'shared'>('private');
   const [sharedDetailOpen, setSharedDetailOpen] = useState(false);
+  const [sharedOverview, setSharedOverview] = useState<Awaited<ReturnType<typeof fetchSharedProjectOverview>>>({ projects: [], total: 0 });
+  const [sharedOverviewLoading, setSharedOverviewLoading] = useState(false);
+  const [sharedOverviewTarget, setSharedOverviewTarget] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', categoryId: categories[0]?.id ?? '', goalId: '', dueDate: '' });
@@ -89,6 +92,14 @@ export default function Projects() {
   const open = projects.find((project) => project.id === openId) ?? null;
   const visibleProjects = projects.filter((project) => project.status === selectedStatus);
   const selectedMeta = COLS.find((column) => column.id === selectedStatus)!;
+
+  useEffect(() => {
+    if (workspaceMode !== 'private' || !user?.id || !cloudEnabled) return;
+    let cancelled = false;
+    setSharedOverviewLoading(true);
+    void fetchSharedProjectOverview().then((items) => { if (!cancelled) setSharedOverview(items); }).catch(() => { if (!cancelled) setSharedOverview({ projects: [], total: 0 }); }).finally(() => { if (!cancelled) setSharedOverviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [workspaceMode, user?.id]);
 
   const create = () => {
     if (!form.title.trim()) return;
@@ -167,16 +178,23 @@ export default function Projects() {
   const modeActions = <div className="flex min-w-0 flex-wrap items-center gap-2">
     <div className="flex shrink-0 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-white/10 dark:bg-white/[.04]" role="tablist" aria-label={tr('Project workspaces')}>
       <button type="button" role="tab" aria-selected={workspaceMode === 'private'} className={cx('min-h-9 rounded-lg px-3 text-sm font-medium', workspaceMode === 'private' ? 'bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white' : 'muted')} onClick={() => setWorkspaceMode('private')}><Lock size={14} className="mr-1 inline" />{tr('Private')}</button>
-      <button type="button" role="tab" aria-selected={workspaceMode === 'shared'} className={cx('min-h-9 rounded-lg px-3 text-sm font-medium', workspaceMode === 'shared' ? 'bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white' : 'muted')} onClick={() => setWorkspaceMode('shared')}><Users size={14} className="mr-1 inline" />{tr('Shared')}</button>
+      <button type="button" role="tab" aria-selected={workspaceMode === 'shared'} className={cx('min-h-9 rounded-lg px-3 text-sm font-medium', workspaceMode === 'shared' ? 'bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white' : 'muted')} onClick={() => { setSharedOverviewTarget(null); setWorkspaceMode('shared'); }}><Users size={14} className="mr-1 inline" />{tr('Shared')}</button>
     </div>
     {workspaceMode === 'private' && <button className="btn-primary shrink-0" onClick={() => setCreating(true)}><Plus size={16} /> {tr('New project')}</button>}
   </div>;
 
-  if (workspaceMode === 'shared') return <div className="min-w-0">{shareFeedback && <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200" role="status">{shareFeedback}</p>}{!sharedDetailOpen && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
+  if (workspaceMode === 'shared') return <div className="min-w-0">{shareFeedback && <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200" role="status">{shareFeedback}</p>}{!sharedDetailOpen && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace initialProjectId={sharedOverviewTarget} onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedOverviewTarget(null); setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
 
   return (
     <div className="min-w-0">
       {!open && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}
+      {!open && <section className="card mb-5 min-w-0 p-3 sm:p-4" aria-label={tr('Project overview')}>
+        <div className="mb-3 flex min-w-0 items-center justify-between gap-3"><div className="min-w-0"><h2 className="text-sm font-semibold">{tr('Project overview')}</h2><p className="mt-0.5 text-xs muted">{tr('Private')} {projects.length} · {tr('Shared')} {sharedOverviewLoading ? '…' : sharedOverview.total}</p></div><FolderKanban size={18} className="shrink-0 text-indigo-600 dark:text-indigo-300" /></div>
+        <div className="grid min-w-0 gap-3 md:grid-cols-2">
+          <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[.025]"><div className="mb-2 flex items-center justify-between gap-2"><h3 className="text-sm font-semibold"><Lock size={14} className="me-1.5 inline text-indigo-600 dark:text-indigo-300" />{tr('Private')} {tr('Projects')}</h3><span className="text-xs tabular-nums muted">{projects.length}</span></div><div className="space-y-1">{projects.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3).map((project) => <button key={project.id} type="button" onClick={() => { setOpenId(project.id); setTaskText(''); setTaskDue(''); }} className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-start text-sm transition hover:bg-white hover:text-indigo-700 active:scale-[.99] dark:hover:bg-white/[.06] dark:hover:text-indigo-300"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLS.find((item) => item.id === project.status)?.color }} /><span className="min-w-0 flex-1 truncate">{project.title}</span><span className="shrink-0 text-xs muted">{tr(project.status)}</span></button>)}{projects.length === 0 && <p className="px-2 py-2 text-xs muted">{tr('No private projects yet')}</p>}</div><button type="button" className="mt-2 min-h-9 rounded-lg px-2 text-xs font-medium text-indigo-700 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10" onClick={() => setWorkspaceMode('private')}>{tr('View private projects')} →</button></div>
+          <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[.025]"><div className="mb-2 flex items-center justify-between gap-2"><h3 className="text-sm font-semibold"><Users size={14} className="me-1.5 inline text-indigo-600 dark:text-indigo-300" />{tr('Shared')} {tr('Projects')}</h3><span className="text-xs tabular-nums muted">{sharedOverviewLoading ? '…' : sharedOverview.total}</span></div><div className="space-y-1">{sharedOverview.projects.map((project) => <button key={project.id} type="button" onClick={() => { setSharedOverviewTarget(project.id); setWorkspaceMode('shared'); }} className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-start text-sm transition hover:bg-white hover:text-indigo-700 active:scale-[.99] dark:hover:bg-white/[.06] dark:hover:text-indigo-300"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLS.find((item) => item.id === project.status)?.color }} /><span className="min-w-0 flex-1 truncate">{project.title}</span><span className="shrink-0 text-xs muted">{tr(project.status)}</span></button>)}{!sharedOverviewLoading && sharedOverview.total === 0 && <p className="px-2 py-2 text-xs muted">{tr('No shared projects yet')}</p>}</div><button type="button" className="mt-2 min-h-9 rounded-lg px-2 text-xs font-medium text-indigo-700 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10" onClick={() => { setSharedOverviewTarget(null); setWorkspaceMode('shared'); }}>{tr('View shared projects')} →</button></div>
+        </div>
+      </section>}
       {!open && <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <section aria-label={tr('Project status views')} className="card mb-5 min-w-0 p-3 sm:p-4">
           <div className="mb-3 flex min-w-0 flex-wrap items-end justify-between gap-2">

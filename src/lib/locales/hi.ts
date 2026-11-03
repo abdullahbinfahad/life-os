@@ -387,5 +387,10 @@ const dictionary: Record<string, string> = {"(optional)":"(वैकल्पि
   "Private journal entry": "निजी डायरी की प्रविष्टि",
   "Public journal entry": "सार्वजनिक डायरी प्रविष्टि",
   "Study Studio": "अध्ययन स्टूडियो",
+  "Project overview": "परियोजना अवलोकन",
+  "No private projects yet": "अभी तक कोई निजी प्रोजेक्ट नहीं",
+  "View private projects": "निजी प्रोजेक्ट देखें",
+  "View shared projects": "साझा प्रोजेक्ट देखें",
+  "Sending…": "भेजा जा रहा है…",
 };
 export default dictionary;

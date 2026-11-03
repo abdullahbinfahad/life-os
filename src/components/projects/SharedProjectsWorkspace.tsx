@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { useStore } from '../../lib/store';
 import { cloudEnabled } from '../../lib/supabase';
+import { playFeedback } from '../../lib/sounds';
 import { addDays, cx, fmtDate, localeForLanguage, today } from '../../lib/utils';
 import {
   acceptSharedInvitation, addPrivateTaskLink, addProjectToPortfolio, addSharedComment, addSharedDependency,
@@ -155,7 +156,7 @@ function PortfolioSection({ snapshot, currentUserId, runAction }: { snapshot: Sh
   </div>;
 }
 
-export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPrivate }: { onSelectedChange?: (open: boolean) => void; onSwitchToPrivate?: () => void }) {
+export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPrivate, initialProjectId }: { onSelectedChange?: (open: boolean) => void; onSwitchToPrivate?: () => void; initialProjectId?: string | null }) {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -184,6 +185,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const [inviteDays, setInviteDays] = useState(7);
   const [inviteUrl, setInviteUrl] = useState('');
   const [newComment, setNewComment] = useState('');
+  const [sendingComment, setSendingComment] = useState(false);
   const [commentTask, setCommentTask] = useState('');
   const [mentionUser, setMentionUser] = useState('');
   const [newNote, setNewNote] = useState({ note_type: 'decision' as SharedNoteType, title: '', body: '', occurred_on: '', color: 'paper' as SharedWorkspaceSnapshot['notes'][number]['color'], is_pinned: false });
@@ -198,11 +200,11 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
       const profileName = String(user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '').trim();
       const next = await fetchSharedWorkspace(user.id, profileName);
       const links = await fetchMyPrivateTaskLinks(next.tasks.map((task) => task.id));
-      setSnapshot(next); setPrivateLinks(links); setError('');
-      setSelectedId((current) => current && next.projects.some((project) => project.id === current) ? current : null);
+      setSnapshot((current) => ({ ...next, comments: [...next.comments, ...current.comments.filter((comment) => comment.id.startsWith('optimistic-'))] })); setPrivateLinks(links); setError('');
+      setSelectedId((current) => current && next.projects.some((project) => project.id === current) ? current : initialProjectId && next.projects.some((project) => project.id === initialProjectId) ? initialProjectId : null);
     } catch (problem) { setError(sharedServiceError(problem)); }
     finally { setLoading(false); setRefreshing(false); }
-  }, [user?.id]);
+  }, [user?.id, initialProjectId]);
 
   useEffect(() => {
     if (!user?.id) { setLoading(false); return; }
@@ -221,6 +223,28 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     catch (problem) { setError(sharedServiceError(problem)); return false; }
     finally { setBusy(false); }
   }, [refresh]);
+
+  const sendComment = async () => {
+    const body = newComment.trim();
+    if (!body || !canWork || !selected || !user?.id || sendingComment) return;
+    const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const now = new Date().toISOString();
+    const optimistic: SharedComment = { id: optimisticId, project_id: selected.id, task_id: commentTask || null, author_id: user.id, body, mentioned_user_ids: mentionUser ? [mentionUser] : [], created_at: now, updated_at: now };
+    setSendingComment(true); setError(''); setNotice('');
+    setSnapshot((current) => ({ ...current, comments: [...current.comments, optimistic] }));
+    setNewComment('');
+    playFeedback('submit');
+    try {
+      const saved = await addSharedComment(selected.id, user.id, body, commentTask || undefined, mentionUser ? [mentionUser] : []);
+      setSnapshot((current) => ({ ...current, comments: current.comments.map((comment) => comment.id === optimisticId ? saved : comment) }));
+      setMentionUser('');
+    } catch (problem) {
+      setSnapshot((current) => ({ ...current, comments: current.comments.filter((comment) => comment.id !== optimisticId) }));
+      setNewComment((current) => current || body);
+      setError(sharedServiceError(problem));
+      playFeedback('failed');
+    } finally { setSendingComment(false); }
+  };
 
   const acceptInvite = useCallback(async (token: string) => {
     const trimmed = token.trim();
@@ -399,7 +423,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
           </div>
         </section>}
 
-        {tab === 'discussion' && <section className="min-w-0 space-y-3"><div className="card min-w-0 overflow-hidden p-0"><div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10"><div><h3 className="flex items-center gap-2 font-semibold"><MessageCircle size={18} className="text-indigo-600 dark:text-indigo-300" />{tr('Project discussion')}</h3><p className="mt-1 text-xs muted">{tr('A shared conversation for project updates, decisions, and task context.')}</p></div><button type="button" className="btn-outline shrink-0" disabled={!snapshot.comments.some((comment) => comment.project_id === selected.id)} onClick={() => void runAction(() => markSharedCommentsRead(selected.id, user.id, snapshot.comments))}><Eye size={15} />{tr('Mark all read')}</button></div><form className="grid min-w-0 gap-2 border-b border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[.02]" onSubmit={(event) => { event.preventDefault(); if (!newComment.trim()) return; void runAction(() => addSharedComment(selected.id, user.id, newComment.trim(), commentTask || undefined, mentionUser ? [mentionUser] : [])).then(() => { setNewComment(''); setMentionUser(''); }); }}><label className="min-w-0"><span className="label">{tr('Write a message')}</span><textarea className="input min-h-24 min-w-0 resize-y rounded-2xl" value={newComment} onChange={(event) => setNewComment(event.target.value)} maxLength={10000} disabled={!canWork} placeholder={tr('Share an update with your team…')} required /></label><div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">{<label className="min-w-0"><span className="label">{tr('Attach to task (optional)')}</span><select className="input min-w-0" value={commentTask} onChange={(event) => setCommentTask(event.target.value)} disabled={!canWork}><option value="">{tr('Project discussion')}</option>{projectTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</select></label>}<label className="min-w-0"><span className="label">{tr('Mention a member (optional)')}</span><select className="input min-w-0" value={mentionUser} onChange={(event) => setMentionUser(event.target.value)} disabled={!canWork}><option value="">{tr('No mention')}</option>{members.filter((member) => member.user_id !== user.id).map((member) => <option key={member.user_id} value={member.user_id}>{memberLabel(member.user_id, members, user.id)}</option>)}</select></label><button type="submit" className="btn-primary self-end" disabled={!canWork || busy || !newComment.trim()}><Send size={15} />{tr('Send message')}</button></div></form><div className="space-y-3 p-3 sm:p-4">{snapshot.comments.filter((comment) => comment.project_id === selected.id).length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center dark:border-white/10"><MessageCircle size={24} className="mx-auto text-indigo-500" /><p className="mt-2 font-medium">{tr('No messages yet')}</p><p className="mt-1 text-sm muted">{tr('Start the conversation with a useful update or question.')}</p></div> : snapshot.comments.filter((comment) => comment.project_id === selected.id).map((comment) => <CommentCard key={comment.id} comment={comment} members={members} currentUserId={user.id} tasks={projectTasks} language={language} receipts={snapshot.commentReceipts} onReadState={(commentId, isRead) => void runAction(() => setSharedCommentReadState(commentId, user.id, isRead))} onEdit={(body) => runAction(() => updateSharedComment(comment.id, body))} />)}</div></div></section>}
+        {tab === 'discussion' && <section className="min-w-0 space-y-3"><div className="card min-w-0 overflow-hidden p-0"><div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10"><div><h3 className="flex items-center gap-2 font-semibold"><MessageCircle size={18} className="text-indigo-600 dark:text-indigo-300" />{tr('Project discussion')}</h3><p className="mt-1 text-xs muted">{tr('A shared conversation for project updates, decisions, and task context.')}</p></div><button type="button" className="btn-outline shrink-0" disabled={!snapshot.comments.some((comment) => comment.project_id === selected.id)} onClick={() => void runAction(() => markSharedCommentsRead(selected.id, user.id, snapshot.comments))}><Eye size={15} />{tr('Mark all read')}</button></div><form className="grid min-w-0 gap-2 border-b border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[.02]" onSubmit={(event) => { event.preventDefault(); void sendComment(); }}><label className="min-w-0"><span className="label">{tr('Write a message')}</span><textarea className="input min-h-24 min-w-0 resize-y rounded-2xl" value={newComment} onChange={(event) => setNewComment(event.target.value)} maxLength={10000} disabled={!canWork} placeholder={tr('Share an update with your team…')} required /></label><div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">{<label className="min-w-0"><span className="label">{tr('Attach to task (optional)')}</span><select className="input min-w-0" value={commentTask} onChange={(event) => setCommentTask(event.target.value)} disabled={!canWork}><option value="">{tr('Project discussion')}</option>{projectTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</select></label>}<label className="min-w-0"><span className="label">{tr('Mention a member (optional)')}</span><select className="input min-w-0" value={mentionUser} onChange={(event) => setMentionUser(event.target.value)} disabled={!canWork}><option value="">{tr('No mention')}</option>{members.filter((member) => member.user_id !== user.id).map((member) => <option key={member.user_id} value={member.user_id}>{memberLabel(member.user_id, members, user.id)}</option>)}</select></label><button type="submit" className="btn-primary self-end" disabled={!canWork || sendingComment || !newComment.trim()}><Send size={15} />{tr(sendingComment ? 'Sending…' : 'Send message')}</button></div></form>{sendingComment && <p className="px-4 pt-2 text-xs text-indigo-600 dark:text-indigo-300" role="status">{tr('Sending…')}</p>}<div className="space-y-3 p-3 sm:p-4">{snapshot.comments.filter((comment) => comment.project_id === selected.id).length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center dark:border-white/10"><MessageCircle size={24} className="mx-auto text-indigo-500" /><p className="mt-2 font-medium">{tr('No messages yet')}</p><p className="mt-1 text-sm muted">{tr('Start the conversation with a useful update or question.')}</p></div> : snapshot.comments.filter((comment) => comment.project_id === selected.id).map((comment) => <CommentCard key={comment.id} comment={comment} members={members} currentUserId={user.id} tasks={projectTasks} language={language} receipts={snapshot.commentReceipts} onReadState={(commentId, isRead) => void runAction(() => setSharedCommentReadState(commentId, user.id, isRead))} onEdit={(body) => runAction(() => updateSharedComment(comment.id, body))} />)}</div></div></section>}
 
         {tab === 'notes' && <section className="min-w-0 space-y-3"><form className="card grid min-w-0 gap-3 p-4 sm:grid-cols-2 sm:p-5" onSubmit={(event) => { event.preventDefault(); if (!newNote.title.trim()) return; void runAction(() => addSharedNote(selected.id, user.id, newNote.note_type, newNote.title.trim(), newNote.body.trim(), newNote.occurred_on || undefined, newNote.color, newNote.is_pinned)).then(() => setNewNote({ note_type: 'decision', title: '', body: '', occurred_on: '', color: 'paper', is_pinned: false })); }}><div className="sm:col-span-2"><h3 className="flex items-center gap-2 font-semibold"><FileText size={18} className="text-indigo-600 dark:text-indigo-300" />{tr('Notes & decisions')}</h3><p className="mt-1 text-xs muted">{tr('Capture context once so the whole team can find it later.')}</p></div><label className="min-w-0"><span className="label">{tr('Note type')}</span><select className="input min-w-0" value={newNote.note_type} onChange={(event) => setNewNote({ ...newNote, note_type: event.target.value as SharedNoteType })} disabled={!canWork}><option value="decision">{tr('Decision')}</option><option value="meeting">{tr('Meeting notes')}</option><option value="milestone">{tr('Milestone')}</option><option value="sticky">{tr('Sticky note')}</option></select></label><label className="min-w-0"><span className="label">{tr('Date')}</span><input className="input min-w-0" type="date" value={newNote.occurred_on} onChange={(event) => setNewNote({ ...newNote, occurred_on: event.target.value })} disabled={!canWork} /></label><label className="min-w-0 sm:col-span-2"><span className="label">{tr('Title')}</span><input className="input min-w-0" value={newNote.title} onChange={(event) => setNewNote({ ...newNote, title: event.target.value })} maxLength={500} disabled={!canWork} required /></label><label className="min-w-0 sm:col-span-2"><span className="label">{tr('Details')}</span><textarea className="input min-h-24 min-w-0 resize-y" value={newNote.body} onChange={(event) => setNewNote({ ...newNote, body: event.target.value })} maxLength={50000} disabled={!canWork} /></label><label className="min-w-0"><span className="label">{tr('Note color')}</span><select className="input min-w-0" value={newNote.color} onChange={(event) => setNewNote({ ...newNote, color: event.target.value as typeof newNote.color })} disabled={!canWork}><option value="paper">{tr('Paper')}</option><option value="lavender">{tr('Lavender')}</option><option value="mint">{tr('Mint')}</option><option value="sky">{tr('Sky')}</option></select></label><label className="flex min-h-11 items-center gap-2 self-end text-sm"><input type="checkbox" checked={newNote.is_pinned} onChange={(event) => setNewNote({ ...newNote, is_pinned: event.target.checked })} disabled={!canWork} />{tr('Pin note')}</label><div className="sm:col-span-2"><button className="btn-primary" disabled={!canWork || busy}><Plus size={15} />{tr('Add note')}</button></div></form><div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">{projectNotes.map((note) => <NoteCard key={note.id} note={note} canWork={Boolean(canWork)} language={language} onSave={(patch) => runAction(() => updateSharedNote(note.id, patch))} />)}{projectNotes.length === 0 && <p className="card p-5 text-sm muted sm:col-span-2 xl:col-span-3">{tr('Capture decisions, meeting notes, and milestones so collaborators share the same context.')}</p>}</div></section>}
 

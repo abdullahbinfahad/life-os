@@ -387,5 +387,10 @@ const dictionary: Record<string, string> = {"(optional)":"（可选）","+ Add m
   "Private journal entry": "私人日志条目",
   "Public journal entry": "公开日记条目",
   "Study Studio": "学习工作室",
+  "Project overview": "项目概览",
+  "No private projects yet": "暂无私人项目",
+  "View private projects": "查看私人项目",
+  "View shared projects": "查看共享项目",
+  "Sending…": "正在发送…",
 };
 export default dictionary;
