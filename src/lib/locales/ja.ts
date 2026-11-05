@@ -392,5 +392,12 @@ const dictionary: Record<string, string> = {"(optional)":"（任意）","+ Add m
   "View private projects": "プライベートプロジェクトを見る",
   "View shared projects": "共有プロジェクトを見る",
   "Sending…": "送信中…",
+  "Load older messages": "古いメッセージを読み込む",
+  "Loading older messages…": "古いメッセージを読み込み中…",
+  "Loading shared messages…": "共有メッセージを読み込み中…",
+  "Session reflection": "セッションの振り返り",
+  "A short note helps you remember what this session moved forward.": "短いメモを残すと、このセッションで進んだことを思い出せます。",
+  "Only project leads and admins can change project status.": "プロジェクトの状態を変更できるのはリードと管理者のみです。",
+  "Your private workspace stays hidden until its account data is safely loaded.": "アカウントデータを安全に読み込むまで、個人ワークスペースは非表示になります。",
 };
 export default dictionary;

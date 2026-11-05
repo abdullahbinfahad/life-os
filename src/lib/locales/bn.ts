@@ -379,5 +379,12 @@ const dictionary: Record<string, string> = {"(optional)":"(ঐচ্ছিক)",
   "View private projects": "ব্যক্তিগত প্রকল্প দেখুন",
   "View shared projects": "শেয়ার করা প্রকল্প দেখুন",
   "Sending…": "পাঠানো হচ্ছে…",
+  "Load older messages": "পুরোনো বার্তা লোড করুন",
+  "Loading older messages…": "পুরোনো বার্তা লোড হচ্ছে…",
+  "Loading shared messages…": "শেয়ার করা বার্তা লোড হচ্ছে…",
+  "Session reflection": "সেশন পর্যালোচনা",
+  "A short note helps you remember what this session moved forward.": "একটি ছোট নোট এই সেশনে কী এগিয়েছে তা মনে রাখতে সাহায্য করবে।",
+  "Only project leads and admins can change project status.": "শুধু প্রকল্পের লিড ও অ্যাডমিনরা প্রকল্পের অবস্থা বদলাতে পারেন।",
+  "Your private workspace stays hidden until its account data is safely loaded.": "অ্যাকাউন্টের তথ্য নিরাপদে লোড না হওয়া পর্যন্ত আপনার ব্যক্তিগত কর্মক্ষেত্র লুকানো থাকবে।",
 };
 export default dictionary;

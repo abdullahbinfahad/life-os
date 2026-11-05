@@ -439,7 +439,7 @@ function Focus({
     setConfirm(false);
   };
   return (
-    <div className="study-focus-wrap">
+    <div className={`study-focus-wrap ${confirm ? 'study-focus-wrap--reflecting' : ''}`}>
       <Panel className="study-focus-panel">
         <span className={`study-pill ${a?.status === 'break' ? 'mint' : 'cyan'}`}>
           {a ? tr(a.status[0].toUpperCase() + a.status.slice(1)) : tr('Ready when you are')}
@@ -574,157 +574,30 @@ function Focus({
                 </button>
               </div>
             )}
-            <div className="study-actions">
-              {discarding && (
-                <div
-                  className="study-modal"
-                  role="presentation"
-                  onMouseDown={(event) => {
-                    if (event.target === event.currentTarget) setDiscarding(false);
-                  }}
-                >
-                  <div
-                    ref={discardDialogRef}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="study-discard-session-title"
-                    tabIndex={-1}
-                  >
-                    <h3 id="study-discard-session-title">{tr('Discard this session?')}</h3>
-                    <p>{tr('No session record will be saved.')}</p>
-                    <button
-                      type="button"
-                      className="study-danger"
-                      onClick={() => {
-                        mutate((s) => ({ ...s, activeSession: discardSession(a) }));
-                        setDiscarding(false);
-                      }}
-                    >
-                    {tr('Discard session')}
-                    </button>
-                    <button type="button" className="study-secondary" onClick={() => setDiscarding(false)}>
-                      {tr('Cancel')}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {a.status === 'running' ? (
-                <button
-                  className="study-secondary"
-                  onClick={() => mutate((s) => ({ ...s, activeSession: pauseSession(a) }))}
-                >
-                  Pause
-                </button>
-              ) : a.status === 'paused' ? (
-                <button
-                  className="study-primary"
-                  onClick={() => mutate((s) => ({ ...s, activeSession: resumeSession(a) }))}
-                >
-                  Resume
-                </button>
-              ) : null}
-              {a.status === 'running' && (
-                <button
-                  className="study-secondary"
-                  onClick={() =>
-                    mutate((s) => ({
-                      ...s,
-                      activeSession: startBreak(a, Date.now(), breakTime * 60),
-                    }))
-                  }
-                >
-                    {tr('Take {minutes} min break').replace('{minutes}', String(breakTime))}
-                </button>
-              )}
-              {a.status === 'break' && (
-                <>
-                  <button
-                    className="study-primary"
-                    onClick={() => mutate((s) => ({ ...s, activeSession: skipBreak(a) }))}
-                  >
-                    Finish break
-                  </button>
-                  <button
-                    className="study-secondary"
-                    onClick={() => mutate((s) => ({ ...s, activeSession: extendBreak(a, 60) }))}
-                  >
-                    {tr('+1 min')}
-                  </button>
-                </>
-              )}
-              {!confirm ? (
-                <button className="study-danger" onClick={() => setConfirm(true)}>
-                  Finish session
-                </button>
-              ) : (
-                <div className="study-reflection">
-                  <label>
-                    Reflection
-                    <textarea
-                      value={reflection}
-                      onChange={(e) => setReflection(e.target.value)}
-                      maxLength={1000}
-                      placeholder={tr('How did this session go?')}
-                    />
-                  </label>
-                  <label>
-                    Covered material (optional)
-                    <textarea
-                      value={covered}
-                      onChange={(e) => setCovered(e.target.value)}
-                      maxLength={1000}
-                    />
-                  </label>
-                  <label>
-                    {tr('Confidence (1–5)')}
-                    <select
-                      value={confidence}
-                      onChange={(e) => setConfidence(Number(e.target.value) as 1 | 2 | 3 | 4 | 5)}
-                    >
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                      <option value="4">4</option>
-                      <option value="5">5</option>
-                    </select>
-                  </label>
-                  <label>
-                    Outcome
-                    <input
-                      value={outcome}
-                      onChange={(e) => setOutcome(e.target.value)}
-                      maxLength={1000}
-                      placeholder={tr('What went well or changed?')}
-                    />
-                  </label>
-                  <label>
-                    Unfinished work
-                    <textarea
-                      value={unfinished}
-                      onChange={(e) => setUnfinished(e.target.value)}
-                      maxLength={1000}
-                    />
-                  </label>
-                  <label>
-                    Next note
-                    <textarea
-                      value={nextNote}
-                      onChange={(e) => setNextNote(e.target.value)}
-                      maxLength={1000}
-                    />
-                  </label>
-                    <button className="study-primary" onClick={finish}>
-                    {tr('Save & finish')}
-                  </button>
-                    <button className="study-secondary" onClick={() => setConfirm(false)}>
-                    {tr('Keep going')}
-                  </button>
-                    <button className="study-danger" onClick={() => setDiscarding(true)}>
-                    {tr('Discard…')}
-                  </button>
-                </div>
-              )}
-            </div>
+            {discarding && <div className="study-modal" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDiscarding(false); }}>
+              <div ref={discardDialogRef} role="dialog" aria-modal="true" aria-labelledby="study-discard-session-title" tabIndex={-1}>
+                <h3 id="study-discard-session-title">{tr('Discard this session?')}</h3>
+                <p>{tr('No session record will be saved.')}</p>
+                <button type="button" className="study-danger" onClick={() => { mutate((s) => ({ ...s, activeSession: discardSession(a) })); setDiscarding(false); }}>{tr('Discard session')}</button>
+                <button type="button" className="study-secondary" onClick={() => setDiscarding(false)}>{tr('Cancel')}</button>
+              </div>
+            </div>}
+            {!confirm && <div className="study-actions">
+              {a.status === 'running' ? <button type="button" className="study-secondary" onClick={() => mutate((s) => ({ ...s, activeSession: pauseSession(a) }))}>{tr('Pause')}</button> : a.status === 'paused' ? <button type="button" className="study-primary" onClick={() => mutate((s) => ({ ...s, activeSession: resumeSession(a) }))}>{tr('Resume')}</button> : null}
+              {a.status === 'running' && <button type="button" className="study-secondary" onClick={() => mutate((s) => ({ ...s, activeSession: startBreak(a, Date.now(), breakTime * 60) }))}>{tr('Take {minutes} min break').replace('{minutes}', String(breakTime))}</button>}
+              {a.status === 'break' && <><button type="button" className="study-primary" onClick={() => mutate((s) => ({ ...s, activeSession: skipBreak(a) }))}>{tr('Finish break')}</button><button type="button" className="study-secondary" onClick={() => mutate((s) => ({ ...s, activeSession: extendBreak(a, 60) }))}>{tr('+1 min')}</button></>}
+              <button type="button" className="study-danger" onClick={() => setConfirm(true)}>{tr('Finish session')}</button>
+            </div>}
+            {confirm && <form className="study-reflection" onSubmit={(event) => { event.preventDefault(); finish(); }}>
+              <div className="study-reflection-head study-reflection-wide"><span className="study-pill mint">{tr('Session reflection')}</span><h3>{tr('Finish session')}</h3><p className="study-muted">{tr('A short note helps you remember what this session moved forward.')}</p></div>
+              <label className="study-reflection-wide">{tr('Reflection')}<textarea value={reflection} onChange={(event) => setReflection(event.target.value)} maxLength={1000} placeholder={tr('How did this session go?')} /></label>
+              <label>{tr('Covered material (optional)')}<textarea value={covered} onChange={(event) => setCovered(event.target.value)} maxLength={1000} /></label>
+              <label>{tr('Confidence (1–5)')}<select value={confidence} onChange={(event) => setConfidence(Number(event.target.value) as 1 | 2 | 3 | 4 | 5)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
+              <label>{tr('Outcome')}<input value={outcome} onChange={(event) => setOutcome(event.target.value)} maxLength={1000} placeholder={tr('What went well or changed?')} /></label>
+              <label>{tr('Unfinished work')}<textarea value={unfinished} onChange={(event) => setUnfinished(event.target.value)} maxLength={1000} /></label>
+              <label className="study-reflection-wide">{tr('Next note')}<textarea value={nextNote} onChange={(event) => setNextNote(event.target.value)} maxLength={1000} /></label>
+              <div className="study-reflection-actions study-reflection-wide"><button type="submit" className="study-primary">{tr('Save & finish')}</button><button type="button" className="study-secondary" onClick={() => setConfirm(false)}>{tr('Keep going')}</button><button type="button" className="study-danger" onClick={() => setDiscarding(true)}>{tr('Discard…')}</button></div>
+            </form>}
           </>
         ) : (
           <>

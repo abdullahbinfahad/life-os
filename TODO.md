@@ -199,3 +199,10 @@
 - [x] In shared project discussion, show a message immediately on send, clear the composer without waiting for a full workspace refresh, reconcile it with the persisted row, restore the draft and report failure if saving is denied, and use the existing opt-in submit/failure sounds.
 - [x] Add a current private/shared project overview with counts and quick-open shortcuts, including one-tap opening of an individual shared project; keep results protected by the existing Supabase row-level access rules.
 - [x] Keep the change responsive and lightweight without altering project data structure, authorization, or app navigation.
+
+
+## 2026-11-04 Shared projects, data loading, and Study Studio reliability
+- [x] Provide accessible per-project status selectors and pointer/touch drag-and-drop from the dedicated touch-safe move control onto status targets; use one optimistic save path, detect RLS-denied/no-row writes, show errors, and preserve database authorization.
+- [ ] Load latest shared discussion messages first, page older history on demand with a timestamp-plus-ID cursor, and retain realtime arrivals at the top; notify every other authorized member using persistent unread records and in-app/optional browser alerts. The client/UI and additive migration `supabase/migrations/2026110501_shared_message_notifications.sql` are ready, but the migration cannot be applied until the correct Life OS Supabase project is available (the only connected project does not match the app URL). Do not apply this migration to another project.
+- [x] Prevent blank/stale account data after login by guarding authenticated routes until their first account snapshot loads, serializing initial hydration, rejecting stale responses, never pushing local state after failed cloud reads, and providing a retry without a page refresh.
+- [x] Rework the Study Studio finish/reflection UI so controls do not remain in a side column, use a readable responsive form, and keep timer output at whole-second precision with no milliseconds.

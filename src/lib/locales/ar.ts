@@ -379,5 +379,12 @@ const dictionary: Record<string, string> = {"(optional)":"(اختياري)","+ A
   "View private projects": "عرض المشاريع الخاصة",
   "View shared projects": "عرض المشاريع المشتركة",
   "Sending…": "جارٍ الإرسال…",
+  "Load older messages": "تحميل الرسائل الأقدم",
+  "Loading older messages…": "جارٍ تحميل الرسائل الأقدم…",
+  "Loading shared messages…": "جارٍ تحميل الرسائل المشتركة…",
+  "Session reflection": "تأمل الجلسة",
+  "A short note helps you remember what this session moved forward.": "تساعدك ملاحظة قصيرة على تذكّر ما أنجزته هذه الجلسة.",
+  "Only project leads and admins can change project status.": "يمكن لقادة المشروع والمسؤولين فقط تغيير حالة المشروع.",
+  "Your private workspace stays hidden until its account data is safely loaded.": "ستظل مساحة عملك الخاصة مخفية حتى يتم تحميل بيانات حسابك بأمان.",
 };
 export default dictionary;

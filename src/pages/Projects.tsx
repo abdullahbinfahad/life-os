@@ -8,6 +8,7 @@ import type { Project } from '../lib/types';
 import { cx, fmtDate, pct, today } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
+import { useLocation } from 'react-router-dom';
 import { addSharedDependency, createSharedProject, createSharedTask, fetchSharedProjectOverview, updateSharedProject, updateSharedTask } from '../lib/sharedProjects';
 const SharedProjectsWorkspace = lazy(() => import('../components/projects/SharedProjectsWorkspace'));
 
@@ -67,13 +68,17 @@ function ProjectCard({ project, category, onOpen }: { project: Project; category
 export default function Projects() {
   const { projects, goals, categories, addProject, updateProject, deleteProject, addTask, updateTask, deleteTask } = useStore();
   const { user } = useAuth();
+  const location = useLocation();
+  const routeParams = new URLSearchParams(location.search);
+  const notificationProjectId = routeParams.get('sharedProject');
+  const notificationTab = routeParams.get('section') === 'discussion' ? 'discussion' as const : undefined;
   const catMap = useCategoryMap();
   const [selectedStatus, setSelectedStatus] = useState<Project['status']>('active');
-  const [workspaceMode, setWorkspaceMode] = useState<'private' | 'shared'>('private');
+  const [workspaceMode, setWorkspaceMode] = useState<'private' | 'shared'>(() => notificationProjectId ? 'shared' : 'private');
   const [sharedDetailOpen, setSharedDetailOpen] = useState(false);
   const [sharedOverview, setSharedOverview] = useState<Awaited<ReturnType<typeof fetchSharedProjectOverview>>>({ projects: [], total: 0 });
   const [sharedOverviewLoading, setSharedOverviewLoading] = useState(false);
-  const [sharedOverviewTarget, setSharedOverviewTarget] = useState<string | null>(null);
+  const [sharedOverviewTarget, setSharedOverviewTarget] = useState<string | null>(notificationProjectId);
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', categoryId: categories[0]?.id ?? '', goalId: '', dueDate: '' });
@@ -92,6 +97,12 @@ export default function Projects() {
   const open = projects.find((project) => project.id === openId) ?? null;
   const visibleProjects = projects.filter((project) => project.status === selectedStatus);
   const selectedMeta = COLS.find((column) => column.id === selectedStatus)!;
+
+  useEffect(() => {
+    if (!notificationProjectId) return;
+    setSharedOverviewTarget(notificationProjectId);
+    setWorkspaceMode('shared');
+  }, [notificationProjectId]);
 
   useEffect(() => {
     if (workspaceMode !== 'private' || !user?.id || !cloudEnabled) return;
@@ -183,7 +194,7 @@ export default function Projects() {
     {workspaceMode === 'private' && <button className="btn-primary shrink-0" onClick={() => setCreating(true)}><Plus size={16} /> {tr('New project')}</button>}
   </div>;
 
-  if (workspaceMode === 'shared') return <div className="min-w-0">{shareFeedback && <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200" role="status">{shareFeedback}</p>}{!sharedDetailOpen && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace initialProjectId={sharedOverviewTarget} onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedOverviewTarget(null); setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
+  if (workspaceMode === 'shared') return <div className="min-w-0">{shareFeedback && <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200" role="status">{shareFeedback}</p>}{!sharedDetailOpen && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace initialProjectId={sharedOverviewTarget} initialTab={notificationTab} onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedOverviewTarget(null); setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
 
   return (
     <div className="min-w-0">

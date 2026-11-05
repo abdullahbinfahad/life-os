@@ -8,6 +8,7 @@ export type SyncStatus = 'off' | 'loading' | 'saving' | 'saved' | 'error' | 'off
 
 interface AuthState {
   ready: boolean;
+  cloudHydrated: boolean;
   session: Session | null;
   user: User | null;
   guest: boolean; // chose "use without account" (this device only)
@@ -23,6 +24,7 @@ export const useAuth = create<AuthState>()(
   persist(
     (set) => ({
       ready: !cloudEnabled,
+      cloudHydrated: false,
       session: null,
       user: null,
       guest: false,
@@ -49,6 +51,9 @@ let realtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let applyingRemote = false;
 let currentUserId: string | null = null;
+let cloudHydratedUserId: string | null = null;
+let syncStartingUserId: string | null = null;
+let syncGeneration = 0;
 let changeRevision = 0;
 let syncedRevision = 0;
 let pushPromise: Promise<boolean> | null = null;
@@ -63,7 +68,7 @@ function syncErrorMessage(error: unknown) {
 }
 
 async function pushNow() {
-  if (!supabase || !currentUserId) return false;
+  if (!supabase || !currentUserId || cloudHydratedUserId !== currentUserId) return false;
   if (!navigator.onLine) { useAuth.setState({ sync: 'offline' }); return false; }
   if (pushPromise) return pushPromise;
   const owner = currentUserId;
@@ -102,94 +107,99 @@ function schedulePush() {
 
 export async function syncNow() {
   if (timer) { clearTimeout(timer); timer = null; }
+  if (!currentUserId) return false;
+  if (cloudHydratedUserId !== currentUserId) return startSync(currentUserId);
   return pushNow();
 }
 
-async function startSync(userId: string) {
-  if (!supabase) return;
-  if (currentUserId === userId && unsubscribe) return;
+async function startSync(userId: string): Promise<boolean> {
+  if (!supabase) return false;
+  if (currentUserId === userId && (unsubscribe || syncStartingUserId === userId)) return cloudHydratedUserId === userId;
   stopSync();
   currentUserId = userId;
+  const generation = syncGeneration;
+  syncStartingUserId = userId;
   changeRevision = 0;
   syncedRevision = 0;
-  useAuth.setState({ sync: 'loading', syncError: undefined });
+  useAuth.setState({ sync: 'loading', syncError: undefined, cloudHydrated: false });
 
-  let result;
   try {
-    result = await supabase.from('life_data').select('data, updated_at').eq('user_id', userId).maybeSingle();
-  } catch (error) {
-    const message = syncErrorMessage(error);
-    useAuth.setState({ sync: 'error', syncError: message });
-    console.error('Cloud load failed:', message);
-    unsubscribe = useStore.subscribe(schedulePush);
-    return;
-  }
-  const { data, error } = result;
-  if (error) {
-    const message = syncErrorMessage(error);
-    useAuth.setState({ sync: 'error', syncError: message });
-    console.error('Cloud load failed:', message);
-    unsubscribe = useStore.subscribe(schedulePush);
-    return;
-  }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
+    let result;
+    try {
+      result = await supabase.from('life_data').select('data, updated_at').eq('user_id', userId).abortSignal(controller.signal).maybeSingle();
+    } finally {
+      window.clearTimeout(timeout);
+    }
+    if (generation !== syncGeneration || currentUserId !== userId) return false;
+    if (result.error) throw result.error;
 
-  // Which account does the data in this browser belong to?
-  const localOwner = localStorage.getItem('life-circle-owner');
+    // A successful read (including no row for a new account) is the only point
+    // at which writes are allowed. This prevents a transient read failure from
+    // replacing valid cloud data with an empty device snapshot.
+    cloudHydratedUserId = userId;
+    useAuth.setState({ cloudHydrated: true });
+    let localOwner: string | null = null;
+    try { localOwner = localStorage.getItem('life-circle-owner'); } catch { /* Storage may be unavailable in private browsing. */ }
 
-  if (data?.data && Object.keys(data.data).length) {
-    if (localOwner && localOwner !== userId) useStore.getState().resetAll();
-    const hasStudySnapshot =
-      !!data.data.study && typeof data.data.study === 'object' && !Array.isArray(data.data.study);
-    const importData = hasStudySnapshot
-      ? data.data
-      : { ...data.data, study: localOwner === userId ? useStore.getState().study : undefined };
-    applyingRemote = true;
-    useStore.getState().importAll(importData);
-    applyingRemote = false;
-    if (hasStudySnapshot) {
-      useAuth.setState({ sync: 'saved', lastSynced: data.updated_at, syncError: undefined });
+    if (result.data?.data && Object.keys(result.data.data).length) {
+      if (localOwner && localOwner !== userId) useStore.getState().resetAll();
+      const hasStudySnapshot = !!result.data.data.study && typeof result.data.data.study === 'object' && !Array.isArray(result.data.data.study);
+      const importData = hasStudySnapshot ? result.data.data : { ...result.data.data, study: localOwner === userId ? useStore.getState().study : undefined };
+      applyingRemote = true;
+      try { useStore.getState().importAll(importData); } finally { applyingRemote = false; }
+      if (hasStudySnapshot) {
+        useAuth.setState({ sync: 'saved', lastSynced: result.data.updated_at, syncError: undefined });
+      } else {
+        await pushNow();
+      }
     } else {
-      // Upgrade this account's legacy snapshot so the preserved Study data is synced too.
+      // First sign-in for this account: keep guest data from this device (if it isn't someone else's).
+      if (localOwner && localOwner !== userId) useStore.getState().resetAll();
       await pushNow();
     }
-  } else {
-    // First sign-in for this account: keep guest data from this device (if it isn't someone else's).
-    if (localOwner && localOwner !== userId) useStore.getState().resetAll();
-    await pushNow();
-  }
-  localStorage.setItem('life-circle-owner', userId);
-  unsubscribe = useStore.subscribe(schedulePush);
-  realtimeChannel = supabase.channel(`life-data-${userId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'life_data', filter: `user_id=eq.${userId}` }, async () => {
-      // Don't replace newer local work with a concurrent remote snapshot.
-      if (currentUserId !== userId || changeRevision !== syncedRevision || applyingRemote) return;
-      try {
-        const { data: latest, error: latestError } = await supabase!.from('life_data').select('data, updated_at').eq('user_id', userId).maybeSingle();
-        if (latestError || !latest?.data || currentUserId !== userId || changeRevision !== syncedRevision) return;
-        const hasStudySnapshot =
-          !!latest.data.study && typeof latest.data.study === 'object' && !Array.isArray(latest.data.study);
-        const importData = hasStudySnapshot
-          ? latest.data
-          : { ...latest.data, study: useStore.getState().study };
-        applyingRemote = true;
-        useStore.getState().importAll(importData);
-        applyingRemote = false;
-        if (hasStudySnapshot) {
-          useAuth.setState({ sync: 'saved', lastSynced: latest.updated_at, syncError: undefined });
-        } else {
-          await pushNow();
+    if (generation !== syncGeneration || currentUserId !== userId) return false;
+    try { localStorage.setItem('life-circle-owner', userId); } catch { /* Cloud ownership remains authoritative. */ }
+    unsubscribe = useStore.subscribe(schedulePush);
+    realtimeChannel = supabase.channel(`life-data-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'life_data', filter: `user_id=eq.${userId}` }, async () => {
+        // Don't replace newer local work with a concurrent remote snapshot.
+        if (generation !== syncGeneration || currentUserId !== userId || changeRevision !== syncedRevision || applyingRemote) return;
+        try {
+          const { data: latest, error: latestError } = await supabase!.from('life_data').select('data, updated_at').eq('user_id', userId).maybeSingle();
+          if (latestError || !latest?.data || generation !== syncGeneration || currentUserId !== userId || changeRevision !== syncedRevision) return;
+          const hasStudySnapshot = !!latest.data.study && typeof latest.data.study === 'object' && !Array.isArray(latest.data.study);
+          const importData = hasStudySnapshot ? latest.data : { ...latest.data, study: useStore.getState().study };
+          applyingRemote = true;
+          try { useStore.getState().importAll(importData); } finally { applyingRemote = false; }
+          if (hasStudySnapshot) useAuth.setState({ sync: 'saved', lastSynced: latest.updated_at, syncError: undefined, cloudHydrated: true });
+          else await pushNow();
+        } catch (error) {
+          applyingRemote = false;
+          console.warn('Live sync refresh failed:', syncErrorMessage(error));
         }
-      } catch (error) {
-        applyingRemote = false;
-        console.warn('Live sync refresh failed:', syncErrorMessage(error));
-      }
-    })
-    .subscribe((status) => {
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.warn('Live sync is temporarily unavailable; changes will still save when this device syncs.');
-    });
+      })
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.warn('Live sync is temporarily unavailable; changes will still save when this device syncs.');
+      });
+    return true;
+  } catch (error) {
+    if (generation !== syncGeneration || currentUserId !== userId) return false;
+    cloudHydratedUserId = null;
+    const message = syncErrorMessage(error);
+    useAuth.setState({ sync: 'error', syncError: message, cloudHydrated: false });
+    console.error('Cloud load failed:', message);
+    return false;
+  } finally {
+    if (generation === syncGeneration && syncStartingUserId === userId) syncStartingUserId = null;
+  }
 }
 
 function stopSync() {
+  syncGeneration += 1;
+  syncStartingUserId = null;
+  cloudHydratedUserId = null;
   unsubscribe?.();
   unsubscribe = null;
   if (realtimeChannel && supabase) void supabase.removeChannel(realtimeChannel);
@@ -197,6 +207,7 @@ function stopSync() {
   if (timer) clearTimeout(timer);
   timer = null;
   currentUserId = null;
+  useAuth.setState({ cloudHydrated: false });
 }
 
 /* ------------------------------------------------------------------ */
@@ -221,7 +232,11 @@ export function initAuth() {
     if (session) { useAuth.setState({ guest: false }); startSync(session.user.id); }
     if (event === 'SIGNED_OUT') stopSync();
   });
-  window.addEventListener('online', () => currentUserId && pushNow());
+  window.addEventListener('online', () => {
+    if (!currentUserId) return;
+    if (cloudHydratedUserId === currentUserId) void pushNow();
+    else void startSync(currentUserId);
+  });
   window.addEventListener('beforeunload', () => { if (timer) pushNow(); });
 }
 

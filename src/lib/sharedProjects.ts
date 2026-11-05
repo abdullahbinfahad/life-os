@@ -103,7 +103,7 @@ export async function fetchSharedWorkspace(currentUserId?: string, currentDispla
   const [tasksResult, dependenciesResult, commentsResult, notesResult, activityResult, invitationsResult, portfolioProjectsResult] = await Promise.all([
     projectIds.length ? db.from('shared_project_tasks').select('id,project_id,title,details,status,due_date,estimate_minutes,assignee_id,created_by,created_at,updated_at').in('project_id', projectIds).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
     projectIds.length ? db.from('shared_task_dependencies').select('project_id,task_id,depends_on_task_id,created_by,created_at').in('project_id', projectIds) : Promise.resolve({ data: [], error: null }),
-    projectIds.length ? db.from('shared_project_comments').select('id,project_id,task_id,author_id,body,mentioned_user_ids,created_at,updated_at').in('project_id', projectIds).order('created_at', { ascending: true }).limit(500) : Promise.resolve({ data: [], error: null }),
+    projectIds.length ? db.from('shared_project_comments').select('id,project_id,task_id,author_id,body,mentioned_user_ids,created_at,updated_at').in('project_id', projectIds).order('created_at', { ascending: false }).limit(100) : Promise.resolve({ data: [], error: null }),
     projectIds.length ? db.from('shared_project_notes').select('id,project_id,note_type,title,body,occurred_on,created_by,created_at,updated_at,color,is_pinned').in('project_id', projectIds).order('updated_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
     projectIds.length ? db.from('shared_project_activity').select('id,project_id,actor_id,entity_type,entity_id,event_type,payload,created_at').in('project_id', projectIds).order('created_at', { ascending: false }).limit(300) : Promise.resolve({ data: [], error: null }),
     projectIds.length ? db.from('shared_project_invitations').select('id,project_id,role,invited_by,expires_at,revoked_at,accepted_at,accepted_by,created_at').in('project_id', projectIds).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
@@ -146,14 +146,14 @@ export async function acceptSharedInvitation(token: string) {
 export async function revokeSharedInvitation(id: string) { const { error } = await getClient().rpc('shared_revoke_project_invitation', { p_invitation_id: id }); throwIfError(error); }
 export async function setSharedMemberRole(projectId: string, userId: string, role: SharedRole) { const { error } = await getClient().rpc('shared_set_project_member_role', { p_project_id: projectId, p_user_id: userId, p_role: role }); throwIfError(error); }
 export async function removeSharedMember(projectId: string, userId: string) { const { error } = await getClient().rpc('shared_remove_project_member', { p_project_id: projectId, p_user_id: userId }); throwIfError(error); }
-export async function updateSharedProject(id: string, patch: Partial<Pick<SharedProject, 'title' | 'description' | 'status' | 'due_date'>>) { const { error } = await getClient().from('shared_projects').update(patch).eq('id', id); throwIfError(error); }
-export async function deleteSharedProject(id: string) { const { error } = await getClient().from('shared_projects').delete().eq('id', id); throwIfError(error); }
+export async function updateSharedProject(id: string, patch: Partial<Pick<SharedProject, 'title' | 'description' | 'status' | 'due_date'>>) { const { data, error } = await getClient().from('shared_projects').update(patch).eq('id', id).select('id').maybeSingle(); throwIfError(error); if (!data) throw new Error('Project status or details were not saved. Confirm you still have a lead/admin role and try again.'); }
+export async function deleteSharedProject(id: string) { const { data, error } = await getClient().from('shared_projects').delete().eq('id', id).select('id').maybeSingle(); throwIfError(error); if (!data) throw new Error('The project was not deleted. Confirm your role and try again.'); }
 export async function createSharedTask(projectId: string, userId: string, title: string, dueDate?: string, assigneeId?: string) {
   const { data, error } = await getClient().from('shared_project_tasks').insert({ project_id: projectId, created_by: userId, title, due_date: dueDate || null, assignee_id: assigneeId || null }).select('id').single();
   throwIfError(error); if (!data) throw new Error('Task could not be created.'); return data.id as string;
 }
-export async function updateSharedTask(id: string, patch: Partial<Pick<SharedTask, 'title' | 'details' | 'status' | 'due_date' | 'estimate_minutes' | 'assignee_id'>>) { const { error } = await getClient().from('shared_project_tasks').update(patch).eq('id', id); throwIfError(error); }
-export async function deleteSharedTask(id: string) { const { error } = await getClient().from('shared_project_tasks').delete().eq('id', id); throwIfError(error); }
+export async function updateSharedTask(id: string, patch: Partial<Pick<SharedTask, 'title' | 'details' | 'status' | 'due_date' | 'estimate_minutes' | 'assignee_id'>>) { const { data, error } = await getClient().from('shared_project_tasks').update(patch).eq('id', id).select('id').maybeSingle(); throwIfError(error); if (!data) throw new Error('The task was not updated. Confirm you still have access to this project and try again.'); }
+export async function deleteSharedTask(id: string) { const { data, error } = await getClient().from('shared_project_tasks').delete().eq('id', id).select('id').maybeSingle(); throwIfError(error); if (!data) throw new Error('The task was not deleted. Confirm your role and try again.'); }
 export async function addSharedDependency(projectId: string, taskId: string, dependsOnTaskId: string, userId: string) { const { error } = await getClient().from('shared_task_dependencies').insert({ project_id: projectId, task_id: taskId, depends_on_task_id: dependsOnTaskId, created_by: userId }); throwIfError(error); }
 export async function removeSharedDependency(projectId: string, taskId: string, dependsOnTaskId: string) { const { error } = await getClient().from('shared_task_dependencies').delete().eq('project_id', projectId).eq('task_id', taskId).eq('depends_on_task_id', dependsOnTaskId); throwIfError(error); }
 export async function fetchSharedProjectOverview(): Promise<{ projects: Array<Pick<SharedProject, 'id' | 'title' | 'status' | 'due_date' | 'updated_at'>>; total: number }> {
@@ -167,6 +167,19 @@ export async function addSharedComment(projectId: string, userId: string, body: 
   throwIfError(error);
   if (!data) throw new Error('Message could not be confirmed.');
   return data as SharedComment;
+}
+export async function fetchSharedCommentsPage(projectId: string, before?: Pick<SharedComment, 'created_at' | 'id'>, pageSize = 50): Promise<{ comments: SharedComment[]; receipts: SharedCommentReceipt[]; hasMore: boolean }> {
+  const db = getClient();
+  let query = db.from('shared_project_comments').select('id,project_id,task_id,author_id,body,mentioned_user_ids,created_at,updated_at').eq('project_id', projectId);
+  if (before) query = query.or(`created_at.lt.${before.created_at},and(created_at.eq.${before.created_at},id.lt.${before.id})`);
+  const { data, error } = await query.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(pageSize + 1);
+  throwIfError(error);
+  const rows = empty(data as SharedComment[] | null);
+  const comments = rows.slice(0, pageSize);
+  const ids = comments.map((comment) => comment.id);
+  const receiptResult = ids.length ? await db.from('shared_project_comment_receipts').select('comment_id,user_id,seen_at').in('comment_id', ids) : { data: [], error: null };
+  throwIfError(receiptResult.error);
+  return { comments, receipts: empty(receiptResult.data as SharedCommentReceipt[] | null), hasMore: rows.length > pageSize };
 }
 export async function addSharedNote(projectId: string, userId: string, noteType: SharedNoteType, title: string, body: string, occurredOn?: string, color: SharedNote['color'] = 'paper', isPinned = false) { const { error } = await getClient().from('shared_project_notes').insert({ project_id: projectId, created_by: userId, note_type: noteType, title, body, occurred_on: occurredOn || null, color, is_pinned: isPinned }); throwIfError(error); }
 export async function updateSharedNote(id: string, patch: Partial<Pick<SharedNote, 'note_type' | 'title' | 'body' | 'occurred_on' | 'color' | 'is_pinned'>>) { const { error } = await getClient().from('shared_project_notes').update(patch).eq('id', id); throwIfError(error); }
@@ -192,6 +205,25 @@ export async function fetchMyPrivateTaskLinks(taskIds: string[]): Promise<Privat
   throwIfError(error); return empty(data as PrivateTaskLink[] | null);
 }
 export async function markSharedNotificationRead(id: string) { const { error } = await getClient().from('shared_project_notifications').update({ read_at: new Date().toISOString() }).eq('id', id); throwIfError(error); }
+export async function markSharedProjectNotificationsRead(projectId: string, userId: string) {
+  const { error } = await getClient().from('shared_project_notifications').update({ read_at: new Date().toISOString() }).eq('project_id', projectId).eq('recipient_id', userId).is('read_at', null);
+  throwIfError(error);
+}
+export async function fetchMyUnreadSharedNotifications(userId: string, limit = 50): Promise<{ notifications: SharedNotification[]; total: number }> {
+  const { data, error, count } = await getClient().from('shared_project_notifications').select('id,project_id,recipient_id,actor_id,kind,payload,read_at,created_at', { count: 'exact' }).eq('recipient_id', userId).in('kind', ['comment.mentioned', 'comment.new_message']).is('read_at', null).order('created_at', { ascending: false }).limit(limit);
+  throwIfError(error);
+  return { notifications: empty(data as SharedNotification[] | null), total: count ?? 0 };
+}
+export function subscribeToSharedNotifications(userId: string, onChange: (notification: SharedNotification) => void): () => void {
+  const db = getClient();
+  const channel = db.channel(`lifeos-shared-notifications:${userId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_notifications', filter: `recipient_id=eq.${userId}` }, (payload) => {
+      const row = payload.new as SharedNotification | undefined;
+      if (row?.id) onChange(row);
+    })
+    .subscribe();
+  return () => { void db.removeChannel(channel); };
+}
 
 export interface AssignedSharedTask extends SharedTask { project_title: string }
 export async function fetchMyAssignedSharedTasks(userId: string): Promise<AssignedSharedTask[]> {

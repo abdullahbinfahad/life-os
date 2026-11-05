@@ -392,5 +392,12 @@ const dictionary: Record<string, string> = {"(optional)":"(선택 사항)","+ Ad
   "View private projects": "비공개 프로젝트 보기",
   "View shared projects": "공유 프로젝트 보기",
   "Sending…": "보내는 중…",
+  "Load older messages": "이전 메시지 불러오기",
+  "Loading older messages…": "이전 메시지 불러오는 중…",
+  "Loading shared messages…": "공유 메시지 불러오는 중…",
+  "Session reflection": "세션 돌아보기",
+  "A short note helps you remember what this session moved forward.": "짧은 메모를 남기면 이번 세션에서 무엇을 진전시켰는지 기억하는 데 도움이 됩니다.",
+  "Only project leads and admins can change project status.": "프로젝트 리더와 관리자만 프로젝트 상태를 변경할 수 있습니다.",
+  "Your private workspace stays hidden until its account data is safely loaded.": "계정 데이터가 안전하게 로드될 때까지 개인 작업 공간은 숨겨집니다.",
 };
 export default dictionary;
