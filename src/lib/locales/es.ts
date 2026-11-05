@@ -392,5 +392,12 @@ const dictionary: Record<string, string> = {"(optional)":"(opcional)","+ Add mil
   "View private projects": "Ver proyectos privados",
   "View shared projects": "Ver proyectos compartidos",
   "Sending…": "Enviando…",
+  "Load older messages": "Cargar mensajes anteriores",
+  "Loading older messages…": "Cargando mensajes anteriores…",
+  "Loading shared messages…": "Cargando mensajes compartidos…",
+  "Session reflection": "Reflexión de la sesión",
+  "A short note helps you remember what this session moved forward.": "Una nota breve te ayuda a recordar qué avanzaste en esta sesión.",
+  "Only project leads and admins can change project status.": "Solo las personas líderes y administradoras pueden cambiar el estado del proyecto.",
+  "Your private workspace stays hidden until its account data is safely loaded.": "Tu espacio privado permanecerá oculto hasta que los datos de tu cuenta se carguen de forma segura.",
 };
 export default dictionary;

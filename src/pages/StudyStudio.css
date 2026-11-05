@@ -285,6 +285,12 @@
   grid-template-columns: minmax(0, 1.35fr) minmax(230px, 0.65fr);
   gap: 1rem;
 }
+.study-focus-wrap--reflecting {
+  grid-template-columns: minmax(0, 1fr);
+}
+.study-focus-wrap--reflecting .study-recent-panel {
+  display: none;
+}
 .study-focus-panel {
   text-align: center;
   padding: clamp(1.2rem, 4vw, 2.3rem);
@@ -359,13 +365,35 @@
 .study-reflection {
   display: grid;
   gap: 0.6rem;
-  max-width: 32rem;
+  width: 100%;
+  max-width: 56rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 1rem auto;
+  text-align: left;
 }
 .study-reflection label {
   display: grid;
+  min-width: 0;
   gap: 0.4rem;
   text-align: left;
+}
+.study-reflection-wide {
+  grid-column: 1 / -1;
+}
+.study-reflection-head {
+  display: grid;
+  justify-items: start;
+  gap: 0.3rem;
+}
+.study-reflection-head h3,
+.study-reflection-head p {
+  margin: 0;
+}
+.study-reflection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
 }
 .study-inline-form {
   display: flex;
@@ -1309,6 +1337,11 @@ html.theme-forest .study-studio .study-welcome {
   background: color-mix(in srgb, var(--study-bg, #0b0d12) 96%, var(--study-cyan) 4%);
   box-shadow: none;
 }
+.study-studio--focus .study-focus-wrap--reflecting .study-focus-panel {
+  min-height: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+}
 .study-studio--focus .study-timepiece {
   width: min(66vw, 21rem);
   filter: none;
@@ -1365,5 +1398,19 @@ html.theme-forest .study-studio .study-welcome {
 @media (max-width: 620px) {
   .study-studio--focus .study-session-context .study-form-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .study-reflection {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.8rem;
+  }
+  .study-reflection-wide {
+    grid-column: auto;
+  }
+  .study-reflection-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .study-reflection-actions button {
+    min-height: 44px;
   }
 }

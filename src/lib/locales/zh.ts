@@ -392,5 +392,12 @@ const dictionary: Record<string, string> = {"(optional)":"（可选）","+ Add m
   "View private projects": "查看私人项目",
   "View shared projects": "查看共享项目",
   "Sending…": "正在发送…",
+  "Load older messages": "加载更早的消息",
+  "Loading older messages…": "正在加载更早的消息…",
+  "Loading shared messages…": "正在加载共享消息…",
+  "Session reflection": "专注回顾",
+  "A short note helps you remember what this session moved forward.": "简短记录有助于记住本次专注推进了什么。",
+  "Only project leads and admins can change project status.": "只有项目负责人和管理员可以更改项目状态。",
+  "Your private workspace stays hidden until its account data is safely loaded.": "在账户数据安全加载完成前，您的私人工作区将保持隐藏。",
 };
 export default dictionary;

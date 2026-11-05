@@ -392,5 +392,12 @@ const dictionary: Record<string, string> = {"(optional)":"(वैकल्पि
   "View private projects": "निजी प्रोजेक्ट देखें",
   "View shared projects": "साझा प्रोजेक्ट देखें",
   "Sending…": "भेजा जा रहा है…",
+  "Load older messages": "पुराने संदेश लोड करें",
+  "Loading older messages…": "पुराने संदेश लोड हो रहे हैं…",
+  "Loading shared messages…": "साझा संदेश लोड हो रहे हैं…",
+  "Session reflection": "सत्र पर विचार",
+  "A short note helps you remember what this session moved forward.": "एक छोटा नोट याद दिलाएगा कि इस सत्र में क्या प्रगति हुई।",
+  "Only project leads and admins can change project status.": "केवल प्रोजेक्ट लीड और एडमिन प्रोजेक्ट की स्थिति बदल सकते हैं।",
+  "Your private workspace stays hidden until its account data is safely loaded.": "आपका निजी कार्यक्षेत्र तब तक छिपा रहेगा जब तक खाते का डेटा सुरक्षित रूप से लोड न हो जाए।",
 };
 export default dictionary;

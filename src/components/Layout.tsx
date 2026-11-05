@@ -17,6 +17,7 @@ import { useOwnerAdmin } from '../lib/admin';
 import { playFeedback } from '../lib/sounds';
 import { DEFAULT_NAVIGATION, NAVIGATION_ICONS, normalizeNavigationItems, upgradeLegacyDefaultNavigation, type NavigationItem } from '../lib/navigation';
 import { StudyFocusWidget } from './study/StudyFocusWidget';
+import SharedMessageAlerts from './SharedMessageAlerts';
 
 function AccountBox() {
   const { user, sync, syncError, guest, setGuest } = useAuth();
@@ -235,6 +236,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       {!isPublicPage && <StudyFocusWidget />}
       <CommandPalette open={palette} onClose={() => setPalette(false)} navigation={navItems} />
       <Toaster />
+      <SharedMessageAlerts />
     </div>
   );
 }

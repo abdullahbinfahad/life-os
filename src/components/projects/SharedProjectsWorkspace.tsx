@@ -1,7 +1,7 @@
 import { translate as tr } from '../../lib/locales';
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { ArrowLeft, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, Pencil, X, Circle, ClipboardList, Copy, Eye, EyeOff, FileText, Flag, GripVertical, Link2, LockKeyhole, MessageCircle, Pin, Plus, RefreshCw, Send, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { useStore } from '../../lib/store';
@@ -9,11 +9,11 @@ import { cloudEnabled } from '../../lib/supabase';
 import { playFeedback } from '../../lib/sounds';
 import { addDays, cx, fmtDate, localeForLanguage, today } from '../../lib/utils';
 import {
-  acceptSharedInvitation, addPrivateTaskLink, addProjectToPortfolio, addSharedComment, addSharedDependency,
+  acceptSharedInvitation, addPrivateTaskLink, addProjectToPortfolio, addSharedComment, addSharedDependency, fetchSharedCommentsPage,
   addSharedNote, createSharedInvitation, createSharedPortfolio, createSharedProject, createSharedTask, markSharedCommentsRead, setSharedCommentReadState, updateSharedNote, updateSharedComment,
   fetchMyPrivateTaskLinks, fetchSharedWorkspace, removePrivateTaskLink,
   removeProjectFromPortfolio, removeSharedDependency, removeSharedMember, revokeSharedInvitation,
-  setSharedMemberRole, sharedServiceError, subscribeToSharedWorkspace, updateSharedProject, updateSharedTask,
+  markSharedProjectNotificationsRead, setSharedMemberRole, sharedServiceError, subscribeToSharedWorkspace, updateSharedProject, updateSharedTask,
   type SharedComment, type SharedCommentReceipt, type SharedMember, type SharedNoteType, type SharedProject,
   type SharedRole, type SharedStatus, type SharedTask, type SharedTaskStatus, type SharedWorkspaceSnapshot,
   type PrivateTaskLink,
@@ -40,12 +40,30 @@ const roleCanWork = (role?: SharedRole) => Boolean(role && ['lead', 'admin', 'me
 
 type Tab = 'tasks' | 'people' | 'discussion' | 'notes' | 'timeline' | 'activity';
 
+function SharedStatusTab({ item, value, count, onChange }: { item: (typeof STATUS)[number]; value: SharedStatus; count: number; onChange: (value: SharedStatus) => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `shared-project-status:${item.id}`, data: { type: 'shared-project-status', status: item.id } });
+  return <button ref={setNodeRef} type="button" role="tab" aria-selected={value === item.id} onClick={() => onChange(item.id)} className={cx('project-status-tab flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition', value === item.id ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 dark:border-white/10 dark:bg-white/[.035] dark:text-slate-200', isOver && 'ring-2 ring-indigo-400 ring-offset-2 dark:ring-offset-[#0b0d12]')}><span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />{tr(item.label)}<span className={cx('rounded-full px-1.5 py-0.5 text-xs tabular-nums', value === item.id ? 'bg-white/15' : 'bg-slate-100 dark:bg-white/10')}>{count}</span></button>;
+}
+
 function StatusRail({ value, counts, onChange }: { value: SharedStatus; counts: Record<SharedStatus, number>; onChange: (value: SharedStatus) => void }) {
   return <div className="project-status-rail" role="tablist" aria-label={tr('Shared project statuses')}>
-    {STATUS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={value === item.id} onClick={() => onChange(item.id)} className={cx('project-status-tab flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition', value === item.id ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 dark:border-white/10 dark:bg-white/[.035] dark:text-slate-200')}><span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />{tr(item.label)}<span className={cx('rounded-full px-1.5 py-0.5 text-xs tabular-nums', value === item.id ? 'bg-white/15' : 'bg-slate-100 dark:bg-white/10')}>{counts[item.id]}</span></button>)}
+    {STATUS.map((item) => <SharedStatusTab key={item.id} item={item} value={value} count={counts[item.id]} onChange={onChange} />)}
   </div>;
 }
 
+function SharedProjectCard({ project, memberCount, taskCount, doneCount, role, canManage, busy, onOpen, onStatusChange }: { project: SharedProject; memberCount: number; taskCount: number; doneCount: number; role: SharedRole; canManage: boolean; busy: boolean; onOpen: () => void; onStatusChange: (status: SharedStatus) => void }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `shared-project:${project.id}`, data: { type: 'shared-project', projectId: project.id }, disabled: !canManage || busy });
+  const dueOver = project.due_date && project.due_date < today() && project.status !== 'done';
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  const completion = taskCount ? Math.round(doneCount / taskCount * 100) : 0;
+  return <article ref={setNodeRef} style={style} role="group" aria-label={`${tr('Shared project')}: ${project.title}`} className={cx('card group min-w-0 p-4 transition hover:border-indigo-300', isDragging && 'z-20 opacity-60 shadow-xl')}>
+    <div className="flex min-w-0 items-start gap-2"><button type="button" className="min-w-0 flex-1 text-left focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={onOpen}><span className="flex min-w-0 items-start gap-2"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS.find((item) => item.id === project.status)?.color }} /><span className="min-w-0 break-words text-[15px] font-semibold">{project.title}</span></span></button><span className="chip shrink-0">{tr(ROLE_LABEL[role])}</span>{canManage && <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag to change project status')} disabled={busy} {...attributes} {...listeners} className="grid h-9 w-9 shrink-0 touch-none place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-indigo-300"><GripVertical size={17} aria-hidden="true" /></button>}</div>
+    {project.description && <p className="mt-2 line-clamp-2 break-words text-sm leading-5 muted">{project.description}</p>}
+    <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5"><span className="chip"><Users size={12} />{memberCount}</span><span className="chip"><ClipboardList size={12} />{doneCount}/{taskCount}</span>{project.due_date && <span className={cx('chip', dueOver && 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300')}><CalendarDays size={12} />{fmtDate(project.due_date)}</span>}</div>
+    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full rounded-full bg-indigo-500 transition-[width]" style={{ width: `${completion}%` }} /></div>
+    <label className="mt-3 block min-w-0"><span className="sr-only">{tr('Project status')}</span><select className="input min-w-0 !py-2 text-sm" aria-label={`${tr('Project status')}: ${project.title}`} value={project.status} disabled={!canManage || busy} title={canManage ? tr('Change project status') : tr('Only project leads and admins can change project status')} onChange={(event) => onStatusChange(event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select></label>
+  </article>;
+}
 function TeamMember({ member, currentUserId, canManage, isLead, onRole, onRemove }: {
   member: SharedMember; currentUserId: string; canManage: boolean; isLead: boolean;
   onRole: (role: SharedRole) => void; onRemove: () => void;
@@ -156,7 +174,7 @@ function PortfolioSection({ snapshot, currentUserId, runAction }: { snapshot: Sh
   </div>;
 }
 
-export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPrivate, initialProjectId }: { onSelectedChange?: (open: boolean) => void; onSwitchToPrivate?: () => void; initialProjectId?: string | null }) {
+export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPrivate, initialProjectId, initialTab }: { onSelectedChange?: (open: boolean) => void; onSwitchToPrivate?: () => void; initialProjectId?: string | null; initialTab?: Tab }) {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -173,7 +191,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const [section, setSection] = useState<'projects' | 'portfolios'>('projects');
   const [filter, setFilter] = useState<SharedStatus>('active');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('tasks');
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'tasks');
   const [taskView, setTaskView] = useState<'list' | 'board' | 'calendar'>('list');
   const [calendarMonth, setCalendarMonth] = useState(today().slice(0, 7));
   const [calendarDate, setCalendarDate] = useState(today());
@@ -186,12 +204,21 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const [inviteUrl, setInviteUrl] = useState('');
   const [newComment, setNewComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
+  const [discussionComments, setDiscussionComments] = useState<SharedComment[]>([]);
+  const [discussionHasMore, setDiscussionHasMore] = useState(false);
+  const [discussionLoading, setDiscussionLoading] = useState(false);
+  const pendingCommentSends = useRef(new Map<string, { body: string; taskId: string | null; startedAt: number }>());
+  const discussionRequestId = useRef(0);
   const [commentTask, setCommentTask] = useState('');
   const [mentionUser, setMentionUser] = useState('');
   const [newNote, setNewNote] = useState({ note_type: 'decision' as SharedNoteType, title: '', body: '', occurred_on: '', color: 'paper' as SharedWorkspaceSnapshot['notes'][number]['color'], is_pinned: false });
   const [projectDraft, setProjectDraft] = useState({ title: '', description: '', status: 'planning' as SharedStatus, due_date: '' });
   const [editingProject, setEditingProject] = useState(false);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 190, tolerance: 8 } }), useSensor(KeyboardSensor));
+  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }), useSensor(KeyboardSensor));
+  const selectedIdRef = useRef<string | null>(null);
+  const tabRef = useRef<Tab>(tab);
+  selectedIdRef.current = selectedId;
+  tabRef.current = tab;
 
   const refresh = useCallback(async (quiet = false) => {
     if (!user?.id) return;
@@ -206,17 +233,6 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     finally { setLoading(false); setRefreshing(false); }
   }, [user?.id, initialProjectId]);
 
-  useEffect(() => {
-    if (!user?.id) { setLoading(false); return; }
-    void refresh();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const unsubscribe = subscribeToSharedWorkspace(user.id, () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => void refresh(true), 250);
-    });
-    return () => { if (timer) clearTimeout(timer); unsubscribe(); };
-  }, [user?.id, refresh]);
-
   const runAction = useCallback(async (action: () => Promise<unknown>) => {
     setBusy(true); setError(''); setNotice('');
     try { await action(); await refresh(true); return true; }
@@ -224,26 +240,84 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     finally { setBusy(false); }
   }, [refresh]);
 
+  const loadDiscussionPage = useCallback(async (projectId: string, before?: Pick<SharedComment, 'created_at' | 'id'>, append = false) => {
+    if (!user?.id) return;
+    const requestId = ++discussionRequestId.current;
+    setDiscussionLoading(true);
+    try {
+      const page = await fetchSharedCommentsPage(projectId, before, 50);
+      if (requestId !== discussionRequestId.current || selectedIdRef.current !== projectId || tabRef.current !== 'discussion') return;
+      setDiscussionComments((current) => {
+        const fetchedForPending = new Set<string>();
+        for (const comment of current) {
+          if (!comment.id.startsWith('optimistic-')) continue;
+          const pending = pendingCommentSends.current.get(comment.id);
+          if (!pending) continue;
+          const persisted = page.comments.find((row) => row.author_id === user?.id && row.body === pending.body && row.task_id === pending.taskId && Date.parse(row.created_at) >= pending.startedAt - 1000);
+          if (persisted) fetchedForPending.add(comment.id);
+        }
+        const pending = current.filter((comment) => comment.id.startsWith('optimistic-') && !fetchedForPending.has(comment.id));
+        const source = [...(append ? current.filter((comment) => !comment.id.startsWith('optimistic-')) : []), ...pending, ...page.comments];
+        const unique = new Map(source.map((comment) => [comment.id, comment]));
+        return [...unique.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      });
+      setDiscussionHasMore(page.hasMore);
+      const ids = new Set(page.comments.map((comment) => comment.id));
+      setSnapshot((current) => ({ ...current, commentReceipts: [...current.commentReceipts.filter((receipt) => !ids.has(receipt.comment_id)), ...page.receipts] }));
+      setError('');
+    } catch (problem) {
+      if (requestId === discussionRequestId.current && selectedIdRef.current === projectId) setError(sharedServiceError(problem));
+    } finally {
+      if (requestId === discussionRequestId.current && selectedIdRef.current === projectId) setDiscussionLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (tab !== 'discussion' || !selectedId) { setDiscussionComments([]); setDiscussionHasMore(false); return; }
+    void loadDiscussionPage(selectedId);
+  }, [tab, selectedId, loadDiscussionPage]);
+
+  useEffect(() => {
+    if (!user?.id) { setLoading(false); return; }
+    void refresh();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = subscribeToSharedWorkspace(user.id, () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void refresh(true);
+        const projectId = selectedIdRef.current;
+        if (projectId && tabRef.current === 'discussion') void loadDiscussionPage(projectId);
+      }, 250);
+    });
+    return () => { if (timer) clearTimeout(timer); unsubscribe(); };
+  }, [user?.id, refresh, loadDiscussionPage]);
+
   const sendComment = async () => {
     const body = newComment.trim();
     if (!body || !canWork || !selected || !user?.id || sendingComment) return;
     const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const now = new Date().toISOString();
+    const startedAt = Date.now();
+    const now = new Date(startedAt).toISOString();
     const optimistic: SharedComment = { id: optimisticId, project_id: selected.id, task_id: commentTask || null, author_id: user.id, body, mentioned_user_ids: mentionUser ? [mentionUser] : [], created_at: now, updated_at: now };
+    pendingCommentSends.current.set(optimisticId, { body, taskId: commentTask || null, startedAt });
     setSendingComment(true); setError(''); setNotice('');
-    setSnapshot((current) => ({ ...current, comments: [...current.comments, optimistic] }));
+    setDiscussionComments((current) => [optimistic, ...current]);
     setNewComment('');
     playFeedback('submit');
     try {
       const saved = await addSharedComment(selected.id, user.id, body, commentTask || undefined, mentionUser ? [mentionUser] : []);
-      setSnapshot((current) => ({ ...current, comments: current.comments.map((comment) => comment.id === optimisticId ? saved : comment) }));
+      setDiscussionComments((current) => {
+        const next = current.filter((comment) => comment.id !== optimisticId && !(comment.author_id === saved.author_id && comment.body === saved.body && comment.task_id === saved.task_id && comment.created_at === saved.created_at));
+        const byId = new Map([...next, saved].map((comment) => [comment.id, comment]));
+        return [...byId.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      });
       setMentionUser('');
     } catch (problem) {
-      setSnapshot((current) => ({ ...current, comments: current.comments.filter((comment) => comment.id !== optimisticId) }));
+      setDiscussionComments((current) => current.filter((comment) => comment.id !== optimisticId));
       setNewComment((current) => current || body);
       setError(sharedServiceError(problem));
       playFeedback('failed');
-    } finally { setSendingComment(false); }
+    } finally { pendingCommentSends.current.delete(optimisticId); setSendingComment(false); }
   };
 
   const acceptInvite = useCallback(async (token: string) => {
@@ -269,13 +343,23 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     if (token) { setJoinToken(token); void acceptInvite(token); }
   }, [location.search, user?.id, acceptInvite]);
 
+  useEffect(() => {
+    if (initialProjectId) setSelectedId(initialProjectId);
+    if (initialTab) setTab(initialTab);
+  }, [initialProjectId, initialTab]);
   const selected = snapshot.projects.find((project) => project.id === selectedId) ?? null;
   useEffect(() => { onSelectedChange?.(Boolean(selected)); }, [selected?.id, onSelectedChange]);
   useEffect(() => {
     if (tab !== 'discussion' || !selected || !user?.id) return;
-    const unread = snapshot.comments.filter((comment) => comment.project_id === selected.id && !snapshot.commentReceipts.some((receipt) => receipt.comment_id === comment.id && receipt.user_id === user.id));
-    if (unread.length) void markSharedCommentsRead(selected.id, user.id, unread).then(() => refresh(true)).catch((problem) => setError(sharedServiceError(problem)));
-  }, [tab, selected?.id, user?.id, snapshot.comments, snapshot.commentReceipts, refresh]);
+    const unread = discussionComments.filter((comment) => comment.author_id !== user.id && !snapshot.commentReceipts.some((receipt) => receipt.comment_id === comment.id && receipt.user_id === user.id));
+    const ids = unread.map((comment) => comment.id);
+    void Promise.all([ids.length ? markSharedCommentsRead(selected.id, user.id, unread) : Promise.resolve(), markSharedProjectNotificationsRead(selected.id, user.id)])
+      .then(() => {
+        const seenAt = new Date().toISOString();
+        setSnapshot((current) => ({ ...current, commentReceipts: [...current.commentReceipts.filter((receipt) => !ids.includes(receipt.comment_id)), ...ids.map((comment_id) => ({ comment_id, user_id: user.id, seen_at: seenAt }))], notifications: current.notifications.map((notification) => notification.project_id === selected.id && notification.kind.startsWith('comment.') ? { ...notification, read_at: notification.read_at ?? seenAt } : notification) }));
+      })
+      .catch((problem) => setError(sharedServiceError(problem)));
+  }, [tab, selected?.id, user?.id, discussionComments, snapshot.commentReceipts]);
   const members = snapshot.members.filter((member) => member.project_id === selected?.id);
   const me = members.find((member) => member.user_id === user?.id);
   const canManage = Boolean(me && ['lead', 'admin'].includes(me.role));
@@ -310,8 +394,8 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     if (!selected) return;
     setProjectDraft({ title: selected.title, description: selected.description, status: selected.status, due_date: selected.due_date ?? '' });
     setEditingProject(false);
-    setTab('tasks'); setInviteUrl('');
-  }, [selected?.id]);
+    setTab(initialProjectId === selected.id && initialTab ? initialTab : 'tasks'); setInviteUrl('');
+  }, [selected?.id, initialProjectId, initialTab]);
 
   const createProject = async (event: FormEvent) => {
     event.preventDefault();
@@ -373,6 +457,32 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
       if (task && task.status !== target) void updateTask(task.id, { status: target });
     }
   };
+  const moveSharedProjectStatus = async (projectId: string, target: SharedStatus) => {
+    const project = snapshot.projects.find((item) => item.id === projectId);
+    const role = snapshot.members.find((member) => member.project_id === projectId && member.user_id === user?.id)?.role;
+    if (!project || project.status === target) return;
+    if (!['lead', 'admin'].includes(role ?? 'viewer')) {
+      setError(tr('Only project leads and admins can change project status.'));
+      return;
+    }
+    setBusy(true); setError('');
+    setSnapshot((current) => ({ ...current, projects: current.projects.map((item) => item.id === projectId ? { ...item, status: target } : item) }));
+    setFilter(target);
+    try {
+      await updateSharedProject(projectId, { status: target });
+      await refresh(true);
+    } catch (problem) {
+      setSnapshot((current) => ({ ...current, projects: current.projects.map((item) => item.id === projectId ? { ...item, status: project.status } : item) }));
+      setFilter(project.status);
+      setError(sharedServiceError(problem));
+    } finally { setBusy(false); }
+  };
+  const onProjectDragEnd = (event: DragEndEvent) => {
+    const active = event.active.data.current;
+    const over = event.over?.data.current as { type?: string; status?: SharedStatus } | undefined;
+    if (active?.type !== 'shared-project' || !active.projectId || over?.type !== 'shared-project-status' || !over.status || !STATUS.some((item) => item.id === over.status)) return;
+    void moveSharedProjectStatus(active.projectId, over.status);
+  };
 
   if (!cloudEnabled || !user) return <div className="card mx-auto max-w-2xl p-6 sm:p-8"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-600"><Users size={24} /></div><h2 className="mt-3 text-center text-lg font-semibold">{tr('Shared projects need an account')}</h2><p className="mx-auto mt-2 max-w-lg text-center text-sm leading-6 muted">{tr('Sign in to your account to collaborate across devices. Guest-mode projects remain private on this device.')}</p></div>;
 
@@ -423,7 +533,27 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
           </div>
         </section>}
 
-        {tab === 'discussion' && <section className="min-w-0 space-y-3"><div className="card min-w-0 overflow-hidden p-0"><div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10"><div><h3 className="flex items-center gap-2 font-semibold"><MessageCircle size={18} className="text-indigo-600 dark:text-indigo-300" />{tr('Project discussion')}</h3><p className="mt-1 text-xs muted">{tr('A shared conversation for project updates, decisions, and task context.')}</p></div><button type="button" className="btn-outline shrink-0" disabled={!snapshot.comments.some((comment) => comment.project_id === selected.id)} onClick={() => void runAction(() => markSharedCommentsRead(selected.id, user.id, snapshot.comments))}><Eye size={15} />{tr('Mark all read')}</button></div><form className="grid min-w-0 gap-2 border-b border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[.02]" onSubmit={(event) => { event.preventDefault(); void sendComment(); }}><label className="min-w-0"><span className="label">{tr('Write a message')}</span><textarea className="input min-h-24 min-w-0 resize-y rounded-2xl" value={newComment} onChange={(event) => setNewComment(event.target.value)} maxLength={10000} disabled={!canWork} placeholder={tr('Share an update with your team…')} required /></label><div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">{<label className="min-w-0"><span className="label">{tr('Attach to task (optional)')}</span><select className="input min-w-0" value={commentTask} onChange={(event) => setCommentTask(event.target.value)} disabled={!canWork}><option value="">{tr('Project discussion')}</option>{projectTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</select></label>}<label className="min-w-0"><span className="label">{tr('Mention a member (optional)')}</span><select className="input min-w-0" value={mentionUser} onChange={(event) => setMentionUser(event.target.value)} disabled={!canWork}><option value="">{tr('No mention')}</option>{members.filter((member) => member.user_id !== user.id).map((member) => <option key={member.user_id} value={member.user_id}>{memberLabel(member.user_id, members, user.id)}</option>)}</select></label><button type="submit" className="btn-primary self-end" disabled={!canWork || sendingComment || !newComment.trim()}><Send size={15} />{tr(sendingComment ? 'Sending…' : 'Send message')}</button></div></form>{sendingComment && <p className="px-4 pt-2 text-xs text-indigo-600 dark:text-indigo-300" role="status">{tr('Sending…')}</p>}<div className="space-y-3 p-3 sm:p-4">{snapshot.comments.filter((comment) => comment.project_id === selected.id).length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center dark:border-white/10"><MessageCircle size={24} className="mx-auto text-indigo-500" /><p className="mt-2 font-medium">{tr('No messages yet')}</p><p className="mt-1 text-sm muted">{tr('Start the conversation with a useful update or question.')}</p></div> : snapshot.comments.filter((comment) => comment.project_id === selected.id).map((comment) => <CommentCard key={comment.id} comment={comment} members={members} currentUserId={user.id} tasks={projectTasks} language={language} receipts={snapshot.commentReceipts} onReadState={(commentId, isRead) => void runAction(() => setSharedCommentReadState(commentId, user.id, isRead))} onEdit={(body) => runAction(() => updateSharedComment(comment.id, body))} />)}</div></div></section>}
+        {tab === 'discussion' && <section className="min-w-0 space-y-3">
+          <div className="card min-w-0 overflow-hidden p-0">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10">
+              <div><h3 className="flex items-center gap-2 font-semibold"><MessageCircle size={18} className="text-indigo-600 dark:text-indigo-300" />{tr('Project discussion')}</h3><p className="mt-1 text-xs muted">{tr('A shared conversation for project updates, decisions, and task context.')}</p></div>
+              <button type="button" className="btn-outline shrink-0" disabled={!discussionComments.some((comment) => !comment.id.startsWith('optimistic-'))} onClick={() => void runAction(async () => { await markSharedCommentsRead(selected.id, user.id, discussionComments.filter((comment) => !comment.id.startsWith('optimistic-'))); await markSharedProjectNotificationsRead(selected.id, user.id); })}><Eye size={15} />{tr('Mark all read')}</button>
+            </div>
+            <form className="grid min-w-0 gap-2 border-b border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[.02]" onSubmit={(event) => { event.preventDefault(); void sendComment(); }}>
+              <label className="min-w-0"><span className="label">{tr('Write a message')}</span><textarea className="input min-h-24 min-w-0 resize-y rounded-2xl" value={newComment} onChange={(event) => setNewComment(event.target.value)} maxLength={10000} disabled={!canWork} placeholder={tr('Share an update with your team…')} required /></label>
+              <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                <label className="min-w-0"><span className="label">{tr('Attach to task (optional)')}</span><select className="input min-w-0" value={commentTask} onChange={(event) => setCommentTask(event.target.value)} disabled={!canWork}><option value="">{tr('Project discussion')}</option>{projectTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</select></label>
+                <label className="min-w-0"><span className="label">{tr('Mention a member (optional)')}</span><select className="input min-w-0" value={mentionUser} onChange={(event) => setMentionUser(event.target.value)} disabled={!canWork}><option value="">{tr('No mention')}</option>{members.filter((member) => member.user_id !== user.id).map((member) => <option key={member.user_id} value={member.user_id}>{memberLabel(member.user_id, members, user.id)}</option>)}</select></label>
+                <button type="submit" className="btn-primary self-end" disabled={!canWork || sendingComment || !newComment.trim()}><Send size={15} />{tr(sendingComment ? 'Sending…' : 'Send message')}</button>
+              </div>
+            </form>
+            {sendingComment && <p className="px-4 pt-2 text-xs text-indigo-600 dark:text-indigo-300" role="status">{tr('Sending…')}</p>}
+            <div className="space-y-3 p-3 sm:p-4">
+              {discussionHasMore && <div className="flex justify-center"><button type="button" className="btn-outline min-h-10" disabled={discussionLoading} onClick={() => { const realComments = discussionComments.filter((comment) => !comment.id.startsWith('optimistic-')); const oldest = realComments[realComments.length - 1]; if (oldest) void loadDiscussionPage(selected.id, { created_at: oldest.created_at, id: oldest.id }, true); }}>{discussionLoading ? tr('Loading older messages…') : tr('Load older messages')}</button></div>}
+              {discussionLoading && discussionComments.length === 0 ? <div className="rounded-xl border border-slate-200 p-6 text-center text-sm muted dark:border-white/10">{tr('Loading shared messages…')}</div> : discussionComments.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center dark:border-white/10"><MessageCircle size={24} className="mx-auto text-indigo-500" /><p className="mt-2 font-medium">{tr('No messages yet')}</p><p className="mt-1 text-sm muted">{tr('Start the conversation with a useful update or question.')}</p></div> : discussionComments.map((comment) => <CommentCard key={comment.id} comment={comment} members={members} currentUserId={user.id} tasks={projectTasks} language={language} receipts={snapshot.commentReceipts} onReadState={(commentId, isRead) => void runAction(() => setSharedCommentReadState(commentId, user.id, isRead))} onEdit={(body) => runAction(() => updateSharedComment(comment.id, body))} />)}
+            </div>
+          </div>
+        </section>}
 
         {tab === 'notes' && <section className="min-w-0 space-y-3"><form className="card grid min-w-0 gap-3 p-4 sm:grid-cols-2 sm:p-5" onSubmit={(event) => { event.preventDefault(); if (!newNote.title.trim()) return; void runAction(() => addSharedNote(selected.id, user.id, newNote.note_type, newNote.title.trim(), newNote.body.trim(), newNote.occurred_on || undefined, newNote.color, newNote.is_pinned)).then(() => setNewNote({ note_type: 'decision', title: '', body: '', occurred_on: '', color: 'paper', is_pinned: false })); }}><div className="sm:col-span-2"><h3 className="flex items-center gap-2 font-semibold"><FileText size={18} className="text-indigo-600 dark:text-indigo-300" />{tr('Notes & decisions')}</h3><p className="mt-1 text-xs muted">{tr('Capture context once so the whole team can find it later.')}</p></div><label className="min-w-0"><span className="label">{tr('Note type')}</span><select className="input min-w-0" value={newNote.note_type} onChange={(event) => setNewNote({ ...newNote, note_type: event.target.value as SharedNoteType })} disabled={!canWork}><option value="decision">{tr('Decision')}</option><option value="meeting">{tr('Meeting notes')}</option><option value="milestone">{tr('Milestone')}</option><option value="sticky">{tr('Sticky note')}</option></select></label><label className="min-w-0"><span className="label">{tr('Date')}</span><input className="input min-w-0" type="date" value={newNote.occurred_on} onChange={(event) => setNewNote({ ...newNote, occurred_on: event.target.value })} disabled={!canWork} /></label><label className="min-w-0 sm:col-span-2"><span className="label">{tr('Title')}</span><input className="input min-w-0" value={newNote.title} onChange={(event) => setNewNote({ ...newNote, title: event.target.value })} maxLength={500} disabled={!canWork} required /></label><label className="min-w-0 sm:col-span-2"><span className="label">{tr('Details')}</span><textarea className="input min-h-24 min-w-0 resize-y" value={newNote.body} onChange={(event) => setNewNote({ ...newNote, body: event.target.value })} maxLength={50000} disabled={!canWork} /></label><label className="min-w-0"><span className="label">{tr('Note color')}</span><select className="input min-w-0" value={newNote.color} onChange={(event) => setNewNote({ ...newNote, color: event.target.value as typeof newNote.color })} disabled={!canWork}><option value="paper">{tr('Paper')}</option><option value="lavender">{tr('Lavender')}</option><option value="mint">{tr('Mint')}</option><option value="sky">{tr('Sky')}</option></select></label><label className="flex min-h-11 items-center gap-2 self-end text-sm"><input type="checkbox" checked={newNote.is_pinned} onChange={(event) => setNewNote({ ...newNote, is_pinned: event.target.checked })} disabled={!canWork} />{tr('Pin note')}</label><div className="sm:col-span-2"><button className="btn-primary" disabled={!canWork || busy}><Plus size={15} />{tr('Add note')}</button></div></form><div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">{projectNotes.map((note) => <NoteCard key={note.id} note={note} canWork={Boolean(canWork)} language={language} onSave={(patch) => runAction(() => updateSharedNote(note.id, patch))} />)}{projectNotes.length === 0 && <p className="card p-5 text-sm muted sm:col-span-2 xl:col-span-3">{tr('Capture decisions, meeting notes, and milestones so collaborators share the same context.')}</p>}</div></section>}
 
@@ -435,16 +565,17 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
       </section>
     ) : (
       <div className="min-w-0 space-y-4">
-        <section className="card min-w-0 p-3 sm:p-4"><div className="mb-3 flex min-w-0 flex-wrap items-end justify-between gap-2"><div className="min-w-0"><h2 className="text-sm font-semibold">{tr('Work view')}</h2><p className="mt-0.5 text-xs muted">{tr('Choose one status. The same shared project is visible to each authorized member.')}</p></div><button type="button" className="btn-primary shrink-0" onClick={() => setCreating(true)}><Plus size={16} />{tr('New shared project')}</button></div><StatusRail value={filter} counts={projectCount} onChange={setFilter} /></section>
-        <div className="card min-w-0 p-3 sm:p-4"><form className="flex min-w-0 flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); void acceptInvite(joinToken); }}><label className="min-w-0 flex-1"><span className="label">{tr('Join with an invitation link or code')}</span><input className="input min-w-0" value={joinToken} onChange={(event) => setJoinToken(event.target.value)} placeholder={tr('Paste the private invitation token')} /></label><button type="submit" className="btn-outline shrink-0" disabled={!joinToken.trim() || busy}><Link2 size={15} />{tr('Join project')}</button></form></div>
-        {filteredProjects.length === 0 ? <div className="card px-5 py-8 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-600"><Users size={24} /></div><h3 className="mt-3 text-base font-semibold">{snapshot.projects.length ? tr(`No ${filter} shared projects`) : tr('No shared projects yet')}</h3><p className="mx-auto mt-1 max-w-lg text-sm leading-6 muted">{tr('Create a team workspace or accept a secure invite. Your personal projects, routines, and account snapshot stay private.')}</p>{!snapshot.projects.length && <button type="button" className="btn-primary mt-4" onClick={() => setCreating(true)}><Plus size={16} />{tr('Create a shared project')}</button>}</div> : <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">{filteredProjects.map((project) => {
-          const projectMembers = snapshot.members.filter((member) => member.project_id === project.id);
-          const tasks = snapshot.tasks.filter((task) => task.project_id === project.id);
-          const done = tasks.filter((task) => task.status === 'done').length;
-          const role = projectMembers.find((member) => member.user_id === user.id)?.role ?? 'viewer';
-          const dueOver = project.due_date && project.due_date < today() && project.status !== 'done';
-          return <button key={project.id} type="button" className="card group min-w-0 p-4 text-left transition hover:-translate-y-0.5 hover:border-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => setSelectedId(project.id)}><div className="flex min-w-0 items-start gap-2"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS.find((item) => item.id === project.status)?.color }} /><h3 className="min-w-0 flex-1 break-words text-[15px] font-semibold">{project.title}</h3><span className="chip shrink-0">{tr(ROLE_LABEL[role])}</span></div>{project.description && <p className="mt-2 line-clamp-2 break-words text-sm leading-5 muted">{project.description}</p>}<div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5"><span className="chip"><Users size={12} />{projectMembers.length}</span><span className="chip"><ClipboardList size={12} />{done}/{tasks.length}</span>{project.due_date && <span className={cx('chip', dueOver && 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300')}><CalendarDays size={12} />{fmtDate(project.due_date)}</span>}</div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full rounded-full bg-indigo-500 transition-[width]" style={{ width: `${tasks.length ? Math.round(done / tasks.length * 100) : 0}%` }} /></div></button>;
-        })}</div>}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onProjectDragEnd}>
+          <section className="card min-w-0 p-3 sm:p-4"><div className="mb-3 flex min-w-0 flex-wrap items-end justify-between gap-2"><div className="min-w-0"><h2 className="text-sm font-semibold">{tr('Work view')}</h2><p className="mt-0.5 text-xs muted">{tr('Choose one status. The same shared project is visible to each authorized member.')}</p><p className="mt-1 text-xs text-indigo-700 dark:text-indigo-300">{tr('Drag a project card to a status or use its status selector.')}</p></div><button type="button" className="btn-primary shrink-0" onClick={() => setCreating(true)}><Plus size={16} />{tr('New shared project')}</button></div><StatusRail value={filter} counts={projectCount} onChange={setFilter} /></section>
+          <div className="card min-w-0 p-3 sm:p-4"><form className="flex min-w-0 flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); void acceptInvite(joinToken); }}><label className="min-w-0 flex-1"><span className="label">{tr('Join with an invitation link or code')}</span><input className="input min-w-0" value={joinToken} onChange={(event) => setJoinToken(event.target.value)} placeholder={tr('Paste the private invitation token')} /></label><button type="submit" className="btn-outline shrink-0" disabled={!joinToken.trim() || busy}><Link2 size={15} />{tr('Join project')}</button></form></div>
+          {filteredProjects.length === 0 ? <div className="card px-5 py-8 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-600"><Users size={24} /></div><h3 className="mt-3 text-base font-semibold">{snapshot.projects.length ? tr(`No ${filter} shared projects`) : tr('No shared projects yet')}</h3><p className="mx-auto mt-1 max-w-lg text-sm leading-6 muted">{tr('Create a team workspace or accept a secure invite. Your personal projects, routines, and account snapshot stay private.')}</p>{!snapshot.projects.length && <button type="button" className="btn-primary mt-4" onClick={() => setCreating(true)}><Plus size={16} />{tr('Create a shared project')}</button>}</div> : <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">{filteredProjects.map((project) => {
+            const projectMembers = snapshot.members.filter((member) => member.project_id === project.id);
+            const tasks = snapshot.tasks.filter((task) => task.project_id === project.id);
+            const done = tasks.filter((task) => task.status === 'done').length;
+            const role = projectMembers.find((member) => member.user_id === user.id)?.role ?? 'viewer';
+            return <SharedProjectCard key={project.id} project={project} memberCount={projectMembers.length} taskCount={tasks.length} doneCount={done} role={role} canManage={role === 'lead' || role === 'admin'} busy={busy} onOpen={() => setSelectedId(project.id)} onStatusChange={(status) => void moveSharedProjectStatus(project.id, status)} />;
+          })}</div>}
+        </DndContext>
       </div>
     )}
 

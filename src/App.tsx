@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { APP_NAME, LoadingLogo } from './components/Brand';
 import Layout from './components/Layout';
-import { useAuth } from './lib/auth';
+import { syncNow, useAuth } from './lib/auth';
 import { cloudEnabled } from './lib/supabase';
 import { useStore } from './lib/store';
 import { preloadAppLanguage, type AppLanguage } from './lib/locales';
@@ -44,13 +44,18 @@ function RouteFallback() {
 }
 
 function PrivateRoutes() {
-  const { ready, session, guest, recovery } = useAuth();
+  const { ready, session, guest, recovery, sync, syncError, cloudHydrated } = useAuth();
   if (cloudEnabled) {
     if (!ready) return <LoadingStage message="Restoring your secure session…" fullscreen />;
     if (recovery && session) return <Suspense fallback={<RouteFallback />}><SetNewPassword /></Suspense>;
     if (!session && !guest) return <Suspense fallback={<RouteFallback />}><AuthPage /></Suspense>;
+    if (session && !cloudHydrated) {
+      if (sync !== 'error') return <LoadingStage message={tr('Loading your secure workspace…')} fullscreen />;
+      return <main className="loading-stage loading-stage-full"><section className="loading-card w-full max-w-lg p-6 text-center"><LoadingLogo size={54} /><h1 className="mt-4 text-lg font-semibold">{tr('Your account data has not finished loading')}</h1><p className="mt-2 break-words text-sm muted">{syncError || tr('The secure cloud read failed. Your device has not uploaded over your account.')}</p><p className="mt-2 text-xs muted">{tr('Your private workspace stays hidden until its account data is safely loaded.')}</p><button type="button" className="btn-primary mt-4" onClick={() => void syncNow()}>{tr('Retry secure load')}</button></section></main>;
+    }
   }
-  return <Suspense fallback={<RouteFallback />}><Layout><Routes>
+  return <Suspense fallback={<RouteFallback />}><Layout>
+    <Routes>
     <Route path="/" element={<Overview />} />
     <Route path="/today" element={<Today />} />
     <Route path="/library" element={<Library />} />
