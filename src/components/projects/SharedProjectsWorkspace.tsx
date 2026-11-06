@@ -13,7 +13,7 @@ import {
   addSharedNote, createSharedInvitation, createSharedPortfolio, createSharedProject, createSharedTask, markSharedCommentsRead, setSharedCommentReadState, updateSharedNote, updateSharedComment,
   fetchMyPrivateTaskLinks, fetchSharedWorkspace, removePrivateTaskLink,
   removeProjectFromPortfolio, removeSharedDependency, removeSharedMember, revokeSharedInvitation,
-  markSharedProjectNotificationsRead, setSharedMemberRole, sharedServiceError, subscribeToSharedWorkspace, updateSharedProject, updateSharedTask,
+  claimSharedProjectAdmin, markSharedProjectNotificationsRead, setSharedMemberRole, sharedServiceError, subscribeToSharedWorkspace, updateSharedProject, updateSharedProjectStatus, updateSharedTask,
   type SharedComment, type SharedCommentReceipt, type SharedMember, type SharedNoteType, type SharedProject,
   type SharedRole, type SharedStatus, type SharedTask, type SharedTaskStatus, type SharedWorkspaceSnapshot,
   type PrivateTaskLink,
@@ -37,6 +37,7 @@ const memberLabel = (id: string | null | undefined, members: SharedMember[], cur
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'M';
 const NOTE_TONES = { paper: 'bg-amber-50/90 dark:bg-amber-500/[.08]', lavender: 'bg-violet-50/90 dark:bg-violet-500/[.08]', mint: 'bg-emerald-50/90 dark:bg-emerald-500/[.08]', sky: 'bg-sky-50/90 dark:bg-sky-500/[.08]' } as const;
 const roleCanWork = (role?: SharedRole) => Boolean(role && ['lead', 'admin', 'member', 'guest'].includes(role));
+const mayChangeProjectStatus = (role?: SharedRole, hasAdmin = false) => Boolean(role && (['lead', 'admin'].includes(role) || (role === 'member' && !hasAdmin)));
 
 type Tab = 'tasks' | 'people' | 'discussion' | 'notes' | 'timeline' | 'activity';
 
@@ -51,17 +52,18 @@ function StatusRail({ value, counts, onChange }: { value: SharedStatus; counts: 
   </div>;
 }
 
-function SharedProjectCard({ project, memberCount, taskCount, doneCount, role, canManage, busy, onOpen, onStatusChange }: { project: SharedProject; memberCount: number; taskCount: number; doneCount: number; role: SharedRole; canManage: boolean; busy: boolean; onOpen: () => void; onStatusChange: (status: SharedStatus) => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `shared-project:${project.id}`, data: { type: 'shared-project', projectId: project.id }, disabled: !canManage || busy });
+function SharedProjectCard({ project, memberCount, taskCount, doneCount, role, canChangeStatus, canClaimAdmin, busy, onOpen, onStatusChange, onClaimAdmin }: { project: SharedProject; memberCount: number; taskCount: number; doneCount: number; role: SharedRole; canChangeStatus: boolean; canClaimAdmin: boolean; busy: boolean; onOpen: () => void; onStatusChange: (status: SharedStatus) => void; onClaimAdmin: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `shared-project:${project.id}`, data: { type: 'shared-project', projectId: project.id }, disabled: !canChangeStatus || busy });
   const dueOver = project.due_date && project.due_date < today() && project.status !== 'done';
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const completion = taskCount ? Math.round(doneCount / taskCount * 100) : 0;
   return <article ref={setNodeRef} style={style} role="group" aria-label={`${tr('Shared project')}: ${project.title}`} className={cx('card group min-w-0 p-4 transition hover:border-indigo-300', isDragging && 'z-20 opacity-60 shadow-xl')}>
-    <div className="flex min-w-0 items-start gap-2"><button type="button" className="min-w-0 flex-1 text-left focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={onOpen}><span className="flex min-w-0 items-start gap-2"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS.find((item) => item.id === project.status)?.color }} /><span className="min-w-0 break-words text-[15px] font-semibold">{project.title}</span></span></button><span className="chip shrink-0">{tr(ROLE_LABEL[role])}</span>{canManage && <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag to change project status')} disabled={busy} {...attributes} {...listeners} className="grid h-9 w-9 shrink-0 touch-none place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-indigo-300"><GripVertical size={17} aria-hidden="true" /></button>}</div>
+    <div className="flex min-w-0 items-start gap-2"><button type="button" className="min-w-0 flex-1 text-left focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={onOpen}><span className="flex min-w-0 items-start gap-2"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS.find((item) => item.id === project.status)?.color }} /><span className="min-w-0 break-words text-[15px] font-semibold">{project.title}</span></span></button><span className="chip shrink-0">{tr(ROLE_LABEL[role])}</span>{canChangeStatus && <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag to change project status')} disabled={busy} {...attributes} {...listeners} className="grid h-9 w-9 shrink-0 touch-none place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-indigo-300"><GripVertical size={17} aria-hidden="true" /></button>}</div>
     {project.description && <p className="mt-2 line-clamp-2 break-words text-sm leading-5 muted">{project.description}</p>}
     <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5"><span className="chip"><Users size={12} />{memberCount}</span><span className="chip"><ClipboardList size={12} />{doneCount}/{taskCount}</span>{project.due_date && <span className={cx('chip', dueOver && 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300')}><CalendarDays size={12} />{fmtDate(project.due_date)}</span>}</div>
     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full rounded-full bg-indigo-500 transition-[width]" style={{ width: `${completion}%` }} /></div>
-    <label className="mt-3 block min-w-0"><span className="sr-only">{tr('Project status')}</span><select className="input min-w-0 !py-2 text-sm" aria-label={`${tr('Project status')}: ${project.title}`} value={project.status} disabled={!canManage || busy} title={canManage ? tr('Change project status') : tr('Only project leads and admins can change project status')} onChange={(event) => onStatusChange(event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select></label>
+    <label className="mt-3 block min-w-0"><span className="sr-only">{tr('Project status')}</span><select className="input min-w-0 !py-2 text-sm" aria-label={`${tr('Project status')}: ${project.title}`} value={project.status} disabled={!canChangeStatus || busy} title={canChangeStatus ? tr('Change project status') : tr('Only project leads and admins can change project status')} onChange={(event) => onStatusChange(event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select></label>
+    {canClaimAdmin && <button type="button" className="btn-outline mt-2 w-full justify-center" title={tr('No admin is assigned. Project members can claim the admin role.')} disabled={busy} onClick={onClaimAdmin}><ShieldCheck size={15} />{tr('Become admin')}</button>}
   </article>;
 }
 function TeamMember({ member, currentUserId, canManage, isLead, onRole, onRemove }: {
@@ -364,6 +366,9 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const me = members.find((member) => member.user_id === user?.id);
   const canManage = Boolean(me && ['lead', 'admin'].includes(me.role));
   const canWork = roleCanWork(me?.role);
+  const hasAdmin = members.some((member) => member.role === 'admin');
+  const canChangeStatus = mayChangeProjectStatus(me?.role, hasAdmin);
+  const canClaimAdmin = Boolean(me?.role === 'member' && !hasAdmin);
   const hasManagers = members.some((member) => member.role === 'lead' || member.role === 'admin');
   const canInvite = Boolean(me && (canManage || (!hasManagers && me.role !== 'viewer')));
   const projectTasks = snapshot.tasks.filter((task) => task.project_id === selected?.id);
@@ -440,6 +445,11 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     });
     if (saved) { setProjectDraft(draft); setEditingProject(false); }
   };
+  const claimProjectAdmin = async (projectId = selected?.id) => {
+    if (!projectId) return;
+    const claimed = await runAction(() => claimSharedProjectAdmin(projectId));
+    if (claimed) setNotice(tr('Your project role is now Admin.'));
+  };
 
   const updateTask = async (taskId: string, patch: Partial<SharedTask>) => {
     const task = snapshot.tasks.find((row) => row.id === taskId);
@@ -460,8 +470,9 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const moveSharedProjectStatus = async (projectId: string, target: SharedStatus) => {
     const project = snapshot.projects.find((item) => item.id === projectId);
     const role = snapshot.members.find((member) => member.project_id === projectId && member.user_id === user?.id)?.role;
+    const hasAdmin = snapshot.members.some((member) => member.project_id === projectId && member.role === 'admin');
     if (!project || project.status === target) return;
-    if (!['lead', 'admin'].includes(role ?? 'viewer')) {
+    if (!mayChangeProjectStatus(role, hasAdmin)) {
       setError(tr('Only project leads and admins can change project status.'));
       return;
     }
@@ -469,7 +480,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     setSnapshot((current) => ({ ...current, projects: current.projects.map((item) => item.id === projectId ? { ...item, status: target } : item) }));
     setFilter(target);
     try {
-      await updateSharedProject(projectId, { status: target });
+      await updateSharedProjectStatus(projectId, target);
       await refresh(true);
     } catch (problem) {
       setSnapshot((current) => ({ ...current, projects: current.projects.map((item) => item.id === projectId ? { ...item, status: project.status } : item) }));
@@ -506,6 +517,10 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
           <div className="relative">
           {canManage && editingProject ? <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(140px,1fr)_minmax(140px,1fr)]"><label className="min-w-0 sm:col-span-3"><span className="label">{tr('Project title')}</span><input className="input min-w-0" value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} maxLength={200} /></label><label className="min-w-0 sm:col-span-3"><span className="label">{tr('Description')}</span><textarea className="input min-h-32 min-w-0 resize-y leading-6" value={projectDraft.description} onChange={(event) => setProjectDraft({ ...projectDraft, description: event.target.value })} maxLength={20000} /></label><label className="min-w-0"><span className="label">{tr('Status')}</span><select className="input min-w-0" value={projectDraft.status} onChange={(event) => setProjectDraft({ ...projectDraft, status: event.target.value as SharedStatus })}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select></label><label className="min-w-0"><span className="label">{tr('Due date')}</span><input className="input min-w-0" type="date" value={projectDraft.due_date} onChange={(event) => setProjectDraft({ ...projectDraft, due_date: event.target.value })} /></label><div className="flex items-end"><div className="flex flex-wrap items-end gap-2"><button type="button" className="btn-primary" disabled={busy} onClick={() => void saveProjectEdit()}><Check size={16} />{tr('Save project')}</button><button type="button" className="btn-outline" onClick={() => { setProjectDraft({ title: selected.title, description: selected.description, status: selected.status, due_date: selected.due_date ?? '' }); setEditingProject(false); }}>{tr('Cancel')}</button></div></div></div> : <><div className="flex min-w-0 items-start justify-between gap-3"><h2 className="break-words text-lg font-semibold">{selected.title}</h2>{canManage && <button type="button" className="btn-outline shrink-0" onClick={() => setEditingProject(true)}><Pencil size={15} />{tr('Edit project')}</button>}</div>{selected.description && <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 muted">{selected.description}</p>}<div className="mt-3 flex flex-wrap gap-2"><span className="chip"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS.find((item) => item.id === selected.status)?.color ?? "#64748b" }} />{tr(STATUS.find((item) => item.id === selected.status)?.label ?? selected.status)}</span>{selected.due_date && <span className="chip"><CalendarDays size={12} />{fmtDate(selected.due_date)}</span>}</div></>}
           </div>
+          {(canChangeStatus && !canManage || canClaimAdmin) && <div className="relative z-10 mt-4 flex min-w-0 flex-col gap-3 border-t border-indigo-200/70 pt-4 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between">
+            {canChangeStatus && !canManage && <div className="min-w-0 flex-1"><label className="block max-w-xs"><span className="label">{tr('Project status')}</span><select className="input min-w-0" value={selected.status} disabled={busy} onChange={(event) => void moveSharedProjectStatus(selected.id, event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select></label><p className="mt-1 text-xs muted">{tr('Members may change the project status while no admin is assigned.')}</p></div>}
+            {canClaimAdmin && <div className="min-w-0"><p className="text-sm font-medium">{tr('No admin is assigned. Project members can claim the admin role.')}</p><button type="button" className="btn-outline mt-2" disabled={busy} onClick={() => void claimProjectAdmin(selected.id)}><ShieldCheck size={15} />{tr('Become admin')}</button></div>}
+          </div>}
         </div>
         <section className="card grid min-w-0 gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-4" aria-label={tr('Project progress')}>
           <div className="min-w-0"><div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">{tr('Project progress')}</h3><span className="text-xs tabular-nums muted">{completedTaskCount}/{projectTasks.length} {tr('Completed')} · {taskProgress}%</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10" role="progressbar" aria-label={tr('Project progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={taskProgress}><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-500" style={{ width: `${taskProgress}%` }} /></div></div>
@@ -573,7 +588,10 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
             const tasks = snapshot.tasks.filter((task) => task.project_id === project.id);
             const done = tasks.filter((task) => task.status === 'done').length;
             const role = projectMembers.find((member) => member.user_id === user.id)?.role ?? 'viewer';
-            return <SharedProjectCard key={project.id} project={project} memberCount={projectMembers.length} taskCount={tasks.length} doneCount={done} role={role} canManage={role === 'lead' || role === 'admin'} busy={busy} onOpen={() => setSelectedId(project.id)} onStatusChange={(status) => void moveSharedProjectStatus(project.id, status)} />;
+            const hasAdmin = projectMembers.some((member) => member.role === 'admin');
+            const canChangeStatus = mayChangeProjectStatus(role, hasAdmin);
+            const canClaimAdmin = role === 'member' && !hasAdmin;
+            return <SharedProjectCard key={project.id} project={project} memberCount={projectMembers.length} taskCount={tasks.length} doneCount={done} role={role} canChangeStatus={canChangeStatus} canClaimAdmin={canClaimAdmin} busy={busy} onOpen={() => setSelectedId(project.id)} onStatusChange={(status) => void moveSharedProjectStatus(project.id, status)} onClaimAdmin={() => void claimProjectAdmin(project.id)} />;
           })}</div>}
         </DndContext>
       </div>
