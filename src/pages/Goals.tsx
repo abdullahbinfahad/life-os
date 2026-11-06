@@ -11,7 +11,15 @@ import { cx, daysBetween, fmtDate, pct, today, uid } from '../lib/utils';
 
 function SortableRow({ id, children, card = false, goalId }: { id: string; children: React.ReactNode; card?: boolean; goalId?: string }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, data: { goalId } });
-  return <div ref={setNodeRef} {...attributes} {...listeners} role="group" tabIndex={0} aria-label={tr(card ? 'Reorder goal' : 'Reorder milestone')} aria-roledescription={tr('Draggable card; press and hold to move')} style={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'pan-y' }} className={cx(card ? 'card relative p-5' : 'group flex items-center gap-2 rounded text-sm', 'cursor-grab active:cursor-grabbing', isDragging && 'z-10 bg-indigo-500/10 ring-2 ring-indigo-400')}>
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('input, textarea, select, button, [contenteditable="true"]')) {
+      event.stopPropagation();
+      return;
+    }
+    listeners?.onKeyDown?.(event);
+  };
+  return <div ref={setNodeRef} {...attributes} {...listeners} onKeyDown={handleKeyDown} role="group" tabIndex={0} aria-label={tr(card ? 'Reorder goal' : 'Reorder milestone')} aria-roledescription={tr('Draggable card; press and hold to move')} style={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'pan-y' }} className={cx(card ? 'card relative p-5' : 'group flex items-center gap-2 rounded text-sm', 'cursor-grab active:cursor-grabbing', isDragging && 'z-10 bg-indigo-500/10 ring-2 ring-indigo-400')}>
     {children}
   </div>;
 }

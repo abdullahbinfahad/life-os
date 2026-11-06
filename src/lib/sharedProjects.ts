@@ -60,10 +60,18 @@ export function sharedServiceError(error: unknown): string {
   const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error);
   if (/could not embed because more than one relationship was found/i.test(message))
     return 'Could not load shared tasks. Please try again.';
+  if (/A project admin is assigned; ask an admin to change project status/i.test(message))
+    return 'A project admin was assigned while you were changing status. Refresh the workspace or ask the admin to change it.';
+  if (/A project admin is already assigned/i.test(message))
+    return 'A project admin was assigned while you were claiming the role. Refresh the workspace and try again.';
+  if (/Only a current project member can claim admin/i.test(message))
+    return 'Only a current project member can claim admin; guests and viewers cannot.';
   if (/row-level security|permission denied|not allowed|42501/i.test(message)) {
     if (/portfolio|shared_portfolio_projects/i.test(message)) return 'Only a portfolio lead or admin who is also a member of the shared project can add or remove that project. Portfolio links never grant project access.';
     return 'The server denied this collaboration action. Check your project membership and role; the app does not bypass database permissions.';
   }
+  if (/PGRST202|PGRST205|42P01|42703|42883|schema cache|could not find the table|could not find the function|does not exist/i.test(message) && /shared_update_project_status|shared_claim_project_admin/i.test(message))
+    return 'The shared-project status/admin fallback is not installed in this Supabase project yet. Apply the new fallback SQL, then refresh.';
   if (/PGRST202|PGRST205|42P01|42703|42883|schema cache|could not find the table|could not find the function|does not exist/i.test(message))
     return 'Shared workspace setup is incomplete. Run supabase/migrations/20261023_shared_projects.sql, then supabase/migrations/20261024_shared_workspace_upgrade.sql in the same Supabase project used by this app.';
   if (/23505|duplicate key|already exists/i.test(message)) return 'That item is already linked or already exists. Refresh the workspace and try again.';
@@ -147,6 +155,8 @@ export async function revokeSharedInvitation(id: string) { const { error } = awa
 export async function setSharedMemberRole(projectId: string, userId: string, role: SharedRole) { const { error } = await getClient().rpc('shared_set_project_member_role', { p_project_id: projectId, p_user_id: userId, p_role: role }); throwIfError(error); }
 export async function removeSharedMember(projectId: string, userId: string) { const { error } = await getClient().rpc('shared_remove_project_member', { p_project_id: projectId, p_user_id: userId }); throwIfError(error); }
 export async function updateSharedProject(id: string, patch: Partial<Pick<SharedProject, 'title' | 'description' | 'status' | 'due_date'>>) { const { data, error } = await getClient().from('shared_projects').update(patch).eq('id', id).select('id').maybeSingle(); throwIfError(error); if (!data) throw new Error('Project status or details were not saved. Confirm you still have a lead/admin role and try again.'); }
+export async function updateSharedProjectStatus(projectId: string, status: SharedStatus) { const { error } = await getClient().rpc('shared_update_project_status', { p_project_id: projectId, p_status: status }); throwIfError(error); }
+export async function claimSharedProjectAdmin(projectId: string) { const { error } = await getClient().rpc('shared_claim_project_admin', { p_project_id: projectId }); throwIfError(error); }
 export async function deleteSharedProject(id: string) { const { data, error } = await getClient().from('shared_projects').delete().eq('id', id).select('id').maybeSingle(); throwIfError(error); if (!data) throw new Error('The project was not deleted. Confirm your role and try again.'); }
 export async function createSharedTask(projectId: string, userId: string, title: string, dueDate?: string, assigneeId?: string) {
   const { data, error } = await getClient().from('shared_project_tasks').insert({ project_id: projectId, created_by: userId, title, due_date: dueDate || null, assignee_id: assigneeId || null }).select('id').single();
