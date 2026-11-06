@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@electron-forge/cli": "8.0.1",
+    "@electron-forge/maker-squirrel": "8.0.1",
     "@electron-forge/maker-zip": "8.0.1",
     "electron": "45.2.1"
   }

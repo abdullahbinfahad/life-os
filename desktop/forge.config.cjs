@@ -13,6 +13,12 @@ module.exports = {
   },
   makers: [
     {
+      name: '@electron-forge/maker-squirrel',
+      config: {
+        name: 'lifeos',
+      },
+    },
+    {
       name: '@electron-forge/maker-zip',
       config: {},
     },
