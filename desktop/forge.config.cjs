@@ -16,6 +16,7 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         name: 'lifeos',
+        authors: 'Life OS',
       },
     },
     {
