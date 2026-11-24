@@ -7,6 +7,7 @@ import { cx, today, uid } from '../lib/utils';
 import QuickAdd from './QuickAdd';
 import type { PlannerProposal } from './PlanningAssistant';
 import { prefetchLikelyRoutes, prefetchRoute } from '../lib/routeModules';
+import { installDelight } from '../lib/delight';
 import { APP_NAME, Logo } from './Brand';
 import Toaster from './Toaster';
 import { RouteSkeleton } from './ui';
@@ -77,6 +78,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [palette, setPalette] = useState(false);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
   useEffect(() => { if (palette) setPaletteLoaded(true); }, [palette]);
+  useEffect(() => installDelight(), []);
   useEffect(() => prefetchLikelyRoutes(['/today', '/projects', '/habits', '/library', '/goals', '/journal', '/calendar']), []);
   const [navItems, setNavItems] = useState<NavigationItem[]>(() => DEFAULT_NAVIGATION.map(({ to, label, icon, visible }) => ({ to, label, icon, visible })));
   const loc = useLocation();

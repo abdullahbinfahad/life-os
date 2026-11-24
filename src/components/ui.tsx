@@ -1,16 +1,33 @@
 import { translate as tr } from '../lib/locales';
-import { X } from 'lucide-react';
+import { Trash2, X, type LucideIcon } from 'lucide-react';
 import { ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { cx } from '../lib/utils';
+import { useLocation } from 'react-router-dom';
+import { DEFAULT_NAVIGATION, NAVIGATION_ICONS } from '../lib/navigation';
 import type { Category } from '../lib/types';
 import { playFeedback } from '../lib/sounds';
 
+/** Each page gets its own accent hue so sections feel distinct but related. */
+const PAGE_HUES: Record<string, number> = {
+  '/': 245, '/today': 32, '/habits': 152, '/library': 205, '/goals': 280, '/projects': 225, '/productivity': 12,
+  '/notifications': 45, '/calendar': 190, '/insights': 265, '/journal': 330, '/albums': 300, '/settings': 220, '/trash': 0,
+};
+
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
+  const { pathname } = useLocation();
+  const route = `/${pathname.split('/').filter(Boolean)[0] ?? ''}`;
+  const nav = DEFAULT_NAVIGATION.find((item) => item.to === route);
+  const EXTRA_ICONS: Record<string, LucideIcon> = { '/trash': Trash2 };
+  const Icon = nav ? NAVIGATION_ICONS[nav.icon] : EXTRA_ICONS[route];
+  const hue = PAGE_HUES[route] ?? 245;
   return (
-    <div className="mb-6 flex min-w-0 flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <h1 className="page-title break-words text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
-        {subtitle && <p className="mt-1 muted">{subtitle}</p>}
+    <div className="page-header mb-6 flex min-w-0 flex-wrap items-end justify-between gap-4" style={{ ['--page-hue' as string]: hue }}>
+      <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-4">
+        {Icon && <span className="page-header-icon" aria-hidden="true"><Icon size={22} strokeWidth={2.2} /></span>}
+        <div className="min-w-0 flex-1">
+          <h1 className="page-title break-words text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
+          {subtitle && <p className="mt-1 muted">{subtitle}</p>}
+        </div>
       </div>
       {actions && <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}</div>}
     </div>

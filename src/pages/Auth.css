@@ -1,0 +1,42 @@
+.auth-shell { position: relative; isolation: isolate; display: grid; min-height: 100dvh; overflow: hidden; }
+@media (min-width: 1024px) { .auth-shell { grid-template-columns: minmax(0, 1.05fr) minmax(26rem, .95fr); } }
+.auth-bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.auth-bg span { position: absolute; border-radius: 9999px; filter: blur(70px); opacity: .55; }
+.auth-bg span:nth-child(1) { width: 32rem; height: 32rem; left: -8rem; top: -8rem; background: #6d28d9; }
+.auth-bg span:nth-child(2) { width: 26rem; height: 26rem; right: -6rem; bottom: -8rem; background: #0891b2; }
+html:not(.dark) .auth-bg span { opacity: .22; }
+@media (prefers-reduced-motion: no-preference) {
+  .auth-bg span:nth-child(1) { animation: auth-drift 18s ease-in-out infinite alternate; }
+  .auth-bg span:nth-child(2) { animation: auth-drift 22s ease-in-out infinite alternate-reverse; }
+}
+@keyframes auth-drift { to { transform: translate3d(4rem, 3rem, 0) scale(1.15); } }
+
+.auth-showcase { display: none; position: relative; flex-direction: column; justify-content: center; gap: 1.75rem; padding: 4rem clamp(2rem, 5vw, 5rem); color: #f8fafc; }
+@media (min-width: 1024px) { .auth-showcase { display: flex; background: linear-gradient(160deg, rgba(30,27,75,.92), rgba(15,23,42,.88)); border-right: 1px solid rgba(255,255,255,.08); } }
+.auth-showcase-title { max-width: 30rem; font-size: clamp(2rem, 3.2vw, 2.9rem); line-height: 1.1; font-weight: 800; letter-spacing: -.03em; background: linear-gradient(120deg, #fff 40%, #a5b4fc); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.auth-features { display: grid; gap: .8rem; max-width: 26rem; }
+.auth-features li { display: flex; align-items: center; gap: .75rem; color: rgba(241,245,249,.85); }
+.auth-features svg { flex: none; padding: .4rem; width: 2rem; height: 2rem; border-radius: .7rem; background: rgba(129,140,248,.18); color: #c7d2fe; }
+@media (prefers-reduced-motion: no-preference) {
+  .auth-features li { animation: auth-in .6s cubic-bezier(.22,1,.36,1) backwards; }
+  .auth-features li:nth-child(2) { animation-delay: .08s; } .auth-features li:nth-child(3) { animation-delay: .16s; } .auth-features li:nth-child(4) { animation-delay: .24s; }
+}
+@keyframes auth-in { from { opacity: 0; transform: translateX(-12px); } }
+.auth-float-cards { position: relative; height: 12rem; max-width: 30rem; }
+.auth-float { position: absolute; display: flex; align-items: center; gap: .75rem; padding: .8rem 1rem; border-radius: 1.1rem; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 18px 40px rgba(0,0,0,.25); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.auth-float b { display: block; font-size: .9rem; } .auth-float small { font-size: .75rem; opacity: .7; }
+.auth-float-1 { left: 0; top: 0; } .auth-float-2 { right: 0; top: 3.5rem; } .auth-float-3 { left: 3rem; bottom: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .auth-float-1 { animation: float-y 6s ease-in-out infinite; }
+  .auth-float-2 { animation: float-y 7s ease-in-out infinite -2s; }
+  .auth-float-3 { animation: float-y 6.5s ease-in-out infinite -4s; }
+}
+.auth-ring { position: relative; width: 2.2rem; height: 2.2rem; border-radius: 9999px; background: conic-gradient(#818cf8 0 33%, rgba(255,255,255,.15) 33% 100%); }
+.auth-ring i { position: absolute; inset: 5px; border-radius: inherit; background: #1e1b4b; }
+
+.auth-panel { display: flex; flex-direction: column; justify-content: center; width: 100%; max-width: 30rem; margin: 0 auto; padding: max(2.5rem, env(safe-area-inset-top)) 1rem max(2.5rem, env(safe-area-inset-bottom)); }
+@media (prefers-reduced-motion: no-preference) { .auth-panel { animation: auth-up .55s cubic-bezier(.22,1,.36,1) backwards; } }
+@keyframes auth-up { from { opacity: 0; transform: translateY(16px); } }
+.auth-card { border-radius: 1.5rem; box-shadow: 0 30px 70px rgba(2,6,23,.22) !important; }
+.auth-tab.is-active { color: var(--accent, #635bff); }
+html.dark .auth-tab.is-active { color: #e0e7ff; }

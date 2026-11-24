@@ -2,7 +2,8 @@ import { translate as tr } from '../lib/locales';
 import { Activity, Crown, Database, Globe2, HardDrive, RefreshCw, ShieldCheck, Smartphone, Wifi } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { useOwnerAdmin } from '../lib/admin';
+import { useOwnerAdminStatus } from '../lib/admin';
+import { RouteSkeleton } from '../components/ui';
 import { supabase } from '../lib/supabase';
 import { localeForLanguage } from '../lib/utils';
 import { useStore } from '../lib/store';
@@ -46,12 +47,13 @@ function accountListError(error: unknown): string {
 }
 
 function Stat({ label, value, detail, icon: Icon }: { label: string; value: string; detail: string; icon: typeof Activity }) {
-  return <section className="card min-w-0 p-4 sm:p-5"><div className="flex items-center justify-between gap-3"><span className="text-sm muted">{label}</span><Icon size={17} className="shrink-0 text-emerald-500" /></div><div className="mt-3 break-words text-xl font-semibold tracking-tight sm:text-2xl">{value}</div><p className="mt-1 break-words text-xs muted">{detail}</p></section>;
+  return <section className="stat-card card min-w-0 p-4 sm:p-5" style={{ ['--stat-color' as string]: '#10b981' }}><div className="flex items-center justify-between gap-3"><span className="text-sm muted">{label}</span><Icon size={17} className="shrink-0 text-emerald-500" /></div><div className="mt-3 break-words text-xl font-semibold tracking-tight sm:text-2xl">{value}</div><p className="mt-1 break-words text-xs muted">{detail}</p></section>;
 }
 
 export default function AdminConsole() {
   const { user, sync, lastSynced } = useAuth();
-  const ownerAdmin = useOwnerAdmin();
+  const ownerStatus = useOwnerAdminStatus();
+  const ownerAdmin = ownerStatus === 'owner';
   const store = useStore();
   const [report, setReport] = useState<Report>({ checkedAt: '', accountRow: 'Not checked', publicJournals: 'Not checked', publicComments: 'Not configured', worker: 'Checking', accounts: 'Waiting for backend verification', cloudSnapshots: 'Waiting for backend verification', backendOwnerVerified: false });
   const [busy, setBusy] = useState(false);
@@ -218,19 +220,20 @@ export default function AdminConsole() {
     return () => window.clearTimeout(timer);
   }, [accountQuery, ownerAdmin, user?.id, loadAccountBatch]);
 
-  if (!ownerAdmin) return <div className="card mx-auto max-w-xl p-6 text-center"><ShieldCheck className="mx-auto mb-3 text-rose-500" size={28} /><h1 className="text-xl font-semibold">{tr("Owner access required")}</h1><p className="mt-2 text-sm muted">{tr("Sign in with the system owner account and enable the owner-console migration to open these diagnostics.")}</p></div>;
+  if (ownerStatus === 'checking') return <RouteSkeleton />;
+  if (!ownerAdmin) return <div className="card mx-auto mt-6 max-w-xl p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-rose-500" size={28} /><h1 className="text-xl font-semibold">{tr("Owner access required")}</h1><p className="mt-2 text-sm muted">{tr("Sign in with the system owner account and enable the owner-console migration to open these diagnostics.")}</p></div>;
 
   const activeAccount = selected?.account;
   const photos = selected?.snapshot && activeAccount ? privatePhotoCandidates(selected.snapshot, activeAccount.user_id) : [];
 
-  return <div className="mx-auto max-w-5xl space-y-6 lg:space-y-4">
+  return <div className="admin-console mx-auto max-w-6xl space-y-6">
     <div className="admin-hero relative overflow-hidden rounded-3xl border border-amber-300/30 bg-gradient-to-br from-emerald-950 via-slate-900 to-amber-950 p-5 text-white shadow-2xl shadow-emerald-950/15 sm:p-8">
       <div className="pointer-events-none absolute -right-14 -top-20 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div><span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/25 bg-amber-100/10 px-3 py-1 text-xs font-semibold text-amber-100"><Crown size={13} /> {tr("OWNER · PREMIUM")}</span><h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">{tr("System console")}</h1><p className="mt-2 max-w-xl text-sm leading-6 text-emerald-50/75">{tr("A live, privacy-conscious view of this app, your own cloud record, and public service health.")}</p></div>
         <button className="btn border border-white/15 bg-white/10 text-white hover:bg-white/15" onClick={() => { void refresh(); void loadAccountBatch(0, true, accountQuery); void loadNavigation(); void loadAudit(); }} disabled={busy || accountsBusy}><RefreshCw size={15} className={busy || accountsBusy ? 'animate-spin' : ''} /> {tr("Refresh checks")}</button>
       </div>
-      <div className="relative mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-emerald-50/70"><span>{user?.email ?? 'Verified owner'}</span><span>{tr("Role: owner")}</span><span>{tr("Database verification:")}{report.backendOwnerVerified ? 'confirmed' : 'pending setup'}</span><span>{tr("Checked")}{report.checkedAt ? new Date(report.checkedAt).toLocaleTimeString() : '—'}</span></div>
+      <div className="relative mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-emerald-50/70"><span>{user?.email ?? 'Verified owner'}</span><span>{tr("Role: owner")}</span><span>{tr("Database verification:")} {report.backendOwnerVerified ? 'confirmed' : 'pending setup'}</span><span>{tr("Checked")} {report.checkedAt ? new Date(report.checkedAt).toLocaleTimeString() : '—'}</span></div>
     </div>
 
     <section><h2 className="mb-3 text-lg font-semibold">{tr("System health")}</h2><div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -240,14 +243,14 @@ export default function AdminConsole() {
       <Stat label={tr("Install & cache")} value={report.worker} detail={tr("Caches the app shell and static assets, never private API data")} icon={Activity} />
     </div></section>
 
-    <section className="card p-4 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">{tr("System-wide aggregates")}</h2><p className="mt-1 text-sm muted">{tr("Counts only, verified on the database; no other person’s private records are returned.")}</p></div><Globe2 size={18} className="text-emerald-500" /></div><div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat label={tr("Accounts")} value={report.accounts} detail={tr("Registered accounts")} icon={ShieldCheck} /><Stat label={tr("Cloud snapshots")} value={report.cloudSnapshots} detail={tr("Row count only; record contents remain private")} icon={Database} /><Stat label={tr("Published journals")} value={report.publicJournals} detail={tr("Public entries across the site")} icon={Globe2} /><Stat label={tr("Reader comments")} value={report.publicComments} detail={tr("Public comment rows")} icon={Activity} /></div></section>
+    <div className="admin-pair grid min-w-0 gap-6 xl:grid-cols-2"><section className="card p-4 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">{tr("System-wide aggregates")}</h2><p className="mt-1 text-sm muted">{tr("Counts only, verified on the database; no other person’s private records are returned.")}</p></div><Globe2 size={18} className="text-emerald-500" /></div><div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat label={tr("Accounts")} value={report.accounts} detail={tr("Registered accounts")} icon={ShieldCheck} /><Stat label={tr("Cloud snapshots")} value={report.cloudSnapshots} detail={tr("Row count only; record contents remain private")} icon={Database} /><Stat label={tr("Published journals")} value={report.publicJournals} detail={tr("Public entries across the site")} icon={Globe2} /><Stat label={tr("Reader comments")} value={report.publicComments} detail={tr("Public comment rows")} icon={Activity} /></div></section>
 
     <section className="card p-4 sm:p-6"><div className="flex items-center gap-2"><Smartphone size={18} className="text-emerald-500" /><h2 className="font-semibold">{tr("This device & app")}</h2></div><dl className="mt-4 grid min-w-0 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-      <div className="min-w-0"><dt className="muted">{tr("App build")}</dt><dd className="mt-1 break-words font-medium">{tr("Life OS ·")}{import.meta.env.MODE}</dd></div>
+      <div className="min-w-0"><dt className="muted">{tr("App build")}</dt><dd className="mt-1 break-words font-medium">{tr("Life OS ·")} {import.meta.env.MODE}</dd></div>
       <div className="min-w-0"><dt className="muted">{tr("Viewport")}</dt><dd className="mt-1 break-words font-medium">{typeof window !== 'undefined' ? `${window.innerWidth} × ${window.innerHeight}px` : 'Unavailable'}</dd></div>
-      <div className="min-w-0"><dt className="muted">{tr("Browser")}</dt><dd className="mt-1 break-words font-medium">{typeof navigator !== 'undefined' ? navigator.userAgent : 'Unavailable'}</dd></div>
+      <div className="min-w-0"><dt className="muted">{tr("Browser")}</dt><dd className="mt-1 line-clamp-2 break-words text-xs font-medium" title={typeof navigator !== 'undefined' ? navigator.userAgent : undefined}>{typeof navigator !== 'undefined' ? navigator.userAgent : 'Unavailable'}</dd></div>
       <div className="min-w-0"><dt className="muted">{tr("Cloud account row")}</dt><dd className="mt-1 break-words font-medium">{report.accountRow}</dd></div>
-    </dl></section>
+    </dl></section></div>
 
     <section className="card p-4 sm:p-6"><div className="mb-4"><h2 className="font-semibold">{tr("Cross-account administration")}</h2><p className="mt-1 text-sm leading-6 muted">{tr("Account lookup and workspace changes are authorized on the database and recorded in the private audit trail. Never request or store passwords, tokens, or payment details.")}</p></div>
       <AccountDirectory accounts={accounts} query={accountQuery} onQueryChange={setAccountQuery} page={accountPage} onPageChange={setAccountPage} selectedId={selectedId} onSelect={loadSelected} loading={accountsBusy} error={accountError} onRefresh={() => { setAccounts([]); setAccountOffset(0); setHasMoreAccounts(false); void loadAccountBatch(0, true, accountQuery); }} hasMore={hasMoreAccounts} onLoadMore={() => void loadAccountBatch(accountOffset, false, accountQuery)} />

@@ -1,5 +1,6 @@
 import { translate as tr } from '../lib/locales';
-import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, Flame, GraduationCap, Loader2, Lock, Mail, Phone, Repeat, ShieldCheck, Target } from 'lucide-react';
+import './Auth.css';
 import { FormEvent, useState } from 'react';
 import { APP_NAME, Logo } from '../components/Brand';
 import { auth, friendlyAuthError, isEmail, isPhone, normalizePhone, passwordIssues, passwordScore, useAuth } from '../lib/auth';
@@ -77,14 +78,34 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="relative grid min-h-screen place-items-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex flex-col items-center text-center">
+    <div className="auth-shell">
+      <div className="auth-bg" aria-hidden="true"><span /><span /></div>
+      <aside className="auth-showcase" aria-hidden="true">
+        <div className="flex items-center gap-3"><Logo size={40} /><span className="text-lg font-bold">{APP_NAME}</span></div>
+        <h2 className="auth-showcase-title">{tr('Your goals, habits, projects and memories — in one calm place.')}</h2>
+        <ul className="auth-features">
+          <li><Target size={18} /> {tr('Goals with milestones and progress')}</li>
+          <li><Repeat size={18} /> {tr('Habits, streaks and daily check-ins')}</li>
+          <li><GraduationCap size={18} /> {tr('Study Studio with a focus room')}</li>
+          <li><ShieldCheck size={18} /> {tr('Private by default, synced to your account')}</li>
+        </ul>
+        <div className="auth-float-cards">
+          <div className="auth-float auth-float-1"><span className="auth-ring"><i /></span><div><b>{tr('Run a half marathon')}</b><small>{tr('3 of 9 milestones')}</small></div></div>
+          <div className="auth-float auth-float-2"><Flame size={18} className="text-orange-400" /><div><b>{tr('6 day streak')}</b><small>{tr('Morning workout')}</small></div></div>
+          <div className="auth-float auth-float-3"><CheckCircle2 size={18} className="text-emerald-400" /><div><b>{tr('Today: 4 of 5 done')}</b><small>{tr('Nice work')}</small></div></div>
+        </div>
+      </aside>
+      <div className="auth-panel">
+        <div className="mb-6 flex flex-col items-center text-center lg:hidden">
           <Logo size={64} />
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight">{APP_NAME}</h1>
           <p className="mt-1 text-sm muted">{tr("A personal system for everything that matters")}</p>
         </div>
-        <div className="card p-6">
+        <div className="mb-6 hidden lg:block">
+          <h1 className="text-3xl font-extrabold tracking-tight">{mode === 'signup' ? tr('Create your account') : tr('Welcome back')}</h1>
+          <p className="mt-1 text-sm muted">{tr("A personal system for everything that matters")}</p>
+        </div>
+        <div className="auth-card card p-6">
           {startupIssue && <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-100" role="status"><span>{startupIssue}</span><button type="button" className="underline underline-offset-2" onClick={() => window.location.reload()}>{tr("Retry check")}</button></div>}
           {mode === 'check-email' ? (
             <div className="space-y-4 text-center">
@@ -103,7 +124,7 @@ export default function AuthPage() {
                   <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1 dark:bg-white/[.05]">
                     {(['signin', 'signup'] as const).map((m) => (
                       <button key={m} type="button" onClick={() => go(m)}
-                        className={cx('rounded-lg py-2 text-sm font-medium transition', mode === m ? 'bg-white shadow dark:bg-white/10' : 'muted')}>
+                        className={cx('auth-tab rounded-lg py-2 text-sm font-medium transition', mode === m ? 'is-active bg-white shadow dark:bg-white/10' : 'muted')}>
                         {m === 'signin' ? 'Sign in' : 'Create account'}
                       </button>
                     ))}

@@ -42,7 +42,18 @@ export default function AccountDirectory({ accounts, query, onQueryChange, page,
         <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 muted" size={16} />
         <input className="input pl-9" value={query} onChange={(event) => { onQueryChange(event.target.value); onPageChange(0); }} placeholder={tr("Search email, phone, or name")} />
       </label>
-      {error && <div role="alert" className="mt-3 rounded-xl border border-rose-300/60 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">{error}</div>}
+      {error && <div role="alert" className="mt-3 rounded-xl border border-rose-300/60 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">
+        <p>{error}</p>
+        {/RPC|schema|owner-admin|PostgreSQL|backend/i.test(error) && <details className="mt-2 text-xs leading-5">
+          <summary className="cursor-pointer font-semibold">{tr('How to fix this')}</summary>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            <li>{tr('Open the Supabase SQL Editor for the same project this app uses.')}</li>
+            <li>{tr('Run supabase/migrations/20261026_owner_account_list_repair.sql from the repository.')}</li>
+            <li>{tr('It reloads the API schema cache itself. Come back here and press Retry.')}</li>
+          </ol>
+        </details>}
+        <button type="button" className="btn-outline mt-3 !py-1.5 text-xs" onClick={onRefresh} disabled={loading}>{tr('Retry')}</button>
+      </div>}
       <div className="mt-3 max-h-[30rem] space-y-2 overflow-y-auto pr-1">
         {!loading && !error && !pageAccounts.length && <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm muted dark:border-white/15">{query.trim() ? tr("No accounts match this search.") : tr("The owner directory returned no accounts.")}</div>}
         {pageAccounts.map((account) => {
