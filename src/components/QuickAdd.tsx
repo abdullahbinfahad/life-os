@@ -133,8 +133,8 @@ export default function QuickAdd() {
   return (
     <>
       {canQuickAdd && <button onClick={openQuickAdd} title={tr(actionLabel)} aria-label={tr(actionLabel)} aria-haspopup="dialog"
-        className="fixed bottom-[calc(5.6rem+env(safe-area-inset-bottom))] right-4 z-30 grid h-12 w-12 place-items-center rounded-full border border-indigo-500/30 bg-white/55 text-indigo-700 shadow-lg shadow-indigo-900/10 backdrop-blur-xl transition hover:scale-105 active:scale-95 dark:bg-slate-900/45 dark:text-indigo-200 lg:bottom-6 lg:right-6 lg:h-14 lg:w-14">
-        <Plus size={26} />
+        className="fab fab-primary">
+        <Plus size={26} strokeWidth={2.4} />
       </button>}
       <Modal open={open} onClose={() => setOpen(false)} title={tr(actionLabel)}>
         {!advanced ? <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -169,8 +169,8 @@ export default function QuickAdd() {
           <button type="button" className="btn-ghost mb-3" onClick={() => setAdvanced(false)}>{tr("← Simple add")}</button>
           <textarea aria-label={tr("Items to add, one per line")} className="input min-h-[120px] w-full font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(); }} placeholder={tr("One item per line")} />
           <details className="mt-3 rounded-xl bg-slate-100 p-3 text-xs muted dark:bg-white/[.04]"><summary className="flex cursor-pointer list-none items-center gap-1 font-medium"><Sparkles size={13} /> {tr("Legacy smart syntax help")}</summary><p className="mt-2"><code>#category</code> · <code>!1</code>–<code>!4</code> {tr("priority ·")}<code>@date</code> {tr("due ·")}<code>+today</code> {tr("pin ·")}<code>~horizon</code> · <code>$type</code> · <code>*</code> {tr("star")}</p></details>
-          {dupes > 0 && <label className="mt-3 flex items-center gap-2 text-sm text-amber-500"><input type="checkbox" className="accent-indigo-600" checked={skipDupes} onChange={(e) => setSkipDupes(e.target.checked)} />{tr("Skip")}{dupes} {tr("duplicate")}{dupes === 1 ? '' : 's'}</label>}
-          <div className="mt-4 flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>{tr("Cancel")}</button><button type="button" className="btn-primary" disabled={!parsed.length} onClick={submit}>{tr("Add")}{parsed.length} {tr("item")}{parsed.length === 1 ? '' : 's'}</button></div>
+          {dupes > 0 && <label className="mt-3 flex items-center gap-2 text-sm text-amber-500"><input type="checkbox" className="accent-indigo-600" checked={skipDupes} onChange={(e) => setSkipDupes(e.target.checked)} />{tr("Skip")} {dupes} {tr("duplicate")}{dupes === 1 ? '' : 's'}</label>}
+          <div className="mt-4 flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>{tr("Cancel")}</button><button type="button" className="btn-primary" disabled={!parsed.length} onClick={submit}>{tr("Add")} {parsed.length} {tr("item")}{parsed.length === 1 ? '' : 's'}</button></div>
         </div>}
       </Modal>
     </>

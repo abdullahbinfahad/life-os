@@ -157,7 +157,7 @@ export default function Today() {
         <div className="space-y-6">
           <div className="card flex flex-col items-center p-6">
             <Ring value={pct(doneCount, total)} size={120} stroke={10}><div className="text-center"><div className="text-2xl font-bold">{pct(doneCount, total)}%</div><div className="text-[10px] muted">{tr("today")}</div></div></Ring>
-            <div className="mt-3 text-sm muted">{doneCount} {tr("of")}{total} {tr("complete")}</div>
+            <div className="mt-3 text-sm muted">{doneCount} {tr("of")} {total} {tr("complete")}</div>
           </div>
           <div className="card p-5">
             <h3 className="mb-3 font-semibold">{tr("Today's habits")}</h3>

@@ -88,7 +88,7 @@ export default function Overview() {
               ))}
               {todayItems.length > 5 && (
                 <Link to="/today" className="inline-block min-h-11 pt-2 text-xs text-indigo-500 sm:text-sm">
-                  {tr("See all")}{todayItems.length} {tr("items")}<ArrowRight size={14} className="inline" />
+                  {tr("See all")} {todayItems.length} {tr("items")}<ArrowRight size={14} className="inline" />
                 </Link>
               )}
             </div>

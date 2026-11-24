@@ -76,7 +76,7 @@ export default function Insights() {
     <div className="space-y-6">
       <PageHeader title={tr('Insights')} subtitle={tr('Progress and patterns over time')} actions={<button type="button" className="btn-outline min-h-10" onClick={shareInsights}>{tr('Share')}</button>} />
       {shareStatus && <p className="text-sm muted" role="status" aria-live="polite">{shareStatus}</p>}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 sm:gap-4">
+      <div className="insights-stats grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 sm:gap-4">
         <Stat label={tr('Completed (all time)')} value={completedRecords.length} sub={`${pct(completedRecords.length, trackedCount)}% ${tr('of items and project tasks')}`} icon={<CheckCircle2 size={18} />} color="#22c55e" />
         <Stat label={tr('This month')} value={thisMonth} sub={tr('items and project tasks completed')} icon={<TrendingUp size={18} />} />
         <Stat label={tr('Habit consistency')} value={`${habitRate}%`} sub={`${activeHabits.length} ${tr('active habits')} · ${tr('last 30 days')}`} icon={<Zap size={18} />} color="#f59e0b" />

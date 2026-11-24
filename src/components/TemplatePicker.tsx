@@ -123,7 +123,7 @@ export default function TemplatePicker({ open, onClose }: { open: boolean; onClo
           {Object.entries(HORIZON_META).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <button className={cx('btn-outline !py-1.5 text-xs', opts.today && '!border-amber-400 text-amber-500')} onClick={() => setOpts({ ...opts, today: !opts.today })}><Sunrise size={13} /> {tr("Today")}</button>
-        <button className="btn-primary ml-auto" disabled={!sel.size} onClick={add}>{tr("Add")}{sel.size} {tr("to my library")}</button>
+        <button className="btn-primary ml-auto" disabled={!sel.size} onClick={add}>{tr("Add")} {sel.size} {tr("to my library")}</button>
       </div>
     </Modal>
   );

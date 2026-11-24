@@ -238,7 +238,7 @@ export default function Library() {
       {sel.size > 0 && (
         <div className="sticky top-16 z-20 mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-indigo-600 p-3 text-sm text-white shadow-xl shadow-indigo-600/30 lg:top-4">
           <span className="font-semibold">{sel.size} {tr("selected")}</span>
-          <button className="rounded-lg bg-white/15 px-2.5 py-1 hover:bg-white/25" onClick={() => setSel(new Set(filtered.map((i) => i.id)))}>{tr("Select all")}{filtered.length}</button>
+          <button className="rounded-lg bg-white/15 px-2.5 py-1 hover:bg-white/25" onClick={() => setSel(new Set(filtered.map((i) => i.id)))}>{tr("Select all")} {filtered.length}</button>
           <span className="mx-1 h-5 w-px bg-white/30" />
           <button className="rounded-lg bg-white/15 px-2.5 py-1 hover:bg-white/25" onClick={() => { updateItems(ids, { todayDate: today(), status: 'next' }); setSel(new Set()); }}><Sunrise size={14} className="inline" /> {tr("To Today")}</button>
           <button className="rounded-lg bg-white/15 px-2.5 py-1 hover:bg-white/25" onClick={() => { updateItems(ids, { status: 'done' }); setSel(new Set()); }}>{tr("Mark done")}</button>

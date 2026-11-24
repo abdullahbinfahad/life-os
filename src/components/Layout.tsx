@@ -1,14 +1,15 @@
 import { translate as tr } from '../lib/locales';
 import { BarChart3, Cloud, CloudOff, Crown, LogIn, LogOut, RefreshCw, BookOpen, CalendarDays, FolderKanban, LayoutDashboard, Library, Menu, Repeat, Search, Settings, Sunrise, Target, X, Images, Globe2 } from 'lucide-react';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, Suspense, lazy, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store';
 import { cx, today, uid } from '../lib/utils';
 import QuickAdd from './QuickAdd';
-import PlanningAssistant, { type PlannerProposal } from './PlanningAssistant';
-import CommandPalette from './CommandPalette';
+import type { PlannerProposal } from './PlanningAssistant';
+import { prefetchLikelyRoutes, prefetchRoute } from '../lib/routeModules';
 import { APP_NAME, Logo } from './Brand';
 import Toaster from './Toaster';
+import { RouteSkeleton } from './ui';
 import { toast } from './Toaster';
 import { auth, syncNow, useAuth } from '../lib/auth';
 import { cloudEnabled, supabase } from '../lib/supabase';
@@ -17,7 +18,9 @@ import { useOwnerAdmin } from '../lib/admin';
 import { playFeedback } from '../lib/sounds';
 import { DEFAULT_NAVIGATION, NAVIGATION_ICONS, normalizeNavigationItems, upgradeLegacyDefaultNavigation, type NavigationItem } from '../lib/navigation';
 import { StudyFocusWidget } from './study/StudyFocusWidget';
-import SharedMessageAlerts from './SharedMessageAlerts';
+const PlanningAssistant = lazy(() => import('./PlanningAssistant'));
+const CommandPalette = lazy(() => import('./CommandPalette'));
+const SharedMessageAlerts = lazy(() => import('./SharedMessageAlerts'));
 
 function AccountBox() {
   const { user, sync, syncError, guest, setGuest } = useAuth();
@@ -72,6 +75,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const categories = useStore((s) => s.categories);
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [paletteLoaded, setPaletteLoaded] = useState(false);
+  useEffect(() => { if (palette) setPaletteLoaded(true); }, [palette]);
+  useEffect(() => prefetchLikelyRoutes(['/today', '/projects', '/habits', '/library', '/goals', '/journal', '/calendar']), []);
   const [navItems, setNavItems] = useState<NavigationItem[]>(() => DEFAULT_NAVIGATION.map(({ to, label, icon, visible }) => ({ to, label, icon, visible })));
   const loc = useLocation();
   const nav = useNavigate();
@@ -105,6 +111,15 @@ export default function Layout({ children }: { children: ReactNode }) {
     toast(tr('Added selected suggestions to your chosen destinations.'));
   };
   useEffect(() => { setMobile(false); }, [loc.pathname]);
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    let frame = 0;
+    const onScroll = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => setScrolled(window.scrollY > 8)); };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', onScroll); };
+  }, []);
+  const pageKey = `/${loc.pathname.split('/').filter(Boolean)[0] ?? ''}`;
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
@@ -185,6 +200,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           const Icon = NAVIGATION_ICONS[icon];
           return (
           <NavLink key={to} to={to} end={to === '/'}
+            onPointerEnter={() => prefetchRoute(to)} onFocus={() => prefetchRoute(to)} onTouchStart={() => prefetchRoute(to)}
             onClick={() => {
               if (to !== '/study' || document.fullscreenElement) return;
               try {
@@ -211,6 +227,8 @@ export default function Layout({ children }: { children: ReactNode }) {
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="ambient-orb absolute -top-40 left-1/3 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-3xl" />
         <div className="ambient-orb absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="ambient-orb ambient-orb-3 absolute left-[-8rem] top-1/2 h-[340px] w-[340px] rounded-full bg-cyan-400/[.07] blur-3xl" />
+        <div className="ambient-grid absolute inset-0" />
       </div>
       <aside className="app-sidebar fixed inset-y-0 left-0 hidden h-[100dvh] w-64 overflow-hidden border-r border-slate-200/80 bg-white/75 p-4 backdrop-blur-2xl dark:border-white/[.07] dark:bg-[#0b0d12]/75 lg:block">
         {sidebar}
@@ -220,23 +238,23 @@ export default function Layout({ children }: { children: ReactNode }) {
         <aside className="mobile-drawer-panel absolute inset-y-0 left-0 w-72 max-w-[min(85vw,22rem)] overflow-hidden bg-white p-4 pt-[max(1rem,env(safe-area-inset-top))] dark:bg-[#0f1218]" onClick={(e) => e.stopPropagation()}>{sidebar}</aside>
       </div>
       <div className="lg:pl-64">
-        <header className="mobile-app-header fixed inset-x-0 top-0 z-50 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-3 py-2.5 pt-[max(.625rem,env(safe-area-inset-top))] backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/90 lg:hidden">
+        <header className={cx('mobile-app-header fixed inset-x-0 top-0 z-50 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-3 py-2.5 pt-[max(.625rem,env(safe-area-inset-top))] backdrop-blur-xl dark:border-white/[.06] dark:bg-[#0b0d12]/90 lg:hidden', scrolled && 'is-scrolled')}>
           <button type="button" className="btn-ghost mobile-menu-trigger !h-12 !w-12 !shrink-0 !rounded-xl !p-0" aria-label={mobile ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobile} aria-controls="mobile-navigation-drawer" onClick={() => setMobile((open) => !open)}><span className="grid h-full w-full place-items-center rounded-xl border border-slate-300/80 bg-white/80 text-slate-800 shadow-sm dark:border-white/15 dark:bg-white/[.06] dark:text-slate-100">{mobile ? <X size={23} strokeWidth={2.4} /> : <Menu size={23} strokeWidth={2.4} />}</span></button>
           <Logo size={24} /><span className="font-bold">{APP_NAME}</span>{ownerAdmin && <span className="premium-pill"><Crown size={12} /> {tr("Owner")}</span>}
           <button type="button" className="btn-ghost ml-auto !p-2" aria-label={tr('Search')} title={tr('Search')} onClick={() => setPalette(true)}><Search size={18} /></button>
         </header>
         <div className="mobile-header-spacer lg:hidden" aria-hidden="true" />
-        <div className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</div>
+        <div className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10"><div key={pageKey} className="page-enter"><Suspense fallback={<RouteSkeleton />}>{children}</Suspense></div></div>
       </div>
       <nav className="mobile-bottom-nav lg:hidden" aria-label={tr("Primary navigation")}>
-        {navItems.filter((item) => item.visible && PRIMARY_ROUTES.includes(item.to)).map(({ to, label, icon }) => { const Icon = NAVIGATION_ICONS[icon]; const defaultLabel = DEFAULT_NAVIGATION.find((item) => item.to === to)?.label; const display = label === defaultLabel ? tr(label) : label; return <NavLink key={to} to={to} end={to === '/'} aria-label={display} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{to === '/' ? tr('Home') : display}</span></NavLink>; })}
+        {navItems.filter((item) => item.visible && PRIMARY_ROUTES.includes(item.to)).map(({ to, label, icon }) => { const Icon = NAVIGATION_ICONS[icon]; const defaultLabel = DEFAULT_NAVIGATION.find((item) => item.to === to)?.label; const display = label === defaultLabel ? tr(label) : label; return <NavLink key={to} to={to} end={to === '/'} aria-label={display} onTouchStart={() => prefetchRoute(to)} onPointerEnter={() => prefetchRoute(to)} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{to === '/' ? tr('Home') : display}</span></NavLink>; })}
       </nav>
-      {canShowPlanner && <PlanningAssistant onAddItems={addPlannedItems} />}
+      <Suspense fallback={null}>{canShowPlanner && <PlanningAssistant onAddItems={addPlannedItems} />}</Suspense>
       <QuickAdd />
       {!isPublicPage && <StudyFocusWidget />}
-      <CommandPalette open={palette} onClose={() => setPalette(false)} navigation={navItems} />
+      <Suspense fallback={null}>{paletteLoaded && <CommandPalette open={palette} onClose={() => setPalette(false)} navigation={navItems} />}</Suspense>
       <Toaster />
-      <SharedMessageAlerts />
+      <Suspense fallback={null}><SharedMessageAlerts /></Suspense>
     </div>
   );
 }

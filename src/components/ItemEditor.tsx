@@ -177,7 +177,7 @@ export default function ItemEditor({ item, onClose }: { item: LifeItem | null; o
             onClick={() => f(d.todayDate === today() ? { todayDate: undefined } : { todayDate: today(), status: d.status === 'someday' ? 'next' : d.status })}>
             <Sunrise size={15} /> {d.todayDate === today() ? 'On Today ✓' : 'Add to Today'}
           </button>
-          <p className="text-[11px] muted">{tr("Created")}{fmtDate(d.createdAt)}{d.updatedAt ? ` · edited ${fmtDate(d.updatedAt)}` : ''}{d.completedAt ? ` · done ${fmtDate(d.completedAt)}` : ''}</p>
+          <p className="text-[11px] muted">{tr("Created")} {fmtDate(d.createdAt)}{d.updatedAt ? ` · edited ${fmtDate(d.updatedAt)}` : ''}{d.completedAt ? ` · done ${fmtDate(d.completedAt)}` : ''}</p>
         </div>
       </div>
 

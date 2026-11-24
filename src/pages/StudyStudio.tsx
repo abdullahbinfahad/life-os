@@ -26,6 +26,7 @@ import {
   scheduleReview,
 } from '../lib/study/engine';
 import './StudyStudio.css';
+import './StudyStudio.redesign.css';
 
 const sections = [
   ['overview', 'Overview'],

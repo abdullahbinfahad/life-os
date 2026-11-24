@@ -1,6 +1,6 @@
 import { translate as tr } from '../lib/locales';
 import { X } from 'lucide-react';
-import { ReactNode, useEffect, useId } from 'react';
+import { ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { cx } from '../lib/utils';
 import type { Category } from '../lib/types';
 import { playFeedback } from '../lib/sounds';
@@ -9,7 +9,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   return (
     <div className="mb-6 flex min-w-0 flex-wrap items-end justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <h1 className="break-words text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
+        <h1 className="page-title break-words text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
         {subtitle && <p className="mt-1 muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}</div>}
@@ -27,9 +27,9 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   useEffect(() => { if (open) playFeedback('popup'); }, [open]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3 pt-[max(.75rem,env(safe-area-inset-top))] pb-[max(.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:p-4 md:p-10" role="presentation" onMouseDown={onClose}>
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/50 p-3 sm:items-center pt-[max(.75rem,env(safe-area-inset-top))] pb-[max(.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:p-4 md:p-10" role="presentation" onMouseDown={onClose}>
       <div
-        className={cx('card my-auto max-h-[90dvh] w-full overflow-y-auto !bg-white p-4 dark:!bg-[#12151c] sm:p-6 md:max-h-[calc(100dvh-5rem)]', wide ? 'max-w-4xl' : 'max-w-lg')}
+        className={cx('modal-panel card my-auto max-h-[90dvh] w-full overflow-y-auto !bg-white p-4 dark:!bg-[#12151c] sm:p-6 md:max-h-[calc(100dvh-5rem)]', wide ? 'max-w-4xl' : 'max-w-lg')}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -45,10 +45,35 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   );
 }
 
+function useMountedValue(value: number) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => { const frame = requestAnimationFrame(() => setShown(value)); return () => cancelAnimationFrame(frame); }, [value]);
+  return shown;
+}
+
+/** Animates a number from its previous value; instant when reduced motion is preferred. */
+export function CountUp({ value, duration = 700 }: { value: number; duration?: number }) {
+  const [shown, setShown] = useState(value);
+  const from = useRef(0);
+  useEffect(() => {
+    if (!Number.isFinite(value) || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setShown(value); from.current = value; return; }
+    const start = performance.now(); const origin = from.current; let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration); const eased = 1 - Math.pow(1 - t, 3);
+      setShown(origin + (value - origin) * eased);
+      if (t < 1) frame = requestAnimationFrame(tick); else from.current = value;
+    };
+    frame = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(frame); from.current = value; };
+  }, [value, duration]);
+  return <>{Number.isInteger(value) ? Math.round(shown).toLocaleString() : shown.toFixed(1)}</>;
+}
+
 export function Progress({ value, color = '#6366f1', className }: { value: number; color?: string; className?: string }) {
+  const shown = useMountedValue(value);
   return (
     <div className={cx('h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10', className)}>
-      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, value)}%`, background: color }} />
+      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, shown)}%`, background: color }} />
     </div>
   );
 }
@@ -56,12 +81,13 @@ export function Progress({ value, color = '#6366f1', className }: { value: numbe
 export function Ring({ value, size = 64, stroke = 7, color = '#6366f1', children }: { value: number; size?: number; stroke?: number; color?: string; children?: ReactNode }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
+  const shown = useMountedValue(value);
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} className="fill-none stroke-slate-200 dark:stroke-white/10" />
         <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} fill="none" stroke={color} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c - (Math.min(100, value) / 100) * c} className="transition-all duration-700" />
+          strokeDasharray={c} strokeDashoffset={c - (Math.min(100, shown) / 100) * c} className="transition-all duration-700" />
       </svg>
       <div className="absolute text-sm font-semibold">{children ?? `${value}%`}</div>
     </div>
@@ -80,8 +106,8 @@ export function CatBadge({ cat }: { cat?: Category }) {
 
 export function Empty({ icon, title, text, action }: { icon: ReactNode; title: string; text?: string; action?: ReactNode }) {
   return (
-    <div className="card flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-      <div className="rounded-2xl bg-indigo-500/10 p-4 text-indigo-500">{icon}</div>
+    <div className="empty-state card flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+      <div className="empty-state-icon rounded-2xl bg-indigo-500/10 p-4 text-indigo-500">{icon}</div>
       <div className="font-semibold">{title}</div>
       {text && <p className="max-w-sm text-sm muted">{text}</p>}
       {action}
@@ -91,12 +117,12 @@ export function Empty({ icon, title, text, action }: { icon: ReactNode; title: s
 
 export function Stat({ label, value, sub, icon, color = '#6366f1' }: { label: string; value: ReactNode; sub?: string; icon: ReactNode; color?: string }) {
   return (
-    <div className="card p-5">
-      <div className="flex items-center justify-between">
+    <div className="stat-card card p-5" style={{ ['--stat-color' as string]: color }}>
+      <div className="flex items-start justify-between gap-2">
         <span className="text-sm muted">{label}</span>
-        <span className="rounded-xl p-2" style={{ background: color + '1f', color }}>{icon}</span>
+        <span className="stat-icon shrink-0 rounded-xl p-2" style={{ background: color + '1f', color }}>{icon}</span>
       </div>
-      <div className="mt-3 text-3xl font-bold tracking-tight">{value}</div>
+      <div className="mt-3 text-3xl font-bold tabular-nums tracking-tight">{typeof value === 'number' ? <CountUp value={value} /> : value}</div>
       {sub && <div className="mt-1 text-xs muted">{sub}</div>}
     </div>
   );
@@ -121,3 +147,13 @@ export const HORIZON_META: Record<string, string> = {
 export const TYPE_META: Record<string, string> = {
   goal: '🎯 Goal', idea: '💡 Idea', experience: '✨ Experience', skill: '🧠 Skill', place: '📍 Place', book: '📖 Book', habit: '🔁 Habit', other: '• Other',
 };
+
+/** Skeleton shown inside the app shell while a page's code downloads. */
+export function RouteSkeleton() {
+  return <div className="route-skeleton" role="status" aria-live="polite" aria-label={tr('Opening your page…')}>
+    <div className="skeleton-block h-9 w-2/3 max-w-sm" />
+    <div className="skeleton-block h-4 w-1/2 max-w-xs" />
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><div className="skeleton-block h-36" /><div className="skeleton-block h-36" /><div className="skeleton-block hidden h-36 lg:block" /></div>
+    <div className="skeleton-block h-64" />
+  </div>;
+}

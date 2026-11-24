@@ -154,7 +154,7 @@ export default function AuthPage() {
                   {mode === 'signup' && pw && (
                     <div className="mt-2">
                       <div className="flex gap-1">{[0, 1, 2, 3].map((i) => <span key={i} className={cx('h-1.5 flex-1 rounded-full', i < score ? ['bg-rose-500', 'bg-orange-500', 'bg-amber-400', 'bg-emerald-500'][score - 1] : 'bg-slate-200 dark:bg-white/10')} />)}</div>
-                      {issues.length > 0 && <p className="mt-1 text-xs muted">{tr("Needs")}{issues.join(', ')}.</p>}
+                      {issues.length > 0 && <p className="mt-1 text-xs muted">{tr("Needs")} {issues.join(', ')}.</p>}
                     </div>
                   )}
                 </div>
@@ -198,7 +198,7 @@ export function SetNewPassword() {
       <form onSubmit={save} className="card w-full max-w-sm space-y-4 p-6">
         <div className="text-center"><Logo size={48} /><h2 className="mt-2 text-lg font-semibold">{tr("Choose a new password")}</h2></div>
         <input className="input" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder={tr("New password")} autoFocus />
-        {pw && issues.length > 0 && <p className="text-xs muted">{tr("Needs")}{issues.join(', ')}.</p>}
+        {pw && issues.length > 0 && <p className="text-xs muted">{tr("Needs")} {issues.join(', ')}.</p>}
         {err && <div className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-500">{err}</div>}
         <button className="btn-primary w-full" disabled={busy}>{tr("Save password")}</button>
       </form>

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 import './lib/themes.css';
+import './styles/motion.css';
 import { initAuth } from './lib/auth';
 
 document.documentElement.classList.add('js-enabled');

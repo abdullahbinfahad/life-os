@@ -1,14 +1,54 @@
 import { translate as tr } from '../lib/locales';
-import { GripVertical, ImagePlus, Plus, Search, Trash2, Upload, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { BookImage, Camera, ChevronLeft, ChevronRight, GripVertical, ImagePlus, Images, Plus, Search, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { PageHeader } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { compressImage, deletePrivateImage, formatBytes, getPrivateImageUrl, uploadPrivateImage } from '../lib/media';
 import { useStore } from '../lib/store';
 import type { Album, AlbumMemory } from '../lib/types';
+import { CountUp } from '../components/ui';
+import './Albums.css';
+
+/** Deterministic, pleasant gradient per album so covers without photos still look distinct. */
+function albumHue(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) % 360;
+  return h;
+}
+function coverStyle(seed: string): CSSProperties {
+  const h = albumHue(seed);
+  return { backgroundImage: `radial-gradient(120% 90% at 0% 0%, hsl(${h} 85% 62% / .95), transparent 60%), radial-gradient(120% 100% at 100% 100%, hsl(${(h + 70) % 360} 80% 55% / .9), transparent 55%), linear-gradient(135deg, hsl(${(h + 200) % 360} 45% 18%), hsl(${(h + 240) % 360} 40% 12%))` };
+}
+
+/** Resolves a memory's photo (private signed URL first, legacy URL fallback). */
+function useMemoryPhoto(memory: AlbumMemory | undefined, userId?: string) {
+  const [url, setUrl] = useState<string | undefined>(memory?.imageUrl);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    setError('');
+    if (!memory?.imagePath || !userId) { setUrl(memory?.imageUrl); return () => { active = false; }; }
+    setUrl(undefined);
+    getPrivateImageUrl(userId, memory.imagePath).then((next) => { if (active) setUrl(next); }).catch((reason) => {
+      if (!active) return;
+      setUrl(memory.imageUrl);
+      setError(reason instanceof Error ? reason.message : 'Could not load private photo.');
+    });
+    return () => { active = false; };
+  }, [memory?.imagePath, memory?.imageUrl, userId]);
+  return { url, error };
+}
+
+function AlbumCover({ album, userId, className = '' }: { album: Album; userId?: string; className?: string }) {
+  const coverMemory = album.memories.find((memory) => memory.imagePath || memory.imageUrl);
+  const { url } = useMemoryPhoto(coverMemory, userId);
+  return <div className={`album-cover ${className}`} style={coverStyle(album.id + album.title)} aria-hidden="true">
+    {url ? <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="album-cover-initial">{album.title.trim()[0]?.toUpperCase() ?? '•'}</span>}
+  </div>;
+}
+
 
 export default function Albums() {
   const { albums, addAlbum, updateAlbum, deleteAlbum, addMemory, updateMemory, deleteMemory } = useStore();
@@ -28,17 +68,51 @@ export default function Albums() {
     setSelected(id);
   };
 
-  return <div>
-    <PageHeader title={tr("Memory albums")} subtitle={tr("Build a visual tree of moments, people and places")} actions={<div className="flex gap-2"><input className="input !w-48" placeholder={tr("New album…")} value={newAlbum} onChange={(e) => setNewAlbum(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createAlbum()} /><button className="btn-primary" onClick={createAlbum}><Plus size={16} /> {tr("Create")}</button></div>} />
-    <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <section className="card min-w-0 p-3">
-        <div className="mb-3 flex items-center justify-between px-2 text-xs font-semibold uppercase tracking-wide muted"><span>{tr("Your albums ·")}{albums.length}</span><span>{albums.reduce((n, a) => n + a.memories.length, 0)} {tr("memories")}</span></div>
-        <label className="relative mb-3 block"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 muted" /><input aria-label={tr("Search albums")} className="input !w-full !pl-9" placeholder={tr("Find an album…")} value={albumQuery} onChange={(e) => setAlbumQuery(e.target.value)} /></label>
-        <div className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">{filteredAlbums.map((a) => <button key={a.id} onClick={() => setSelected(a.id)} aria-pressed={a.id === selected} className={`w-full rounded-xl px-3 py-3 text-left transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 ${a.id === selected ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/15' : 'hover:bg-slate-100 dark:hover:bg-white/[.05]'}`}><div className="truncate font-medium">{a.title}</div><div className="text-xs opacity-70">{a.memories.length} {tr("memories")}</div></button>)}</div>
-        {albums.length > 0 && filteredAlbums.length === 0 && <p className="p-3 text-sm muted">{tr("No albums match your search.")}</p>}
-        {!albums.length && <p className="p-3 text-sm muted">{tr("Create your first album to start a memory tree.")}</p>}
-      </section>
-      {album ? <AlbumEditor album={album} userId={user?.id} updateAlbum={updateAlbum} deleteAlbum={deleteAlbum} addMemory={addMemory} updateMemory={updateMemory} deleteMemory={deleteMemory} onDeleted={() => setSelected(albums.find((a) => a.id !== album.id)?.id ?? null)} newMemory={newMemory} setNewMemory={setNewMemory} /> : <div className="card grid min-h-64 place-items-center p-8 text-center muted">{tr("Choose an album or create one above.")}</div>}
+  const memoryCount = albums.reduce((n, a) => n + a.memories.length, 0);
+  const photoCount = albums.reduce((n, a) => n + a.memories.filter((m) => m.imagePath || m.imageUrl).length, 0);
+
+  return <div className="albums-page">
+    <header className="albums-hero">
+      <div className="albums-hero-glow" aria-hidden="true" />
+      <div className="relative min-w-0">
+        <span className="albums-eyebrow"><Sparkles size={13} /> {tr('Private memory space')}</span>
+        <h1 className="mt-3 break-words text-3xl font-bold tracking-tight md:text-4xl">{tr('Memory albums')}</h1>
+        <p className="mt-2 max-w-xl text-sm text-white/75 md:text-base">{tr('Build a visual tree of moments, people and places')}</p>
+        <dl className="albums-stats">
+          <div><dt>{tr('Albums')}</dt><dd><CountUp value={albums.length} /></dd></div>
+          <div><dt>{tr('Memories')}</dt><dd><CountUp value={memoryCount} /></dd></div>
+          <div><dt>{tr('Photos')}</dt><dd><CountUp value={photoCount} /></dd></div>
+        </dl>
+      </div>
+      <form className="albums-create relative" onSubmit={(e) => { e.preventDefault(); createAlbum(); }}>
+        <label className="sr-only" htmlFor="new-album-title">{tr('New album…')}</label>
+        <input id="new-album-title" className="input" placeholder={tr('Name a new album…')} value={newAlbum} maxLength={120} onChange={(e) => setNewAlbum(e.target.value)} />
+        <button type="submit" className="btn-primary shrink-0" disabled={!newAlbum.trim()}><Plus size={16} /> {tr('Create')}</button>
+      </form>
+    </header>
+
+    {albums.length > 0 && <section className="mt-6" aria-label={tr('Your albums')}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 font-semibold"><BookImage size={18} className="text-indigo-500" /> {tr('Your albums')} <span className="text-sm font-normal muted">{albums.length}</span></h2>
+        {albums.length > 3 && <label className="relative w-full sm:w-64"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 muted" /><input aria-label={tr('Search albums')} className="input !w-full !pl-9" placeholder={tr('Find an album…')} value={albumQuery} onChange={(e) => setAlbumQuery(e.target.value)} /></label>}
+      </div>
+      <div className="album-rail" role="list">
+        {filteredAlbums.map((a) => <button key={a.id} role="listitem" type="button" onClick={() => setSelected(a.id)} aria-pressed={a.id === selected} className={`album-tile ${a.id === selected ? 'is-selected' : ''}`}>
+          <AlbumCover album={a} userId={user?.id} />
+          <span className="album-tile-meta"><span className="block truncate font-semibold">{a.title || tr('Untitled album')}</span><span className="text-xs opacity-75">{a.memories.length} {tr('memories')}</span></span>
+        </button>)}
+      </div>
+      {filteredAlbums.length === 0 && <p className="p-3 text-sm muted">{tr('No albums match your search.')}</p>}
+    </section>}
+
+    <div className="mt-6">
+      {album ? <AlbumEditor key={album.id} album={album} userId={user?.id} updateAlbum={updateAlbum} deleteAlbum={deleteAlbum} addMemory={addMemory} updateMemory={updateMemory} deleteMemory={deleteMemory} onDeleted={() => setSelected(albums.find((a) => a.id !== album.id)?.id ?? null)} newMemory={newMemory} setNewMemory={setNewMemory} />
+        : <div className="albums-empty card">
+          <div className="albums-empty-art" aria-hidden="true"><span /><span /><span /><Camera size={30} /></div>
+          <h2 className="text-xl font-semibold">{albums.length ? tr('Choose an album or create one above.') : tr('Start your first album')}</h2>
+          <p className="max-w-md text-sm muted">{tr('Create your first album to start a memory tree.')} {tr('Photos are compressed on this device and stored privately in your account.')}</p>
+          <button type="button" className="btn-primary" onClick={() => document.getElementById('new-album-title')?.focus()}><Plus size={16} /> {tr('Create an album')}</button>
+        </div>}
     </div>
   </div>;
 }
@@ -64,8 +138,15 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
   const [busy, setBusy] = useState(false);
   const [busyMemoryId, setBusyMemoryId] = useState<string>();
   const [memoryQuery, setMemoryQuery] = useState('');
-  const [preview, setPreview] = useState<{ url: string; title: string }>();
+  const [previewIndex, setPreviewIndex] = useState<number>();
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const [dragOver, setDragOver] = useState(false);
+  const rememberUrl = useCallback((id: string, url?: string) => setPhotoUrls((current) => (url && current[id] !== url ? { ...current, [id]: url } : current)), []);
   const visibleMemories = album.memories.filter((m) => m.title.toLocaleLowerCase().includes(memoryQuery.trim().toLocaleLowerCase()));
+  const gallery = useMemo(() => visibleMemories.filter((m) => photoUrls[m.id]).map((m) => ({ id: m.id, url: photoUrls[m.id], title: m.title })), [visibleMemories, photoUrls]);
+  const preview = previewIndex === undefined ? undefined : gallery[previewIndex];
+  const step = useCallback((delta: number) => setPreviewIndex((index) => (index === undefined || !gallery.length ? index : (index + delta + gallery.length) % gallery.length)), [gallery.length]);
+  const touchStart = useRef<number>();
   const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const reorder = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
@@ -82,11 +163,16 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
   }, [selectedPreview]);
 
   useEffect(() => {
-    if (!preview) return;
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setPreview(undefined); };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [preview]);
+    if (previewIndex === undefined) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewIndex(undefined);
+      else if (event.key === 'ArrowRight') step(1);
+      else if (event.key === 'ArrowLeft') step(-1);
+    };
+    window.addEventListener('keydown', onKey);
+    const root = document.documentElement; const previous = root.style.overflow; root.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); root.style.overflow = previous; };
+  }, [previewIndex, step]);
 
   const choosePhoto = async (file?: File) => {
     if (!file || busy) return;
@@ -207,55 +293,81 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
     onDeleted();
   };
 
-  return <section className="card p-6">
-    <div className="mb-5 flex items-start gap-4"><div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-fuchsia-500/20 text-indigo-500"><ImagePlus size={26} /></div><div className="min-w-0 flex-1"><input className="w-full bg-transparent text-2xl font-bold outline-none" value={album.title} onChange={(e) => updateAlbum(album.id, { title: e.target.value })} /><textarea className="mt-1 w-full resize-none bg-transparent text-sm muted outline-none" placeholder={tr("Describe this chapter of your life…")} value={album.description} onChange={(e) => updateAlbum(album.id, { description: e.target.value })} /></div><button className="btn-ghost text-rose-500" disabled={busy} onClick={removeAlbum} title={tr("Delete album")}><Trash2 size={16} /></button></div>
-    <div className="mb-3 flex gap-2"><input className="input" placeholder={tr("Add a memory, photo story, or milestone…")} value={newMemory} onChange={(e) => setNewMemory(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} /><button className="btn-primary" disabled={busy} onClick={add}><Plus size={16} /> {busy ? 'Saving…' : 'Add memory'}</button></div>
-    <div className="mb-5 rounded-xl border border-dashed border-slate-300 p-3 dark:border-white/[.12]">
-      <div className="flex flex-wrap items-center gap-3">
-        {selectedPreview && <img src={selectedPreview} alt={tr("Selected memory preview")} className="h-16 w-16 rounded-lg object-cover" />}
-        <div className="min-w-0 flex-1"><div className="text-sm font-medium">{tr("Optional memory photo")}</div><p className="text-xs muted">{tr("Phone photos, including browser-supported HEIC/HEIF · compressed before private upload.")}</p></div>
-        <input ref={photoInput} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => choosePhoto(e.target.files?.[0])} />
-        <button type="button" className="btn-outline" disabled={busy} onClick={() => photoInput.current?.click()}><Upload size={15} /> {tr("Choose photo")}</button>
-        {selectedPhoto && <button type="button" className="btn-ghost !p-2" onClick={clearSelectedPhoto} title={tr("Remove selected photo")}><X size={16} /></button>}
+  const photoTotal = album.memories.filter((m) => m.imagePath || m.imageUrl).length;
+  return <section className="album-editor">
+    <div className="album-banner">
+      <AlbumCover album={album} userId={userId} className="album-banner-bg" />
+      <div className="album-banner-shade" aria-hidden="true" />
+      <div className="relative flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
+          <span className="albums-eyebrow"><Images size={13} /> {album.memories.length} {tr('memories')} · {photoTotal} {tr('Photos').toLocaleLowerCase()}</span>
+          <input aria-label={tr('Album title')} className="album-title-input" value={album.title} onChange={(e) => updateAlbum(album.id, { title: e.target.value })} />
+          <textarea aria-label={tr('Album description')} rows={2} className="album-desc-input" placeholder={tr('Describe this chapter of your life…')} value={album.description} onChange={(e) => updateAlbum(album.id, { description: e.target.value })} />
+        </div>
+        <button className="album-delete" disabled={busy} onClick={removeAlbum} title={tr('Delete album')} aria-label={tr('Delete album')}><Trash2 size={16} /><span className="sm:hidden">{tr('Delete album')}</span></button>
       </div>
     </div>
-    {status && <p className="mb-4 break-words text-sm muted" role="status">{status}</p>}
-    <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">{tr("Moments")} <span className="text-sm font-normal muted">{album.memories.length}</span></h2>{album.memories.length > 0 && <label className="relative w-full sm:w-64"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 muted" /><input aria-label={tr("Search memories")} className="input !w-full !pl-9" placeholder={tr("Search this album…")} value={memoryQuery} onChange={(e) => setMemoryQuery(e.target.value)} /></label>}</div>
-    {album.memories.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 px-5 py-10 text-center dark:border-white/[.12]"><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-500"><ImagePlus size={22} /></div><p className="font-medium">{tr("Your first moment starts here")}</p><p className="mt-1 text-sm muted">{tr("Add a memory above, then attach a photo whenever you like.")}</p></div> : visibleMemories.length === 0 ? <p className="rounded-xl bg-slate-50 p-5 text-center text-sm muted dark:bg-white/[.03]">{tr("No memories match your search.")}</p> : <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorder}><SortableContext items={visibleMemories.map((memory) => memory.id)} strategy={verticalListSortingStrategy}><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{visibleMemories.map((memory) => <MemoryCard key={memory.id} memory={memory} userId={userId} busy={busyMemoryId === memory.id} onReplace={(file) => replacePhoto(memory, file)} onRemovePhoto={() => removePhoto(memory)} onDelete={() => removeMemory(memory)} onPreview={(url, title) => setPreview({ url, title })} />)}</div></SortableContext></DndContext>}
-    {preview && <div className="fixed inset-0 z-50 grid place-items-center bg-black/85 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={preview.title} onClick={() => setPreview(undefined)}><button autoFocus className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" aria-label={tr("Close photo preview")} onClick={() => setPreview(undefined)}><X size={22} /></button><figure className="max-h-full max-w-full" onClick={(e) => e.stopPropagation()}><img src={preview.url} alt={preview.title} className="max-h-[82vh] max-w-full rounded-xl object-contain shadow-2xl" /><figcaption className="mt-3 text-center text-sm text-white">{preview.title}</figcaption></figure></div>}
+
+    <form className={`memory-composer card ${dragOver ? 'is-dragover' : ''}`} onSubmit={(e) => { e.preventDefault(); void add(); }}
+      onDragOver={(e) => { if (Array.from(e.dataTransfer.items).some((item) => item.kind === 'file')) { e.preventDefault(); setDragOver(true); } }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); void choosePhoto(e.dataTransfer.files?.[0]); }}>
+      <button type="button" className="memory-drop" disabled={busy} onClick={() => photoInput.current?.click()} aria-label={selectedPreview ? tr('Change photo') : tr('Choose photo')}>
+        {selectedPreview ? <img src={selectedPreview} alt={tr('Selected memory preview')} /> : <><Upload size={22} /><span className="text-xs font-medium">{tr('Add photo')}</span></>}
+      </button>
+      <input ref={photoInput} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => choosePhoto(e.target.files?.[0])} />
+      <div className="min-w-0 flex-1">
+        <label className="text-sm font-semibold" htmlFor="new-memory-title">{tr('New moment')}</label>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <input id="new-memory-title" className="input" maxLength={200} placeholder={tr('Add a memory, photo story, or milestone…')} value={newMemory} onChange={(e) => setNewMemory(e.target.value)} />
+          <button type="submit" className="btn-primary shrink-0" disabled={busy || !newMemory.trim()}><Plus size={16} /> {busy ? tr('Saving…') : tr('Add memory')}</button>
+        </div>
+        <p className="mt-2 text-xs muted">{selectedPhoto ? <button type="button" className="inline-flex items-center gap-1 text-rose-500 hover:underline" onClick={clearSelectedPhoto}><X size={12} /> {tr('Remove selected photo')}</button> : tr('Phone photos, including browser-supported HEIC/HEIF · compressed before private upload.')} <span className="hidden md:inline">{tr('You can also drop a photo here.')}</span></p>
+      </div>
+    </form>
+    {status && <p className="mt-3 break-words rounded-xl bg-indigo-500/[.07] px-3 py-2 text-sm text-indigo-800 dark:text-indigo-200" role="status">{status}</p>}
+
+    <div className="mb-4 mt-6 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">{tr('Moments')} <span className="text-sm font-normal muted">{album.memories.length}</span></h2>{album.memories.length > 0 && <label className="relative w-full sm:w-64"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 muted" /><input aria-label={tr('Search memories')} className="input !w-full !pl-9" placeholder={tr('Search this album…')} value={memoryQuery} onChange={(e) => setMemoryQuery(e.target.value)} /></label>}</div>
+    {album.memories.length === 0 ? <div className="albums-empty card"><div className="albums-empty-art" aria-hidden="true"><span /><span /><span /><ImagePlus size={28} /></div><p className="text-lg font-semibold">{tr('Your first moment starts here')}</p><p className="max-w-sm text-sm muted">{tr('Add a memory above, then attach a photo whenever you like.')}</p></div>
+      : visibleMemories.length === 0 ? <p className="card p-6 text-center text-sm muted">{tr('No memories match your search.')}</p>
+      : <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorder}><SortableContext items={visibleMemories.map((memory) => memory.id)} strategy={rectSortingStrategy}><div className="memory-grid">{visibleMemories.map((memory, index) => <MemoryCard key={memory.id} index={index} memory={memory} userId={userId} busy={busyMemoryId === memory.id} onUrl={rememberUrl} onReplace={(file) => replacePhoto(memory, file)} onRemovePhoto={() => removePhoto(memory)} onDelete={() => removeMemory(memory)} onPreview={() => setPreviewIndex(Math.max(0, gallery.findIndex((item) => item.id === memory.id)))} />)}</div></SortableContext></DndContext>}
+
+    {preview && <div className="lightbox" role="dialog" aria-modal="true" aria-label={preview.title} onClick={() => setPreviewIndex(undefined)}
+      onTouchStart={(e) => { touchStart.current = e.touches[0]?.clientX; }}
+      onTouchEnd={(e) => { const start = touchStart.current; const end = e.changedTouches[0]?.clientX; touchStart.current = undefined; if (start !== undefined && end !== undefined && Math.abs(end - start) > 50) step(end < start ? 1 : -1); }}>
+      <button autoFocus className="lightbox-btn right-4 top-[max(1rem,env(safe-area-inset-top))]" aria-label={tr('Close photo preview')} onClick={() => setPreviewIndex(undefined)}><X size={22} /></button>
+      {gallery.length > 1 && <><button className="lightbox-btn lightbox-nav left-3" aria-label={tr('Previous')} onClick={(e) => { e.stopPropagation(); step(-1); }}><ChevronLeft size={24} /></button><button className="lightbox-btn lightbox-nav right-3" aria-label={tr('Next')} onClick={(e) => { e.stopPropagation(); step(1); }}><ChevronRight size={24} /></button></>}
+      <figure key={preview.id} className="lightbox-figure" onClick={(e) => e.stopPropagation()}>
+        <img src={preview.url} alt={preview.title} />
+        <figcaption><span className="font-medium">{preview.title}</span>{gallery.length > 1 && <span className="opacity-70"> · {(previewIndex ?? 0) + 1} / {gallery.length}</span>}</figcaption>
+      </figure>
+    </div>}
   </section>;
 }
 
-function MemoryCard({ memory, userId, busy, onReplace, onRemovePhoto, onDelete, onPreview }: { memory: AlbumMemory; userId?: string; busy: boolean; onReplace: (file?: File) => void; onRemovePhoto: () => void; onDelete: () => void; onPreview: (url: string, title: string) => void }) {
+function MemoryCard({ memory, index, userId, busy, onUrl, onReplace, onRemovePhoto, onDelete, onPreview }: { memory: AlbumMemory; index: number; userId?: string; busy: boolean; onUrl: (id: string, url?: string) => void; onReplace: (file?: File) => void; onRemovePhoto: () => void; onDelete: () => void; onPreview: () => void }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: memory.id });
   const fileInput = useRef<HTMLInputElement>(null);
-  const [imageUrl, setImageUrl] = useState<string | undefined>(memory.imageUrl);
-  const [imageError, setImageError] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    setImageError('');
-    if (!memory.imagePath || !userId) {
-      setImageUrl(memory.imageUrl);
-      return () => { active = false; };
-    }
-    setImageUrl(undefined);
-    getPrivateImageUrl(userId, memory.imagePath).then((url) => {
-      if (active) setImageUrl(url);
-    }).catch((error) => {
-      if (!active) return;
-      setImageUrl(memory.imageUrl);
-      setImageError(error instanceof Error ? error.message : 'Could not load private photo.');
-    });
-    return () => { active = false; };
-  }, [memory.imagePath, memory.imageUrl, userId]);
-
+  const { url: imageUrl, error: imageError } = useMemoryPhoto(memory, userId);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { onUrl(memory.id, imageUrl); }, [memory.id, imageUrl, onUrl]);
   const hasPhoto = Boolean(memory.imagePath || memory.imageUrl);
-  return <article ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[.08] ${isDragging ? 'opacity-70 shadow-lg' : ''}`}>
-    {hasPhoto && <div className="relative h-40 overflow-hidden bg-slate-100 dark:bg-white/[.04]">{imageUrl ? <button type="button" className="group h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500" onClick={() => onPreview(imageUrl, memory.title)} aria-label={`${tr("Preview photo")}: ${memory.title}`}><img src={imageUrl} alt={memory.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03] motion-reduce:transition-none" referrerPolicy="no-referrer" /><span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2 pt-6 text-left text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">{tr("Open photo")}</span></button> : <div className="grid h-full place-items-center px-4 text-center text-xs muted">{imageError || 'Loading private photo…'}</div>}</div>}
-    <div className="p-4"><div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><button ref={setActivatorNodeRef} type="button" aria-label={`Drag to reorder memory: ${memory.title}`} className="grid shrink-0 touch-none place-items-center rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[.05]" {...attributes} {...listeners}><GripVertical size={16} /></button><h3 className="font-medium">{memory.title}</h3></div><button className="muted hover:text-rose-500" disabled={busy} onClick={onDelete} title={tr("Delete memory")}><Trash2 size={14} /></button></div>
-      <div className="mt-3 flex flex-wrap gap-2"><input ref={fileInput} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => { onReplace(e.target.files?.[0]); e.currentTarget.value = ''; }} /><button className="btn-outline !px-2 !py-1 text-xs" disabled={busy} onClick={() => fileInput.current?.click()}><ImagePlus size={14} /> {hasPhoto ? 'Replace photo' : 'Add photo'}</button>{hasPhoto && <button className="btn-ghost !px-2 !py-1 text-xs text-rose-500" disabled={busy} onClick={onRemovePhoto}>{tr("Remove photo")}</button>}</div>
-      {busy && <p className="mt-2 text-xs muted">{tr("Updating private photo…")}</p>}
+  const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition, animationDelay: `${Math.min(index, 12) * 40}ms` };
+  return <article ref={setNodeRef} style={style} className={`memory-card ${hasPhoto ? 'has-photo' : 'is-text'} ${isDragging ? 'is-dragging' : ''}`}>
+    {hasPhoto ? <div className="memory-photo">
+      {imageUrl ? <button type="button" className="group block h-full w-full" onClick={onPreview} aria-label={`${tr('Preview photo')}: ${memory.title}`}>
+        <img src={imageUrl} alt={memory.title} loading="lazy" onLoad={() => setLoaded(true)} className={loaded ? 'is-loaded' : ''} referrerPolicy="no-referrer" />
+        <span className="memory-photo-caption">{memory.title}</span>
+      </button> : <div className="grid h-full place-items-center px-4 text-center text-xs muted">{imageError || <span className="skeleton-block absolute inset-0 rounded-none" />}</div>}
+    </div> : <div className="memory-quote" style={coverStyle(memory.id)}><span aria-hidden="true">“</span><p>{memory.title}</p></div>}
+    <div className="memory-body">
+      <button ref={setActivatorNodeRef} type="button" aria-label={`${tr('Drag to reorder')}: ${memory.title}`} className="memory-grip" {...attributes} {...listeners}><GripVertical size={16} /></button>
+      <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={memory.title}>{memory.title}</h3>
+      <input ref={fileInput} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => { onReplace(e.target.files?.[0]); e.currentTarget.value = ''; }} />
+      <button className="memory-action" disabled={busy} onClick={() => fileInput.current?.click()} title={hasPhoto ? tr('Replace photo') : tr('Add photo')} aria-label={`${hasPhoto ? tr('Replace photo') : tr('Add photo')}: ${memory.title}`}><ImagePlus size={15} /></button>
+      {hasPhoto && <button className="memory-action" disabled={busy} onClick={onRemovePhoto} title={tr('Remove photo')} aria-label={`${tr('Remove photo')}: ${memory.title}`}><X size={15} /></button>}
+      <button className="memory-action hover:!text-rose-500" disabled={busy} onClick={onDelete} title={tr('Delete memory')} aria-label={`${tr('Delete memory')}: ${memory.title}`}><Trash2 size={14} /></button>
     </div>
+    {busy && <p className="px-3 pb-3 text-xs muted">{tr('Updating private photo…')}</p>}
   </article>;
 }

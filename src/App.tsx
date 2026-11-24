@@ -7,28 +7,29 @@ import { syncNow, useAuth } from './lib/auth';
 import { cloudEnabled } from './lib/supabase';
 import { useStore } from './lib/store';
 import { preloadAppLanguage, type AppLanguage } from './lib/locales';
+import { routeImporters } from './lib/routeModules';
 
 const AuthPage = lazy(() => import('./pages/Auth'));
 const SetNewPassword = lazy(() => import('./pages/Auth').then((module) => ({ default: module.SetNewPassword })));
-const Albums = lazy(() => import('./pages/Albums'));
-const AdminConsole = lazy(() => import('./pages/AdminConsole'));
-const Calendar = lazy(() => import('./pages/Calendar'));
-const Goals = lazy(() => import('./pages/Goals'));
-const Habits = lazy(() => import('./pages/Habits'));
-const Insights = lazy(() => import('./pages/Insights'));
-const Journal = lazy(() => import('./pages/Journal'));
-const Library = lazy(() => import('./pages/Library'));
-const Overview = lazy(() => import('./pages/Overview'));
-const Projects = lazy(() => import('./pages/Projects'));
-const Productivity = lazy(() => import('./pages/Productivity'));
-const Notifications = lazy(() => import('./pages/Notifications'));
+const Albums = lazy(routeImporters['/albums']);
+const AdminConsole = lazy(routeImporters['/admin']);
+const Calendar = lazy(routeImporters['/calendar']);
+const Goals = lazy(routeImporters['/goals']);
+const Habits = lazy(routeImporters['/habits']);
+const Insights = lazy(routeImporters['/insights']);
+const Journal = lazy(routeImporters['/journal']);
+const Library = lazy(routeImporters['/library']);
+const Overview = lazy(routeImporters['/']);
+const Projects = lazy(routeImporters['/projects']);
+const Productivity = lazy(routeImporters['/productivity']);
+const Notifications = lazy(routeImporters['/notifications']);
 const PublicJournal = lazy(() => import('./pages/PublicJournal'));
-const PublicJournalIndex = lazy(() => import('./pages/PublicJournalIndex'));
+const PublicJournalIndex = lazy(routeImporters['/public']);
 const PublicProduct = lazy(() => import('./pages/PublicProduct'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Trash = lazy(() => import('./pages/Trash'));
-const Today = lazy(() => import('./pages/Today'));
-const StudyStudio = lazy(() => import('./pages/StudyStudio'));
+const Settings = lazy(routeImporters['/settings']);
+const Trash = lazy(routeImporters['/trash']);
+const Today = lazy(routeImporters['/today']);
+const StudyStudio = lazy(routeImporters['/study']);
 
 function LoadingStage({ message, fullscreen = false }: { message: string; fullscreen?: boolean }) {
   return <div className={`loading-stage ${fullscreen ? 'loading-stage-full' : 'loading-stage-route'}`} role="status" aria-live="polite">
@@ -40,7 +41,7 @@ function LoadingStage({ message, fullscreen = false }: { message: string; fullsc
 }
 
 function RouteFallback() {
-  return <LoadingStage message="Opening your page…" />;
+  return <LoadingStage message="Opening your page…" fullscreen />;
 }
 
 function PrivateRoutes() {

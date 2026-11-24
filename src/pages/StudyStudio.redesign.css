@@ -1,0 +1,173 @@
+/*
+ * Study Studio — 2026-11 redesign layer.
+ * Loaded after StudyStudio.css. Restyles surfaces, navigation, typography and the
+ * Focus Room; no markup contracts or behaviour change. Motion is reduced-motion safe.
+ */
+.study-studio { --study-cyan: #7c83ff; --study-indigo: #a78bfa; --study-mint: #34d399; --study-glow: color-mix(in srgb, var(--accent, #635bff) 30%, transparent); }
+html.theme-forest .study-studio { --study-cyan: #34d399; }
+html.theme-sapphire .study-studio { --study-cyan: #60a5fa; }
+html.theme-paper .study-studio { --study-cyan: #8a7556; }
+html.theme-monochrome .study-studio { --study-cyan: #e5e5e5; }
+
+/* ---- Section rail: segmented glass bar with a gradient active pill ---- */
+.study-studio .study-top-rail {
+  position: sticky; top: calc(4.25rem + env(safe-area-inset-top)); z-index: 20;
+  gap: .25rem; padding: .35rem; border-radius: 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--study-cyan) 18%, var(--study-border));
+  background: color-mix(in srgb, var(--card, #121722) 78%, transparent);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, .14);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
+}
+@media (min-width: 1024px) { .study-studio .study-top-rail { top: .75rem; } }
+html:not(.dark) .study-studio .study-top-rail { background: rgba(255,255,255,.82); box-shadow: 0 10px 26px rgba(15,23,42,.07); }
+.study-studio .study-top-rail button {
+  position: relative; border-radius: .8rem; font-weight: 550; white-space: nowrap;
+  transition: color .2s ease, background-color .2s ease, transform .15s ease;
+}
+.study-studio .study-top-rail button:hover { background: color-mix(in srgb, var(--study-cyan) 10%, transparent); }
+.study-studio .study-top-rail button:active { transform: scale(.96); }
+.study-studio .study-top-rail button.active {
+  color: #fff !important; border-color: transparent !important;
+  background: var(--accent-grad, linear-gradient(135deg, #635bff, #8b5cf6)) !important;
+  box-shadow: 0 8px 20px var(--study-glow);
+}
+html.theme-monochrome .study-studio .study-top-rail button.active { color: #111 !important; }
+html.theme-forest .study-studio .study-top-rail button.active { color: #04150e !important; }
+@media (prefers-reduced-motion: no-preference) {
+  .study-studio .study-top-rail button.active { animation: study-pill-in .35s var(--ease-spring, cubic-bezier(.34,1.56,.64,1)); }
+}
+@keyframes study-pill-in { from { transform: scale(.9); opacity: .6; } }
+.study-studio .study-mark {
+  font-family: inherit; font-weight: 800; color: #fff;
+  background: var(--accent-grad, linear-gradient(135deg, #635bff, #8b5cf6));
+  box-shadow: 0 6px 16px var(--study-glow);
+}
+html.theme-monochrome .study-studio .study-mark { color: #111; }
+
+/* ---- Heading ---- */
+.study-studio .study-heading { margin: 1.25rem 0 1.5rem; }
+.study-studio .study-heading h1 { font-weight: 800; letter-spacing: -.025em; }
+.study-studio:not(.study-studio--focus) .study-heading h1 {
+  background: linear-gradient(120deg, currentColor 35%, var(--study-cyan)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.study-studio .study-eyebrow { display: inline-flex; align-items: center; gap: .4rem; font-weight: 700; color: var(--study-cyan) !important; }
+.study-studio .study-eyebrow::before { content: ''; width: .45rem; height: .45rem; border-radius: 99px; background: var(--study-cyan); box-shadow: 0 0 10px var(--study-cyan); }
+.study-studio .study-quiet-link {
+  display: inline-flex; align-items: center; gap: .35rem; border-radius: 99px; padding: .55rem 1rem; font-weight: 600;
+  color: var(--study-cyan); border: 1px solid color-mix(in srgb, var(--study-cyan) 35%, transparent);
+  background: color-mix(in srgb, var(--study-cyan) 8%, transparent); transition: transform .2s ease, background-color .2s ease;
+}
+.study-studio .study-quiet-link:hover { transform: translateX(2px); background: color-mix(in srgb, var(--study-cyan) 14%, transparent); }
+
+/* ---- Panels ---- */
+.study-studio .study-panel {
+  position: relative; border-radius: 1.35rem; padding: 1.3rem;
+  box-shadow: 0 14px 36px rgba(2, 6, 23, .10), inset 0 1px 0 rgba(255,255,255,.04);
+  transition: transform .3s var(--ease-out, ease), border-color .3s ease, box-shadow .3s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .study-studio:not(.study-studio--focus) .study-panel:hover { border-color: color-mix(in srgb, var(--study-cyan) 28%, var(--study-border)); box-shadow: 0 20px 44px rgba(2,6,23,.16); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .study-studio:not(.study-studio--focus) .study-panel { animation: study-rise .5s var(--ease-out, ease) backwards; }
+  .study-studio .study-grid > .study-panel:nth-child(2) { animation-delay: 60ms; }
+  .study-studio .study-grid > .study-panel:nth-child(3) { animation-delay: 110ms; }
+  .study-studio .study-grid > .study-panel:nth-child(n+4) { animation-delay: 160ms; }
+}
+@keyframes study-rise { from { opacity: 0; transform: translateY(14px); } }
+
+/* Hero / welcome: aurora graphic + floating orbit motif */
+.study-studio .study-welcome {
+  overflow: hidden; isolation: isolate; border: 0;
+  background:
+    radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(--study-cyan) 30%, transparent), transparent 55%),
+    radial-gradient(80% 100% at 0% 100%, color-mix(in srgb, var(--study-indigo) 26%, transparent), transparent 55%),
+    linear-gradient(135deg, #1e1b4b, #111827) !important;
+  color: #f8fafc;
+}
+html.theme-paper .study-studio .study-welcome { background: linear-gradient(135deg, #f8f1e3, #efe4cf) !important; color: #2c2924; }
+.study-studio .study-welcome::before, .study-studio .study-welcome::after {
+  content: ''; position: absolute; z-index: -1; border-radius: 9999px; pointer-events: none;
+  border: 1px solid rgba(255,255,255,.12);
+}
+.study-studio .study-welcome::before { width: 26rem; height: 26rem; right: -8rem; top: -10rem; box-shadow: inset 0 0 0 3.5rem rgba(255,255,255,.02); }
+.study-studio .study-welcome::after { width: 14rem; height: 14rem; right: -2rem; top: -4rem; border-style: dashed; }
+@media (prefers-reduced-motion: no-preference) {
+  .study-studio .study-welcome::after { animation: study-orbit 40s linear infinite; }
+}
+@keyframes study-orbit { to { transform: rotate(1turn); } }
+.study-studio .study-welcome h2 { font-weight: 800; letter-spacing: -.03em; }
+.study-studio .study-welcome p { color: rgba(241,245,249,.78); }
+html.theme-paper .study-studio .study-welcome p { color: #5e584d; }
+.study-studio .study-welcome .study-pill { color: #e0e7ff; border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.08); }
+.study-studio .study-metrics > div {
+  border-radius: 1rem; background: rgba(255,255,255,.06); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  transition: transform .3s var(--ease-spring, ease);
+}
+.study-studio .study-metrics > div:hover { transform: translateY(-3px); }
+.study-studio .study-metrics strong, .study-studio .study-metrics b { font-variant-numeric: tabular-nums; }
+
+/* ---- Buttons ---- */
+.study-studio .study-primary {
+  position: relative; overflow: hidden; color: #fff; font-weight: 650; border-radius: .9rem;
+  background: var(--accent-grad, linear-gradient(135deg, #635bff, #8b5cf6));
+  box-shadow: 0 10px 24px var(--study-glow);
+  transition: transform .18s var(--ease-out, ease), box-shadow .25s ease, filter .2s ease;
+}
+.study-studio .study-primary:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.study-studio .study-primary:active, .study-studio .study-secondary:active, .study-studio .study-danger:active { transform: scale(.96); }
+.study-studio .study-secondary, .study-studio .study-danger { border-radius: .9rem; transition: transform .18s ease, background-color .2s ease, border-color .2s ease; }
+.study-studio .study-secondary:hover { border-color: color-mix(in srgb, var(--study-cyan) 40%, transparent); background: color-mix(in srgb, var(--study-cyan) 8%, transparent); }
+
+/* ---- Empty states ---- */
+.study-studio .study-empty-symbol {
+  display: inline-grid; place-items: center; width: 3.25rem; height: 3.25rem; border-radius: 1rem; font-size: 1.35rem;
+  color: #fff; background: var(--accent-grad, linear-gradient(135deg, #635bff, #8b5cf6)); box-shadow: 0 12px 26px var(--study-glow);
+}
+@media (prefers-reduced-motion: no-preference) { .study-studio .study-empty-symbol { animation: float-y 4.5s ease-in-out infinite; } }
+
+/* ---- Progress bars ---- */
+.study-studio .study-progress { border-radius: 99px; overflow: hidden; }
+.study-studio .study-progress > * { background: var(--accent-grad, linear-gradient(90deg, #635bff, #8b5cf6)) !important; border-radius: inherit; transition: width .7s var(--ease-out, ease); }
+
+/* ---- Focus Room: immersive, breathing, aurora ---- */
+.study-studio--focus {
+  background:
+    radial-gradient(60% 50% at 50% 42%, color-mix(in srgb, var(--study-cyan) 18%, transparent), transparent 70%),
+    radial-gradient(40% 40% at 15% 85%, color-mix(in srgb, var(--study-indigo) 16%, transparent), transparent 70%),
+    var(--study-bg, var(--background, #070910)) !important;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .study-studio--focus::before { animation: study-aurora 18s ease-in-out infinite alternate; }
+  .study-timepiece:not(.is-paused) .study-timepiece-aura { animation: study-breathe 5.5s ease-in-out infinite; }
+  .study-timepiece:not(.is-paused) .study-timepiece-node { animation: study-node 2.4s ease-in-out infinite; }
+}
+@keyframes study-aurora { from { transform: translate3d(-3%, -2%, 0) rotate(0deg) scale(1); } to { transform: translate3d(3%, 2%, 0) rotate(8deg) scale(1.08); } }
+@keyframes study-breathe { 0%, 100% { opacity: .35; transform: scale(.94); } 50% { opacity: .85; transform: scale(1.06); } }
+@keyframes study-node { 0%, 100% { r: 3; } 50% { r: 5; } }
+.study-studio--focus .study-timepiece-progress { stroke-width: 4; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--study-cyan) 60%, transparent)); }
+.study-studio--focus .study-timer {
+  font-weight: 700; letter-spacing: -.02em;
+  background: linear-gradient(180deg, #fff 30%, color-mix(in srgb, var(--study-cyan) 65%, #fff)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+html:not(.dark) .study-studio--focus .study-timer { background: linear-gradient(180deg, #111827 30%, var(--study-cyan)); -webkit-background-clip: text; background-clip: text; }
+.study-studio--focus .study-focus-panel, .study-studio--focus .study-panel {
+  border-color: color-mix(in srgb, var(--study-cyan) 16%, transparent);
+  background: color-mix(in srgb, var(--card, #0f1320) 55%, transparent) !important;
+  -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
+}
+.study-studio--focus .study-actions { gap: .6rem; }
+.study-studio--focus .study-actions button { min-height: 48px; padding-inline: 1.15rem; }
+@media (max-width: 640px) {
+  .study-studio--focus .study-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .study-studio--focus .study-actions > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .study-studio .study-heading { flex-wrap: wrap; }
+  .study-studio .study-welcome { padding: 1.35rem; }
+  .study-studio .study-top-rail { margin-inline: -.25rem; border-radius: 1rem; }
+}
+
+/* The hero is always dark (except Paper), so its metric tiles need light text in every theme. */
+html:not(.theme-paper) .study-studio .study-welcome .study-metrics > div { color: #f8fafc; border-color: rgba(255,255,255,.16); }
+html:not(.theme-paper) .study-studio .study-welcome .study-metrics > div * { color: inherit; }
+html:not(.theme-paper) .study-studio .study-welcome .study-metrics small,
+html:not(.theme-paper) .study-studio .study-welcome .study-metrics span { opacity: .75; }

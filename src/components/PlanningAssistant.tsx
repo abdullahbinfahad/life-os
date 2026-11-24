@@ -230,10 +230,10 @@ export default function PlanningAssistant({ onAddItems }: { onAddItems: (proposa
   };
 
   return <>
-    <button type="button" className="fixed bottom-[calc(10rem+env(safe-area-inset-bottom))] right-4 z-40 grid h-12 w-12 place-items-center rounded-full border border-indigo-500/30 bg-white/75 text-indigo-700 shadow-lg shadow-indigo-900/10 backdrop-blur-xl transition hover:scale-105 active:scale-95 dark:bg-slate-900/75 dark:text-indigo-200 lg:bottom-24 lg:right-6" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="lifeos-planning-panel" aria-label={tr(open ? 'Close planning assistant' : 'Open planning assistant')} title={tr(open ? 'Close planning assistant' : 'Open planning assistant')}>
+    <button type="button" className={`fab fab-secondary${open ? ' is-open' : ''}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="lifeos-planning-panel" aria-label={tr(open ? 'Close planning assistant' : 'Open planning assistant')} title={tr(open ? 'Close planning assistant' : 'Open planning assistant')}>
       {open ? <X size={20} /> : <Sparkles size={20} />}
     </button>
-    {open && <section id="lifeos-planning-panel" role="dialog" aria-label={tr('Planning assistant')} className="fixed bottom-[calc(13rem+env(safe-area-inset-bottom))] right-3 z-[80] max-h-[min(68dvh,44rem)] w-[min(94vw,34rem)] overflow-y-auto rounded-2xl shadow-2xl lg:bottom-[7rem] lg:right-6">
+    {open && <section id="lifeos-planning-panel" role="dialog" aria-label={tr('Planning assistant')} className="planner-panel fixed bottom-[calc(11.5rem+env(safe-area-inset-bottom))] right-3 z-[80] max-h-[min(64dvh,44rem)] w-[min(94vw,34rem)] overflow-y-auto rounded-2xl shadow-2xl lg:bottom-[9rem] lg:right-6">
       <div className="card p-4 sm:p-5">
         <header className="mb-3 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2"><Sparkles size={18} className="shrink-0 text-indigo-500" /><div className="min-w-0"><h2 className="font-semibold">{tr('Planning assistant')}</h2><p className="text-xs muted">{tr('Planning and scheduling only')}</p></div></div>
