@@ -1,4 +1,4 @@
-const CACHE = 'life-circle-static-v4';
+const CACHE = 'life-circle-static-v5';
 const SHELL = new URL('./', self.location.href).href;
 
 self.addEventListener('install', (event) => {
