@@ -1,5 +1,5 @@
 import { translate as tr } from '../lib/locales';
-import { ArrowLeft, BookOpen, MessageCircle, RefreshCw, Send, Trash2, WifiOff } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Clock, Link2, MessageCircle, RefreshCw, Send, Trash2, WifiOff } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Logo } from '../components/Brand';
@@ -9,6 +9,7 @@ import { playFeedback } from '../lib/sounds';
 import { useStore } from '../lib/store';
 import { localeForLanguage } from '../lib/utils';
 import { setPublicNotFoundMetadata, setPublicPageMetadata } from '../lib/publicSeo';
+import './PublicJournal.css';
 
 type PublicEntry = { title: string; excerpt: string; content: string; published_at: string };
 type LoadState = 'loading' | 'ready' | 'not-found' | 'offline' | 'missing-table' | 'error' | 'unavailable';
@@ -178,14 +179,29 @@ export default function PublicJournal() {
     if (error) setCommentNotice('Could not remove that comment.'); else { setCommentNotice('Comment removed.'); await loadComments(); }
   };
 
+  const [copied, setCopied] = useState(false);
+  const [readProgress, setReadProgress] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const onScroll = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { const max = document.documentElement.scrollHeight - window.innerHeight; setReadProgress(max > 0 ? Math.min(1, window.scrollY / max) : 0); }); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', onScroll); };
+  }, [state]);
   const retry = <button className="btn-outline mt-5" onClick={() => void loadEntry()}><RefreshCw size={16} /> {tr("Try again")}</button>;
 
+  const words = entry?.content ? entry.content.trim().split(/\s+/).filter(Boolean).length : 0;
+  const hue = (location.search + location.pathname).split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+  const copyLink = async () => { try { await navigator.clipboard.writeText(window.location.href); setCopied(true); window.setTimeout(() => setCopied(false), 1800); } catch { /* clipboard unavailable */ } };
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 dark:bg-[#0b0d12] dark:text-slate-100">
+    <main className="pj-page pj-reader min-h-screen px-4 pb-16 text-slate-900 dark:text-slate-100" style={{ ['--hue' as string]: hue }}>
+      <div className="pj-progress" aria-hidden="true"><i style={{ transform: `scaleX(${readProgress})` }} /></div>
       <article className="mx-auto min-w-0 max-w-3xl break-words">
-        <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
-          <Link to="/public" className="flex items-center gap-2 text-sm muted" aria-label={tr("Public journals home")}><Logo size={28} /> {tr("Life OS")}</Link>
-          <Link to="/public" className="btn-primary"><ArrowLeft size={16} /> {tr("All public journals")}</Link>
+        <div className="pj-reader-nav">
+          <Link to="/public" className="pj-brand" aria-label={tr("Public journals home")}><Logo size={28} /> {tr("Life OS")}</Link>
+          <div className="flex gap-2">
+            {state === 'ready' && <button type="button" className="btn-outline" onClick={() => void copyLink()}>{copied ? <Check size={16} /> : <Link2 size={16} />}<span className="hidden sm:inline">{copied ? tr('Copied') : tr('Copy link')}</span></button>}
+            <Link to="/public" className="btn-primary"><ArrowLeft size={16} /> <span className="hidden sm:inline">{tr("All public journals")}</span><span className="sm:hidden">{tr('All')}</span></Link>
+          </div>
         </div>
 
         {state === 'loading' && <div className="card p-8 text-center muted" role="status">{tr("Loading journal…")}</div>}
@@ -196,17 +212,17 @@ export default function PublicJournal() {
         {state === 'error' && <div className="card p-8 text-center" role="alert"><h1 className="font-semibold">{tr("We couldn’t load this journal")}</h1><p className="mt-1 text-sm muted">{tr("Please try again in a moment.")}</p>{retry}</div>}
         {state === 'ready' && entry && (
           <>
-            <header className="relative isolate overflow-hidden rounded-t-3xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 dark:border-indigo-300/10 dark:from-indigo-500/[.10] dark:via-slate-900 dark:to-violet-500/[.08] sm:p-9">
-              <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-64 w-64 rounded-full bg-indigo-400/15 blur-3xl" />
-              <div className="relative">
-                <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-200/80 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:border-indigo-300/15 dark:bg-white/[.04] dark:text-indigo-200"><BookOpen size={14} />{tr("Published")} {formatDate(entry.published_at, language)}</p>
-                <h1 className="break-words text-3xl font-bold tracking-tight sm:text-4xl">{entry.title || 'Journal entry'}</h1>
-              </div>
+            <header className="pj-reader-cover">
+              <div className="pj-cover-lines" aria-hidden="true"><i /><i /><i /></div>
+              <p className="pj-eyebrow"><span /><BookOpen size={13} /> {tr('Public journal')}</p>
+              <h1 className="pj-reader-title">{entry.title || 'Journal entry'}</h1>
+              <p className="pj-reader-meta"><span>{entry.published_at ? new Date(entry.published_at).toLocaleDateString(localeForLanguage(language), { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</span><span><Clock size={14} /> {Math.max(1, Math.round(words / 220))} {tr('min read')}</span><span>{words.toLocaleString()} {tr('words')}</span></p>
             </header>
-            <div className="rounded-b-3xl border-x border-b border-slate-200 bg-white px-5 py-7 dark:border-white/10 dark:bg-slate-900/60 sm:px-9 sm:py-10">
-              <div className="mx-auto max-w-2xl whitespace-pre-wrap break-words text-base leading-8 sm:text-lg sm:leading-9">{entry.content}</div>
+            <div className="pj-reader-body">
+              <div className="pj-prose">{entry.content}</div>
+              <p className="pj-reader-end" aria-hidden="true">✦ ✦ ✦</p>
             </div>
-            <section className="mt-10 border-t border-slate-200 pt-7 dark:border-white/10" aria-labelledby="comments-title">
+            <section className="pj-comments" aria-labelledby="comments-title">
               <div className="flex items-center gap-2"><MessageCircle size={19} className="text-emerald-500" /><h2 id="comments-title" className="text-xl font-semibold">{tr("Comments")}<span className="text-sm font-normal muted">{commentState === 'ready' ? `· ${comments.length}` : ''}</span></h2></div>
               {commentState === 'loading' && <p className="mt-4 text-sm muted" role="status">{tr("Loading comments…")}</p>}
               {commentState === 'offline' && <p className="mt-4 text-sm muted">{tr("Comments need an internet connection.")}</p>}
@@ -214,14 +230,14 @@ export default function PublicJournal() {
               {commentState === 'error' && <div className="mt-4 flex items-center gap-3 text-sm muted"><span>{tr("Comments could not be loaded.")}</span><button className="btn-ghost !p-2" onClick={() => void loadComments()} aria-label={tr("Retry loading comments")}><RefreshCw size={15} /></button></div>}
               {commentState === 'ready' && <div className="mt-4 space-y-3">
                 {comments.length === 0 && <p className="rounded-xl border border-slate-200 p-4 text-sm muted dark:border-white/10">{tr("No comments yet. Start a thoughtful conversation.")}</p>}
-                {comments.map((comment) => <article key={comment.id} className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[.03]">
+                {comments.map((comment) => <article key={comment.id} className="pj-comment">
                   <div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="break-words text-sm font-semibold">{comment.author_name || 'Reader'}</p><time className="text-xs muted" dateTime={comment.created_at}>{formatDate(comment.created_at, language)}</time></div>{user && comment.can_delete && <button className="btn-ghost !min-h-9 !p-2 text-rose-500" onClick={() => void removeComment(comment.id)} aria-label={tr('Delete')}><Trash2 size={14} /></button>}</div>
                   <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{comment.content}</p>
                 </article>)}
               </div>}
               {commentNotice && <p className="mt-3 text-sm muted" role="status">{commentNotice}</p>}
               {commentState === 'ready' && (user ? <form className="mt-5 space-y-3" onSubmit={submitComment}>
-                <label htmlFor="public-comment" className="label">{tr("Add a comment as")}{String(user.user_metadata?.full_name || user.user_metadata?.name || 'Reader').slice(0, 80)}</label>
+                <label htmlFor="public-comment" className="label">{tr("Add a comment as")} {String(user.user_metadata?.full_name || user.user_metadata?.name || 'Reader').slice(0, 80)}</label>
                 <textarea id="public-comment" className="input min-h-28 resize-y" value={draft} maxLength={2000} onChange={(event) => setDraft(event.target.value)} placeholder={tr("Write a kind, useful response…")} required />
                 <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs muted">{draft.length}{tr("/2000 · Your email is never shown publicly.")}</span><button className="btn-primary" disabled={commentBusy || !draft.trim()}><Send size={15} /> {commentBusy ? 'Posting…' : 'Post comment'}</button></div>
               </form> : <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[.06] p-4"><p className="text-sm">{tr("Sign in to leave a comment. Readers can browse without an account.")}</p><button className="btn-primary mt-3" onClick={() => { setGuest(false); navigate('/'); }}>{tr("Sign in to comment")}</button></div>)}

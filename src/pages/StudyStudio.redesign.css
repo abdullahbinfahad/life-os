@@ -171,3 +171,57 @@ html:not(.theme-paper) .study-studio .study-welcome .study-metrics > div { color
 html:not(.theme-paper) .study-studio .study-welcome .study-metrics > div * { color: inherit; }
 html:not(.theme-paper) .study-studio .study-welcome .study-metrics small,
 html:not(.theme-paper) .study-studio .study-welcome .study-metrics span { opacity: .75; }
+
+/* ---- Study dashboard (overview statistics) ---- */
+.study-dash { grid-column: 1 / -1; display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .study-dash { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1200px) { .study-dash { grid-template-columns: minmax(0, .9fr) minmax(0, 1.3fr) minmax(0, 1fr); } }
+.study-dash-card { position: relative; overflow: hidden; padding: 1.15rem; border-radius: 1.35rem; border: 1px solid var(--study-border, rgba(148,163,184,.18)); background: var(--study-surface, rgba(255,255,255,.03)); box-shadow: 0 14px 36px rgba(2,6,23,.10); }
+.study-dash-card h3 { font-size: .9rem; font-weight: 700; display: flex; align-items: baseline; gap: .5rem; }
+.study-dash-card h3 small { font-weight: 500; font-size: .72rem; opacity: .6; }
+@media (prefers-reduced-motion: no-preference) { .study-dash-card { animation: study-rise .55s var(--ease-out, ease) backwards; } .study-dash-card:nth-child(2) { animation-delay: .07s; } .study-dash-card:nth-child(3) { animation-delay: .14s; } }
+.study-dash svg .track { fill: none; stroke: rgba(148,163,184,.15); stroke-width: 9; }
+.study-dash svg .bar { fill: none; stroke-width: 9; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 1.3s var(--ease-out, ease); }
+.study-dash svg .bar.a { stroke: var(--study-cyan); filter: drop-shadow(0 0 5px color-mix(in srgb, var(--study-cyan) 60%, transparent)); }
+.study-dash svg .bar.b { stroke: var(--study-mint, #34d399); filter: drop-shadow(0 0 5px rgba(52,211,153,.5)); }
+.study-dash-ringrow { margin-top: .9rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.study-dash-ring { position: relative; display: grid; justify-items: center; gap: .35rem; }
+.study-dash-ring svg { width: min(100%, 8.5rem); aspect-ratio: 1; }
+.study-dash-ring-label { position: absolute; top: 0; left: 0; right: 0; aspect-ratio: 1; max-width: 8.5rem; margin: 0 auto; display: grid; place-content: center; text-align: center; line-height: 1.1; }
+.study-dash-ring-label b { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.study-dash-ring-label small { font-size: .65rem; opacity: .6; }
+.study-dash-ring > span { font-size: .78rem; font-weight: 600; opacity: .8; }
+
+.study-bars { position: relative; margin-top: 1.4rem; height: 9.5rem; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: .5rem; align-items: stretch; padding-bottom: 1.4rem; }
+.study-bars-target { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed color-mix(in srgb, var(--study-cyan) 55%, transparent); margin-bottom: 1.4rem; pointer-events: none; }
+.study-bars-target span { position: absolute; right: 0; top: -1.1rem; font-size: .62rem; font-style: normal; color: var(--study-cyan); }
+.study-bar { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.study-bar-fill { position: relative; width: 100%; max-width: 2.4rem; border-radius: .6rem .6rem .25rem .25rem; background: linear-gradient(180deg, color-mix(in srgb, var(--study-cyan) 85%, #fff), color-mix(in srgb, var(--study-indigo) 70%, transparent)); transition: height 1.1s var(--ease-out, ease); min-height: 0; }
+.study-bar.is-today .study-bar-fill { background: var(--accent-grad, linear-gradient(180deg, #635bff, #8b5cf6)); box-shadow: 0 0 18px var(--study-glow); }
+.study-bar-fill em { position: absolute; top: -1.15rem; left: 50%; transform: translateX(-50%); font-size: .62rem; font-style: normal; font-weight: 700; opacity: .8; }
+.study-bar small { position: absolute; bottom: -1.3rem; font-size: .68rem; opacity: .6; }
+.study-bar.is-today small { opacity: 1; font-weight: 700; color: var(--study-cyan); }
+
+.study-dash-donut { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto 1fr; gap: .75rem 1rem; align-items: center; }
+.study-dash-donut h3 { grid-column: 1 / -1; }
+.study-donut-wrap { position: relative; width: 8.5rem; aspect-ratio: 1; }
+.study-donut-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.study-donut-wrap .seg { fill: none; stroke-width: 11; transition: stroke-dasharray 1.2s var(--ease-out, ease); }
+.study-donut-label { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.1; }
+.study-donut-label b { font-size: 1.3rem; } .study-donut-label small { font-size: .65rem; opacity: .6; }
+.study-donut-legend { display: grid; gap: .4rem; font-size: .78rem; }
+.study-donut-legend li { display: flex; align-items: center; gap: .45rem; min-width: 0; }
+.study-donut-legend i { flex: none; width: .55rem; height: .55rem; border-radius: 99px; }
+.study-donut-legend b { margin-left: auto; font-variant-numeric: tabular-nums; }
+@media (max-width: 420px) { .study-dash-donut { grid-template-columns: minmax(0, 1fr); justify-items: center; } .study-donut-legend { width: 100%; } }
+
+.study-dash-kpis { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+@media (min-width: 640px) { .study-dash-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .study-dash-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.study-dash-kpis > div { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: .55rem; align-items: center; padding: .8rem .9rem; border-radius: 1rem; border: 1px solid var(--study-border, rgba(148,163,184,.18)); background: var(--study-surface, rgba(255,255,255,.03)); transition: transform .3s var(--ease-spring, ease), border-color .2s ease; }
+.study-dash-kpis > div:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--study-cyan) 35%, transparent); }
+.study-dash-kpis svg { grid-row: 1 / 3; color: var(--study-cyan); padding: .45rem; width: 2.2rem; height: 2.2rem; border-radius: .75rem; background: color-mix(in srgb, var(--study-cyan) 12%, transparent); }
+.study-dash-kpis span { font-size: .7rem; opacity: .65; }
+.study-dash-kpis b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.study-dash-kpis small { font-size: .7rem; font-weight: 500; opacity: .6; }
+html.theme-monochrome .study-studio .study-empty-symbol { color: #111; }

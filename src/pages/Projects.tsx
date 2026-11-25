@@ -1,8 +1,9 @@
 import { translate as tr } from '../lib/locales';
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { CheckCircle2, Circle, FolderKanban, GripVertical, Link2, Lock, Plus, Share2, Trash2, Users } from 'lucide-react';
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { CatBadge, Empty, Modal, PageHeader, Progress } from '../components/ui';
+import { AlarmClock, CalendarClock, CheckCircle2, Circle, FolderKanban, GripVertical, Link2, Lock, Plus, Share2, Trash2, Users } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { CatBadge, CountUp, Empty, Modal, Progress, Ring } from '../components/ui';
+import './Projects.css';
 import { useCategoryMap, useStore } from '../lib/store';
 import type { Project } from '../lib/types';
 import { cx, fmtDate, pct, today } from '../lib/utils';
@@ -18,6 +19,49 @@ const COLS: { id: Project['status']; label: string; color: string; tone: string 
   { id: 'on-hold', label: 'On hold', color: '#d97706', tone: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300' },
   { id: 'done', label: 'Done', color: '#4f46e5', tone: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300' },
 ];
+
+function dueLabel(due: string, done: boolean) {
+  if (done) return `${tr('Due')} · ${fmtDate(due)}`;
+  const days = Math.round((new Date(due + 'T00:00:00').getTime() - new Date(today() + 'T00:00:00').getTime()) / 86400000);
+  if (days < 0) return `${Math.abs(days)} ${tr('days late')}`;
+  if (days === 0) return tr('Due today');
+  if (days === 1) return tr('Due tomorrow');
+  if (days <= 14) return `${tr('Due in')} ${days} ${tr('days')}`;
+  return `${tr('Due')} · ${fmtDate(due)}`;
+}
+
+function ProjectsHero({ projects, sharedTotal, sharedLoading, actions }: { projects: Project[]; sharedTotal: number; sharedLoading: boolean; actions: ReactNode }) {
+  const tasks = projects.flatMap((p) => p.tasks);
+  const done = tasks.filter((t) => t.done).length;
+  const t = today();
+  const weekAhead = new Date(); weekAhead.setDate(weekAhead.getDate() + 7);
+  const weekIso = weekAhead.toISOString().slice(0, 10);
+  const overdue = projects.filter((p) => p.dueDate && p.dueDate < t && p.status !== 'done').length + tasks.filter((x) => !x.done && x.dueDate && x.dueDate < t).length;
+  const dueSoon = tasks.filter((x) => !x.done && x.dueDate && x.dueDate >= t && x.dueDate <= weekIso).length;
+  const total = projects.length || 1;
+  return <section className="projects-hero">
+    <div className="projects-hero-grid" aria-hidden="true" />
+    <div className="relative flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0"><span className="projects-eyebrow"><FolderKanban size={13} /> {tr('Plans, tasks, and dependencies')}</span><h1 className="projects-title">{tr('Projects')}</h1></div>
+      <div className="projects-hero-actions">{actions}</div>
+    </div>
+    <div className="projects-hero-body">
+      <div className="projects-ring"><Ring value={pct(done, tasks.length)} size={104} stroke={10} color="#a78bfa"><div className="text-center"><div className="text-xl font-bold tabular-nums"><CountUp value={pct(done, tasks.length)} />%</div><div className="text-[10px] opacity-70">{done}/{tasks.length} {tr('tasks')}</div></div></Ring></div>
+      <div className="projects-kpis">
+        <div><span><Lock size={13} /> {tr('Private')}</span><b><CountUp value={projects.length} /></b></div>
+        <div><span><Users size={13} /> {tr('Shared')}</span><b>{sharedLoading ? '…' : <CountUp value={sharedTotal} />}</b></div>
+        <div className={overdue ? 'is-alert' : ''}><span><AlarmClock size={13} /> {tr('Overdue')}</span><b><CountUp value={overdue} /></b></div>
+        <div><span><CalendarClock size={13} /> {tr('Due this week')}</span><b><CountUp value={dueSoon} /></b></div>
+      </div>
+    </div>
+    <div className="projects-dist">
+      <div className="projects-dist-bar" role="img" aria-label={COLS.map((c) => `${tr(c.label)} ${projects.filter((p) => p.status === c.id).length}`).join(', ')}>
+        {COLS.map((c) => { const n = projects.filter((p) => p.status === c.id).length; return n ? <i key={c.id} style={{ width: `${(n / total) * 100}%`, background: c.color }} /> : null; })}
+      </div>
+      <ul className="projects-dist-legend">{COLS.map((c) => <li key={c.id}><i style={{ background: c.color }} />{tr(c.label)} <b>{projects.filter((p) => p.status === c.id).length}</b></li>)}</ul>
+    </div>
+  </section>;
+}
 
 function StatusTab({ status, label, count, selected, onSelect, color }: {
   status: Project['status']; label: string; count: number; selected: boolean; onSelect: () => void; color: string;
@@ -44,23 +88,27 @@ function ProjectCard({ project, category, onOpen }: { project: Project; category
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const status = COLS.find((item) => item.id === project.status)!;
   return (
-    <article ref={setNodeRef} style={style} className={cx('project-card card group relative grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] gap-2 p-3.5 transition sm:p-4', isDragging && 'z-20 opacity-55 shadow-xl')}>
-      <button type="button" onClick={onOpen} className="min-w-0 text-left focus-visible:rounded-lg">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className={cx('h-2 w-2 shrink-0 rounded-full', status.tone)} style={{ backgroundColor: status.color }} aria-hidden="true" />
-          <span className="min-w-0 flex-1 break-words text-[15px] font-semibold leading-5 text-slate-900 dark:text-slate-100">{project.title}</span>
+    <article ref={setNodeRef} style={{ ...style, ['--status' as string]: status.color }} className={cx('project-card project-card-v2 card group relative min-w-0', isDragging && 'z-20 opacity-55 shadow-xl')}>
+      <span className="project-card-band" aria-hidden="true" />
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 p-4">
+        <button type="button" onClick={onOpen} className="min-w-0 text-left focus-visible:rounded-lg">
+          <span className="project-card-status">{tr(status.label)}</span>
+          <span className="mt-1.5 block break-words text-[15px] font-semibold leading-5">{project.title}</span>
+          {project.description && <p className="mt-1.5 line-clamp-2 break-words text-sm leading-5 muted">{project.description}</p>}
+          <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
+            <CatBadge cat={category as any} />
+            {project.dueDate && <span className={cx('chip max-w-full', overdue ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300' : 'bg-slate-100 text-slate-700 dark:bg-white/[.07] dark:text-slate-300')}>{dueLabel(project.dueDate, project.status === 'done')}</span>}
+          </div>
+        </button>
+        <div className="flex flex-col items-center gap-2">
+          <Ring value={progress} size={52} stroke={5} color={status.color}><span className="text-[11px] font-bold tabular-nums">{progress}%</span></Ring>
+          <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag to move between statuses')} {...attributes} {...listeners}
+            className="grid h-9 w-9 touch-none place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-white/10 dark:hover:text-indigo-300">
+            <GripVertical size={18} aria-hidden="true" />
+          </button>
         </div>
-        {project.description && <p className="mt-1.5 line-clamp-2 break-words text-sm leading-5 muted">{project.description}</p>}
-        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
-          <CatBadge cat={category as any} />
-          {project.dueDate && <span className={cx('chip max-w-full', overdue ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300' : 'bg-slate-100 text-slate-700 dark:bg-white/[.07] dark:text-slate-300')}>{tr('Due')} · {fmtDate(project.dueDate)}</span>}
-        </div>
-        <div className="mt-3 flex min-w-0 items-center gap-2 text-xs muted"><Progress value={progress} color={status.color} /><span className="shrink-0 tabular-nums">{done}/{project.tasks.length}</span></div>
-      </button>
-      <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag to move between statuses')} {...attributes} {...listeners}
-        className="grid h-9 w-9 touch-none place-items-center self-start rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 focus-visible:text-indigo-700 dark:hover:bg-white/10 dark:hover:text-indigo-300">
-        <GripVertical size={18} aria-hidden="true" />
-      </button>
+      </div>
+      <div className="project-card-foot"><span><CheckCircle2 size={13} /> {done}/{project.tasks.length} {tr('tasks')}</span><span className="project-card-meter"><i style={{ width: `${progress}%` }} /></span></div>
     </article>
   );
 }
@@ -194,12 +242,12 @@ export default function Projects() {
     {workspaceMode === 'private' && <button className="btn-primary shrink-0" onClick={() => setCreating(true)}><Plus size={16} /> {tr('New project')}</button>}
   </div>;
 
-  if (workspaceMode === 'shared') return <div className="min-w-0">{shareFeedback && <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200" role="status">{shareFeedback}</p>}{!sharedDetailOpen && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace initialProjectId={sharedOverviewTarget} initialTab={notificationTab} onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedOverviewTarget(null); setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
+  if (workspaceMode === 'shared') return <div className="min-w-0">{shareFeedback && <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200" role="status">{shareFeedback}</p>}{!sharedDetailOpen && <ProjectsHero projects={projects} sharedTotal={sharedOverview.total} sharedLoading={sharedOverviewLoading} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace initialProjectId={sharedOverviewTarget} initialTab={notificationTab} onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedOverviewTarget(null); setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
 
   return (
     <div className="min-w-0">
-      {!open && <PageHeader title={tr('Projects')} subtitle={tr('Plans, tasks, and dependencies')} actions={modeActions} />}
-      {!open && <section className="card mb-5 min-w-0 p-3 sm:p-4" aria-label={tr('Project overview')}>
+      {!open && <ProjectsHero projects={projects} sharedTotal={sharedOverview.total} sharedLoading={sharedOverviewLoading} actions={modeActions} />}
+      {!open && <section className="projects-recent card mb-5 min-w-0 p-3 sm:p-4" aria-label={tr('Project overview')}>
         <div className="mb-3 flex min-w-0 items-center justify-between gap-3"><div className="min-w-0"><h2 className="text-sm font-semibold">{tr('Project overview')}</h2><p className="mt-0.5 text-xs muted">{tr('Private')} {projects.length} · {tr('Shared')} {sharedOverviewLoading ? '…' : sharedOverview.total}</p></div><FolderKanban size={18} className="shrink-0 text-indigo-600 dark:text-indigo-300" /></div>
         <div className="grid min-w-0 gap-3 md:grid-cols-2">
           <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[.025]"><div className="mb-2 flex items-center justify-between gap-2"><h3 className="text-sm font-semibold"><Lock size={14} className="me-1.5 inline text-indigo-600 dark:text-indigo-300" />{tr('Private')} {tr('Projects')}</h3><span className="text-xs tabular-nums muted">{projects.length}</span></div><div className="space-y-1">{projects.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3).map((project) => <button key={project.id} type="button" onClick={() => { setOpenId(project.id); setTaskText(''); setTaskDue(''); }} className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-start text-sm transition hover:bg-white hover:text-indigo-700 active:scale-[.99] dark:hover:bg-white/[.06] dark:hover:text-indigo-300"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLS.find((item) => item.id === project.status)?.color }} /><span className="min-w-0 flex-1 truncate">{project.title}</span><span className="shrink-0 text-xs muted">{tr(project.status)}</span></button>)}{projects.length === 0 && <p className="px-2 py-2 text-xs muted">{tr('No private projects yet')}</p>}</div><button type="button" className="mt-2 min-h-9 rounded-lg px-2 text-xs font-medium text-indigo-700 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10" onClick={() => setWorkspaceMode('private')}>{tr('View private projects')} →</button></div>
@@ -254,6 +302,20 @@ export default function Projects() {
         {open && (
           <div className="project-detail min-w-0 space-y-5">
             <header className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-white/10"><div className="min-w-0"><button type="button" className="btn-ghost -ml-2 mb-2" onClick={() => setOpenId(null)}><Link2 size={15} />{tr('Back to projects')}</button><h2 className="break-words text-xl font-semibold tracking-tight sm:text-2xl">{open.title}</h2><p className="mt-1 text-sm muted">{tr('Project details')} · {tr(COLS.find((column) => column.id === open.status)?.label ?? open.status)}</p></div><div className="flex flex-wrap gap-2">{cloudEnabled && user && <button type="button" className="btn-ghost" onClick={() => { setShareFeedback(''); setSharePreview(true); }}><Share2 size={15} />{tr('Copy to Shared Projects')}</button>}<button type="button" className="btn-ghost text-rose-600" onClick={() => { if (confirm(tr('Delete project?'))) { deleteProject(open.id); setOpenId(null); } }}><Trash2 size={15} />{tr('Delete project')}</button></div></header>
+            {(() => {
+              const doneTasks = open.tasks.filter((task) => task.done).length;
+              const blockedTasks = open.tasks.filter((task) => !task.done && blocked(open, task.dependsOn)).length;
+              const meta = COLS.find((item) => item.id === open.status)!;
+              return <div className="project-detail-summary" style={{ ['--status' as string]: meta.color }}>
+                <Ring value={pct(doneTasks, open.tasks.length)} size={78} stroke={8} color={meta.color}><span className="text-sm font-bold tabular-nums">{pct(doneTasks, open.tasks.length)}%</span></Ring>
+                <dl>
+                  <div><dt>{tr('Status')}</dt><dd><i style={{ background: meta.color }} />{tr(meta.label)}</dd></div>
+                  <div><dt>{tr('Tasks done')}</dt><dd>{doneTasks}/{open.tasks.length}</dd></div>
+                  <div><dt>{tr('Blocked')}</dt><dd className={blockedTasks ? 'text-amber-500' : ''}>{blockedTasks}</dd></div>
+                  <div><dt>{tr('Due')}</dt><dd>{open.dueDate ? dueLabel(open.dueDate, open.status === 'done') : '—'}</dd></div>
+                </dl>
+              </div>;
+            })()}
             <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <label className="min-w-0"><span className="label">{tr('Status')}</span><select className="input min-w-0" value={open.status} onChange={(event) => updateProject(open.id, { status: event.target.value as Project['status'] })}>{COLS.map((column) => <option key={column.id} value={column.id}>{tr(column.label)}</option>)}</select></label>
               <label className="min-w-0"><span className="label">{tr('Due date')}</span><input type="date" className="input min-w-0" value={open.dueDate ?? ''} onChange={(event) => updateProject(open.id, { dueDate: event.target.value || undefined })} /></label>

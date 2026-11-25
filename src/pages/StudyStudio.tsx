@@ -27,6 +27,7 @@ import {
 } from '../lib/study/engine';
 import './StudyStudio.css';
 import './StudyStudio.redesign.css';
+import StudyDashboard from '../components/study/StudyDashboard';
 
 const sections = [
   ['overview', 'Overview'],
@@ -219,9 +220,9 @@ function Overview({
           <p>{tr('Your workspace is private. Progress below reflects saved sessions and topic stages.')}</p>
           <button
             className="study-primary"
-            onClick={() => onNavigate(active ? 'focus' : 'subjects')}
+            onClick={() => onNavigate(active || study.subjects.length ? 'focus' : 'subjects')}
           >
-            {active ? 'Resume focus' : 'Add your first subject'} <span>→</span>
+            {active ? tr('Resume focus') : study.subjects.length ? tr('Start a focus session') : tr('Add your first subject')} <span>→</span>
           </button>
         </div>
         <div className="study-metrics">
@@ -237,6 +238,7 @@ function Overview({
           </div>
         </div>
       </Panel>
+      <StudyDashboard study={study} todaySeconds={todaySeconds} weekSeconds={weekSeconds} />
       {active && (
         <Panel>
           <div className="study-panel-head">
