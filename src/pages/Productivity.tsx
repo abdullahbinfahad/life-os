@@ -2,6 +2,7 @@ import { translate as tr } from '../lib/locales';
 import { BarChart3, CheckCircle2, Circle, Coffee, Pause, Play, Plus, RotateCcw, Settings2, Sparkles, Timer, Trophy } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import './Productivity.css';
 import { Modal, PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
 import type { FocusSession } from '../lib/types';
@@ -171,23 +172,21 @@ export default function Productivity() {
     </Modal>
     {notice && <p className="mb-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200" role="status">{notice}</p>}
     {tab === 'timer' && <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,.75fr)]">
-      <section className="card min-w-0 p-4 sm:p-7" aria-label={timerKind === 'pomodoro' ? tr('Pomodoro focus timer') : tr('Stopwatch')}>
+      <section className="timer-card card min-w-0 p-4 sm:p-7" aria-label={timerKind === 'pomodoro' ? tr('Pomodoro focus timer') : tr('Stopwatch')}>
         <div className="mx-auto max-w-xl text-center">
-          <div className="mb-5 flex justify-center gap-2" role="tablist" aria-label={tr('Timer type')}>
-            {([{ id: 'pomodoro', label: tr('Pomodoro'), icon: Timer }, { id: 'stopwatch', label: tr('Stopwatch'), icon: Play }] as const).map(({ id, label, icon: Icon }) => <button key={id} type="button" role="tab" aria-label={label} title={label} aria-selected={timerKind === id} onClick={() => setTimerKind(id)} className={`inline-flex h-12 min-h-12 w-12 items-center justify-center rounded-xl p-0 transition ${timerKind === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-200'}`}><Icon size={20} aria-hidden="true" /></button>)}
+          <div className="timer-seg mb-4" role="tablist" aria-label={tr('Timer type')}>
+            {([{ id: 'pomodoro', label: tr('Pomodoro'), icon: Timer }, { id: 'stopwatch', label: tr('Stopwatch'), icon: Play }] as const).map(({ id, label, icon: Icon }) => <button key={id} type="button" role="tab" aria-label={label} title={label} aria-selected={timerKind === id} onClick={() => setTimerKind(id)} className="timer-seg-btn h-10 w-12"><Icon size={20} aria-hidden="true" /></button>)}
           </div>
           {timerKind === 'pomodoro' && <>
-          <div className="mb-5 flex w-full flex-nowrap justify-center gap-1.5 pb-1" role="tablist" aria-label={tr('Timer mode')}>
-            {([{ id: 'focus', label: tr('Pomodoro'), icon: Timer }, { id: 'short', label: tr('Short break'), icon: Coffee }, { id: 'long', label: tr('Long break'), icon: Coffee }] as const).map(({ id, label, icon: Icon }) => <button key={id} type="button" role="tab" aria-label={label} title={label} aria-selected={mode === id} disabled={running} onClick={() => setModeSafe(id)} className={`inline-flex min-h-10 min-w-0 shrink items-center justify-center gap-1 whitespace-nowrap rounded-xl px-1.5 py-2 text-xs font-medium sm:gap-1.5 sm:px-3 sm:text-sm ${mode === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 dark:bg-white/[.06] dark:text-slate-200'} disabled:opacity-70`}><Icon size={13} /><span>{label}</span></button>)}
+          <div className="timer-seg timer-seg-wide mb-6" role="tablist" aria-label={tr('Timer mode')}>
+            {([{ id: 'focus', label: tr('Pomodoro'), icon: Timer }, { id: 'short', label: tr('Short break'), icon: Coffee }, { id: 'long', label: tr('Long break'), icon: Coffee }] as const).map(({ id, label, icon: Icon }) => <button key={id} type="button" role="tab" aria-label={label} title={label} aria-selected={mode === id} disabled={running} onClick={() => setModeSafe(id)} className="timer-seg-btn min-h-10 gap-1 px-2 text-xs sm:gap-1.5 sm:px-3.5 sm:text-sm disabled:opacity-70"><Icon size={13} /><span>{label}</span></button>)}
           </div>
-          <div className="relative mx-auto grid aspect-square w-[min(66vw,18rem)] place-items-center rounded-full" style={{ background: 'conic-gradient(#635BFF 0deg, #635BFF 2deg, transparent 2deg)', boxShadow: 'inset 0 0 0 10px rgba(148,163,184,.16)' }}>
-            <div className="grid h-[calc(100%-1.2rem)] w-[calc(100%-1.2rem)] place-content-center rounded-full bg-white dark:bg-[#121722]"><span className="font-mono text-5xl font-semibold tabular-nums tracking-tight sm:text-6xl" aria-live="off">{display}</span><span className="mt-2 text-sm muted">{running ? tr('Time to focus!') : mode === 'focus' ? tr('Ready when you are') : tr('Take a gentle break')}</span></div>
-          </div>
-          <div className="mt-5 flex justify-center gap-2"><button type="button" className="btn-primary min-w-32 !px-6" onClick={running ? () => { setRunning(false); playFeedback('pause'); } : () => { start(); playFeedback('resume'); }}>{running ? <><Pause size={17} />{tr('Pause')}</> : <><Play size={17} />{tr('Start')}</>}</button><button type="button" className="btn-outline" onClick={running ? () => { start(); playFeedback('resume'); } : reset} aria-label={tr('Reset timer')}>{running ? <Play size={16} /> : <RotateCcw size={16} />}{running ? tr('Resume') : tr('Reset')}</button></div>
+          <TimerDial progress={1 - secondsLeft / Math.max(1, modeMinutes(mode, config) * 60)} running={running} tone={mode === 'focus' ? 'focus' : 'break'} label={display} caption={running ? tr('Time to focus!') : mode === 'focus' ? tr('Ready when you are') : tr('Take a gentle break')} />
+          <div className="mt-5 flex justify-center gap-2"><button type="button" className="btn-primary min-w-32 !px-6" onClick={running ? () => { setRunning(false); playFeedback('pause'); } : () => { start(); playFeedback('resume'); }}>{running ? <><Pause size={17} /> {tr('Pause')}</> : <><Play size={17} /> {tr('Start')}</>}</button><button type="button" className="btn-outline" onClick={running ? () => { start(); playFeedback('resume'); } : reset} aria-label={tr('Reset timer')}>{running ? <Play size={16} /> : <RotateCcw size={16} />}{running ? tr('Resume') : tr('Reset')}</button></div>
           <p className="mt-4 text-xs muted">{tr('Focus time is private to your account. Screen time in other apps must be self-reported.')}</p>
           </>}
           {timerKind === 'stopwatch' && <>
-            <div className="mx-auto grid aspect-square w-[min(66vw,18rem)] place-items-center rounded-full" style={{ boxShadow: 'inset 0 0 0 10px rgba(148,163,184,.16)' }}><div className="grid h-[calc(100%-1.2rem)] w-[calc(100%-1.2rem)] place-content-center rounded-full bg-white dark:bg-[#121722]"><span className="font-mono text-5xl font-semibold tabular-nums tracking-tight sm:text-6xl" aria-live="off">{`${String(Math.floor(stopwatchElapsed / 60000)).padStart(2, '0')}:${String(Math.floor(stopwatchElapsed / 1000) % 60).padStart(2, '0')}`}</span><span className="mt-2 text-sm muted">{stopwatchStartedAt === null ? tr('Ready when you are') : tr('Stopwatch')}</span></div></div>
+            <TimerDial progress={(stopwatchElapsed % 60000) / 60000} running={stopwatchStartedAt !== null} tone="stopwatch" label={`${String(Math.floor(stopwatchElapsed / 60000)).padStart(2, '0')}:${String(Math.floor(stopwatchElapsed / 1000) % 60).padStart(2, '0')}`} caption={stopwatchStartedAt === null ? tr('Ready when you are') : tr('Stopwatch')} />
             <div className="mt-5 flex justify-center gap-2"><button type="button" className="btn-primary min-w-32 !px-6" aria-label={stopwatchStartedAt === null ? tr('Start') : tr('Pause')} onClick={() => { setStopwatchStartedAt(stopwatchStartedAt === null ? Date.now() - stopwatchElapsed : null); playFeedback(stopwatchStartedAt === null ? 'resume' : 'pause'); }}>{stopwatchStartedAt === null ? <><Play size={17} />{stopwatchElapsed ? tr('Resume') : tr('Start')}</> : <><Pause size={17} />{tr('Pause')}</>}</button><button type="button" className="btn-outline" aria-label={tr('Reset stopwatch')} onClick={() => { setStopwatchStartedAt(null); setStopwatchElapsed(0); }}><RotateCcw size={16} /><span className="hidden sm:inline">{tr('Reset')}</span></button></div>
             <p className="mt-4 text-xs muted">{tr('Stopwatch time is not saved as a focus session or awarded points.')}</p>
           </>}
@@ -219,5 +218,36 @@ export default function Productivity() {
       <section className="card min-w-0 p-4 sm:p-5"><h2 className="mb-3 flex items-center gap-2 font-semibold"><Trophy size={18} className="text-amber-500" />{tr('Awards & theme unlocks')}</h2><div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">{EARNED_THEMES.map((milestone, index) => { const earned = ownerAdmin || rewardPoints >= milestone.points; const progress = ownerAdmin ? 100 : Math.min(100, rewardPoints / milestone.points * 100); return <article key={milestone.id} className={`min-w-0 rounded-xl border p-3 transition ${earned ? 'border-amber-400/45 bg-gradient-to-br from-amber-100/80 to-white dark:from-amber-400/10 dark:to-white/[.02]' : 'border-slate-200 bg-slate-50/70 dark:border-white/10 dark:bg-white/[.025]'}`}><div className="flex items-center justify-between gap-2"><span className={`grid h-9 w-9 place-items-center rounded-xl ${earned ? 'bg-amber-400/20 text-amber-700 dark:text-amber-200' : 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400'}`}><Trophy size={17} /></span><span className="text-[11px] font-semibold uppercase tracking-wide muted">{earned ? tr('Unlocked') : `#${index + 1}`}</span></div><h3 className="mt-3 break-words text-sm font-semibold">{tr(milestone.title)}</h3><p className="mt-1 text-xs muted">{ownerAdmin ? tr('Owner access') : `${milestone.points.toLocaleString(localeForLanguage(state.settings.language))} ${tr('points')}`}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className={`h-full rounded-full transition-all ${earned ? 'bg-amber-500' : 'bg-indigo-500'}`} style={{ width: `${progress}%` }} /></div></article>; })}</div></section>
     </div>}
     {tab === 'settings' && <section className="card max-w-2xl p-4 sm:p-6"><h2 className="mb-1 font-semibold">{tr('Pomodoro settings')}</h2><p className="mb-4 text-sm muted">{tr('Choose session lengths. The countdown stays accurate when your phone locks or Safari suspends the tab.')}</p><div className="grid gap-4 sm:grid-cols-2">{([{ key: 'focus', label: tr('Focus minutes') }, { key: 'short', label: tr('Short break minutes') }, { key: 'long', label: tr('Long break minutes') }, { key: 'longEvery', label: tr('Long break after focus sessions') }] as const).map(({ key, label }) => <label key={key} className="min-w-0"><span className="label">{label}</span><input className="input" type="number" inputMode="numeric" min="1" max="180" value={config[key]} onChange={(event) => saveConfig(key, Number(event.target.value))} /></label>)}</div><p className="mt-4 rounded-xl bg-slate-100 p-3 text-sm muted dark:bg-white/[.04]">{tr('Focus and self-reported distraction logs are private account data. This website cannot read iPhone Screen Time or activity in other apps.')}</p></section>}
+  </div>;
+}
+
+/** Timer face: SVG progress arc with minute ticks, glowing head and gentle breathing while running. */
+function TimerDial({ progress, running, tone, label, caption }: { progress: number; running: boolean; tone: 'focus' | 'break' | 'stopwatch'; label: string; caption: string }) {
+  const r = 88;
+  const c = 2 * Math.PI * r;
+  const p = Math.min(1, Math.max(0, progress));
+  const angle = p * 2 * Math.PI - Math.PI / 2;
+  return <div className={`timer-dial tone-${tone} ${running ? 'is-running' : ''}`}>
+    <div className="timer-dial-glow" aria-hidden="true" />
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <defs>
+        <linearGradient id={`dial-${tone}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" className="dial-stop-a" /><stop offset="1" className="dial-stop-b" />
+        </linearGradient>
+      </defs>
+      {Array.from({ length: 60 }, (_, i) => {
+        const a = (i / 60) * 2 * Math.PI;
+        const long = i % 5 === 0;
+        const r1 = long ? 74 : 77;
+        return <line key={i} x1={100 + Math.cos(a) * r1} y1={100 + Math.sin(a) * r1} x2={100 + Math.cos(a) * 80} y2={100 + Math.sin(a) * 80} className={`dial-tick ${i / 60 < p ? 'is-past' : ''} ${long ? 'is-long' : ''}`} />;
+      })}
+      <circle cx="100" cy="100" r={r} className="dial-track" />
+      <circle cx="100" cy="100" r={r} className="dial-bar" stroke={`url(#dial-${tone})`} strokeDasharray={c} strokeDashoffset={c * (1 - p)} transform="rotate(-90 100 100)" />
+      {p > 0.002 && <circle cx={100 + Math.cos(angle) * r} cy={100 + Math.sin(angle) * r} r="5.5" className="dial-head" />}
+    </svg>
+    <div className="timer-dial-face">
+      <span className="timer-digits" aria-live="off">{label}</span>
+      <span className="timer-caption">{caption}</span>
+    </div>
   </div>;
 }

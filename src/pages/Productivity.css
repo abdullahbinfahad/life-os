@@ -1,0 +1,38 @@
+/* Productivity — timer redesign */
+.timer-card { position: relative; overflow: hidden; isolation: isolate; }
+.timer-card::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(60% 55% at 50% 52%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%); }
+
+.timer-seg { display: inline-flex; max-width: 100%; gap: .25rem; padding: .3rem; border-radius: 1rem; background: rgba(148,163,184,.10); border: 1px solid rgba(148,163,184,.14); }
+.timer-seg-wide { display: flex; width: fit-content; margin-inline: auto; }
+.timer-seg-btn { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; border-radius: .75rem; font-weight: 600; color: inherit; opacity: .75; transition: background-color .25s ease, color .25s ease, opacity .2s ease, box-shadow .3s ease, transform .15s ease; }
+.timer-seg-btn:hover { opacity: 1; background: rgba(148,163,184,.12); }
+.timer-seg-btn:active { transform: scale(.95); }
+.timer-seg-btn[aria-selected="true"] { opacity: 1; color: #fff; background: var(--accent-grad); box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 35%, transparent); }
+html.theme-forest .timer-seg-btn[aria-selected="true"], html.theme-monochrome .timer-seg-btn[aria-selected="true"] { color: #06140e; }
+
+.timer-dial { position: relative; margin: 0 auto; width: min(74vw, 20rem); aspect-ratio: 1; display: grid; place-items: center; }
+.timer-dial svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.timer-dial-glow { position: absolute; inset: 14%; border-radius: 9999px; background: radial-gradient(circle, color-mix(in srgb, var(--dial-a) 32%, transparent), transparent 70%); filter: blur(18px); opacity: .45; transition: opacity .6s ease; }
+.timer-dial.is-running .timer-dial-glow { opacity: .9; }
+@media (prefers-reduced-motion: no-preference) {
+  .timer-dial.is-running .timer-dial-glow { animation: dial-breathe 4s ease-in-out infinite; }
+  .timer-dial.is-running .dial-head { animation: dial-head 1.6s ease-in-out infinite; }
+}
+@keyframes dial-breathe { 50% { transform: scale(1.12); opacity: .55; } }
+@keyframes dial-head { 50% { r: 7.5; } }
+.timer-dial { --dial-a: #818cf8; --dial-b: #c084fc; }
+.timer-dial.tone-break { --dial-a: #34d399; --dial-b: #22d3ee; }
+.timer-dial.tone-stopwatch { --dial-a: #fbbf24; --dial-b: #f472b6; }
+html.theme-forest .timer-dial.tone-focus { --dial-a: #34d399; --dial-b: #a7f3d0; }
+.dial-stop-a { stop-color: var(--dial-a); } .dial-stop-b { stop-color: var(--dial-b); }
+.dial-track { fill: none; stroke: rgba(148,163,184,.14); stroke-width: 9; }
+.dial-bar { fill: none; stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .9s linear; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--dial-a) 60%, transparent)); }
+.dial-head { fill: #fff; filter: drop-shadow(0 0 8px var(--dial-a)); transition: cx .9s linear, cy .9s linear; }
+.dial-tick { stroke: rgba(148,163,184,.28); stroke-width: 1; stroke-linecap: round; transition: stroke .4s ease; }
+.dial-tick.is-long { stroke-width: 2; stroke: rgba(148,163,184,.45); }
+.dial-tick.is-past { stroke: var(--dial-a); }
+.timer-dial-face { position: relative; display: grid; place-items: center; width: 68%; aspect-ratio: 1; border-radius: 9999px; text-align: center; align-content: center;
+  background: radial-gradient(circle at 50% 30%, rgba(255,255,255,.07), rgba(255,255,255,.015) 60%); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -20px 40px rgba(0,0,0,.12); }
+html:not(.dark) .timer-dial-face { background: radial-gradient(circle at 50% 30%, #fff, #f5f6fb 70%); box-shadow: inset 0 1px 0 #fff, 0 10px 30px rgba(15,23,42,.08); }
+.timer-digits { font-size: clamp(2.6rem, 11vw, 3.9rem); font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+.timer-caption { margin-top: .45rem; font-size: .8rem; opacity: .65; }

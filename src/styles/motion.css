@@ -61,15 +61,11 @@ html.theme-forest .ambient-grid, html.theme-paper .ambient-grid { display: none;
 .btn { position: relative; isolation: isolate; transition: transform .18s var(--ease-out), background-color .2s ease, box-shadow .25s ease, border-color .2s ease, color .2s ease, opacity .2s ease; }
 .btn-primary { background-image: var(--accent-grad); background-color: var(--accent); overflow: hidden; }
 html:not(.dark) .btn-primary { background-image: var(--accent-grad); }
-.btn-primary::after {
-  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,.28) 45%, transparent 70%);
-  transform: translateX(-120%);
-}
-html.theme-monochrome .btn-primary::after { background: linear-gradient(110deg, transparent 20%, rgba(0,0,0,.08) 45%, transparent 70%); }
+/* Hover sheen drawn inside the button's own background (no pseudo-element, so it can never
+   leak outside the button — the old ::after version painted a pale band on some cards). */
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 34%, transparent); }
-  .btn-primary:hover::after { transform: translateX(120%); transition: transform .7s var(--ease-out); }
+  .btn-primary { background-image: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.22) 50%, transparent 65%), var(--accent-grad); background-size: 250% 100%, 100% 100%; background-position: 130% 0, 0 0; background-repeat: no-repeat; transition: background-position .8s var(--ease-out), transform .18s var(--ease-out), box-shadow .25s ease; }
+  .btn-primary:hover { background-position: -30% 0, 0 0; transform: translateY(-1px); box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 34%, transparent); }
   .btn-outline:hover, .btn-ghost:hover { transform: translateY(-1px); }
 }
 .btn:active { transform: scale(.965); transition-duration: .08s; }
@@ -78,8 +74,8 @@ html.theme-monochrome .btn-primary::after { background: linear-gradient(110deg, 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   html:not(.theme-forest) .app-main .card { transition: transform .3s var(--ease-out), box-shadow .3s ease, border-color .3s ease; }
   html:not(.theme-forest) .app-main .card:hover { border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
-  html:not(.theme-forest) .app-main .stat-card:hover,
-  html:not(.theme-forest) .app-main .album-card:hover { transform: translateY(-3px); box-shadow: 0 18px 44px rgba(15,23,42,.12); }
+  html .app-main .stat-card:hover,
+  html .app-main .album-card:hover { transform: translateY(-3px); box-shadow: 0 18px 44px rgba(15,23,42,.12); }
 }
 .stat-card { position: relative; overflow: hidden; }
 .stat-card::before {
@@ -244,13 +240,19 @@ button.chip:active { transform: scale(.95); }
 /* ---------- Per-page header art ---------- */
 .page-header { position: relative; }
 .page-header-icon {
-  display: grid; place-items: center; flex: none; width: 2.9rem; height: 2.9rem; border-radius: 1rem; color: #fff;
-  background: linear-gradient(135deg, hsl(var(--page-hue) 85% 62%), hsl(calc(var(--page-hue) + 40) 80% 52%));
-  box-shadow: 0 10px 24px hsl(var(--page-hue) 80% 50% / .32), inset 0 1px 0 rgba(255,255,255,.35);
+  position: relative; display: grid; place-items: center; flex: none; width: 2.9rem; height: 2.9rem; border-radius: 1rem;
+  color: hsl(var(--page-hue) 85% 72%);
+  background: linear-gradient(145deg, hsl(var(--page-hue) 70% 55% / .22), hsl(var(--page-hue) 70% 40% / .10));
+  border: 1px solid hsl(var(--page-hue) 80% 65% / .28);
+  box-shadow: 0 8px 22px hsl(var(--page-hue) 70% 30% / .25), inset 0 1px 0 rgba(255,255,255,.12);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
 }
+html:not(.dark) .page-header-icon { color: hsl(var(--page-hue) 70% 42%); background: hsl(var(--page-hue) 80% 60% / .12); box-shadow: 0 6px 16px hsl(var(--page-hue) 60% 40% / .12); }
+.page-header-icon svg { transition: transform .4s var(--ease-spring); }
+.page-header:hover .page-header-icon svg { transform: rotate(-10deg) scale(1.1); }
 @media (min-width: 768px) { .page-header-icon { width: 3.4rem; height: 3.4rem; border-radius: 1.15rem; } }
-html.theme-monochrome .page-header-icon { background: #f2f2f2; color: #111; box-shadow: none; }
-html.theme-paper .page-header-icon { background: linear-gradient(135deg, #8a7556, #5a4b35); }
+html.theme-monochrome .page-header-icon { background: rgba(255,255,255,.08); color: #f2f2f2; border-color: rgba(255,255,255,.18); box-shadow: none; }
+html.theme-paper .page-header-icon { color: #6d5c42; background: rgba(138,117,86,.12); border-color: rgba(138,117,86,.25); }
 @media (prefers-reduced-motion: no-preference) {
   .page-enter .page-header-icon { animation: icon-in .6s cubic-bezier(.34,1.56,.64,1) backwards .05s; }
 }
@@ -324,3 +326,37 @@ html.dark .theme-choice.is-selected { background: color-mix(in srgb, var(--accen
 
 /* Selects get a smoother focus too */
 .app-main select.input, .app-main select { transition: border-color .18s ease, box-shadow .2s ease; }
+
+
+/* ---------- Icons: menu icons react on hover/tap; active icon gets a soft glow ---------- */
+.sidebar-link .sidebar-icon svg, .mobile-bottom-nav .nav-icon { transition: transform .35s var(--ease-spring); }
+@media (hover: hover) and (pointer: fine) { .sidebar-link:hover .sidebar-icon svg { transform: rotate(-8deg) scale(1.15); } }
+.sidebar-link[aria-current="page"] .sidebar-icon svg { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)); }
+.mobile-bottom-nav a:active .nav-icon { transform: scale(.85); }
+@media (prefers-reduced-motion: no-preference) { .mobile-bottom-nav a[aria-current="page"] .nav-icon { animation: icon-bounce .45s var(--ease-spring); } }
+@keyframes icon-bounce { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-3px) scale(1.12); } 100% { transform: translateY(-1px); } }
+
+/* ---------- Cards v2: soft top highlight + accent hairline on every theme ---------- */
+.app-main .card { box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 18px 48px rgba(2,6,23,.10); }
+html.dark .app-main .card { background-image: linear-gradient(180deg, rgba(255,255,255,.025), transparent 40%); }
+html.theme-forest .app-main .card { background-image: linear-gradient(180deg, rgba(167,243,208,.03), transparent 40%), linear-gradient(145deg, rgba(20,38,29,.94), rgba(12,24,18,.93)); }
+
+/* ---------- Today: week strip ---------- */
+.week-strip { display: grid; gap: 1rem; margin-bottom: 1.5rem; padding: 1rem; }
+@media (min-width: 900px) { .week-strip { grid-template-columns: minmax(0, 1.3fr) minmax(16rem, 1fr); align-items: center; padding: 1rem 1.25rem; } }
+.week-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .35rem; }
+.week-day { display: grid; justify-items: center; gap: .2rem; padding: .5rem .2rem; border-radius: 1rem; transition: background-color .2s ease, transform .2s var(--ease-out); }
+.week-day-name { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
+.week-day-num { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.week-day-dots { display: flex; gap: 3px; height: 6px; }
+.week-day-dots i { width: 5px; height: 5px; border-radius: 99px; background: var(--accent); opacity: .85; }
+.week-day.is-future { opacity: .45; }
+.week-day.is-today { color: #fff; background: var(--accent-grad); box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 35%, transparent); }
+html.theme-forest .week-day.is-today, html.theme-monochrome .week-day.is-today { color: #06140e; }
+.week-day.is-today .week-day-name { opacity: .85; }
+.week-day.is-today .week-day-dots i { background: currentColor; }
+@media (prefers-reduced-motion: no-preference) { .week-day.is-today { animation: icon-in .6s var(--ease-spring) backwards .15s; } }
+.week-progress-bar { position: relative; margin-top: .55rem; height: .6rem; border-radius: 99px; overflow: hidden; background: rgba(148,163,184,.15); }
+.week-progress-bar i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--accent-grad); transition: width 1s var(--ease-out); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 50%, transparent); }
+@media (prefers-reduced-motion: no-preference) { .week-progress-bar i { animation: bar-fill 1.1s var(--ease-out) backwards .2s; } }
+@keyframes bar-fill { from { width: 0; } }

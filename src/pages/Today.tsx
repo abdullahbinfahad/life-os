@@ -41,6 +41,17 @@ export default function Today() {
   const candidates = items.filter((i) => i.todayDate !== t && (i.status === 'next' || i.status === 'active' || i.starred)).sort((a, b) => a.priority - b.priority).slice(0, 12);
   const doneCount = completedToday.length + activeHabits.filter((h) => h.log.includes(t)).length;
   const total = todays.length + completedToday.length + activeHabits.length;
+  const weekDays = (() => {
+    const now = new Date();
+    const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(monday); day.setDate(monday.getDate() + i);
+      const iso = toISODate(day);
+      const count = items.filter((item) => item.status === 'done' && item.completedAt && toISODate(new Date(item.completedAt)) === iso).length
+        + activeHabits.filter((h) => h.log.includes(iso)).length;
+      return { iso, count, num: day.getDate(), name: day.toLocaleDateString(undefined, { weekday: 'short' }) };
+    });
+  })();
 
   const add = () => { if (!text.trim()) return; addItems([{ title: text, todayDate: t, status: 'next', priority: 2 }]); setText(''); };
 
@@ -76,6 +87,20 @@ export default function Today() {
     <div>
       <PageHeader title={tr("Today")} subtitle={new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) + ' · Immediate priorities and actions'}
         actions={<button className="btn-outline" onClick={() => setSuggest(!suggest)}><Star size={16} /> {tr("Pick from library")}</button>} />
+
+      <section className="week-strip card" aria-label={tr('This week')}>
+        <div className="week-days">
+          {weekDays.map((d) => <div key={d.iso} className={`week-day ${d.iso === t ? 'is-today' : ''} ${d.iso > t ? 'is-future' : ''}`}>
+            <span className="week-day-name">{d.name}</span>
+            <span className="week-day-num">{d.num}</span>
+            <span className="week-day-dots" aria-label={`${d.count} ${tr('completed')}`}>{Array.from({ length: Math.min(4, d.count) }, (_, i) => <i key={i} />)}</span>
+          </div>)}
+        </div>
+        <div className="week-progress">
+          <div className="flex items-baseline justify-between gap-3 text-sm"><span className="font-semibold">{pct(doneCount, total) >= 100 && total > 0 ? tr('Everything done — great day!') : tr('Today’s progress')}</span><span className="tabular-nums muted">{doneCount} / {total}</span></div>
+          <div className="week-progress-bar"><i style={{ width: `${pct(doneCount, total)}%` }} /></div>
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">

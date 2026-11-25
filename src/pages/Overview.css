@@ -1,0 +1,49 @@
+/* Home dashboard hero — works in every theme (uses --accent from motion.css). */
+.dash-hero {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: grid; gap: 1.5rem; align-items: center;
+  padding: clamp(1.25rem, 3.5vw, 2.4rem);
+  border-radius: 1.75rem; color: #f8fafc;
+  border: 1px solid rgba(255,255,255,.08);
+  background:
+    radial-gradient(90% 130% at 0% 0%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 55%),
+    radial-gradient(70% 110% at 100% 100%, color-mix(in srgb, var(--accent-3, #22d3ee) 26%, transparent), transparent 60%),
+    linear-gradient(135deg, #141a2e, #0b1020);
+  box-shadow: 0 26px 70px rgba(2,6,23,.28), inset 0 1px 0 rgba(255,255,255,.08);
+}
+html.theme-forest .dash-hero { background: radial-gradient(90% 130% at 0% 0%, rgba(16,185,129,.38), transparent 55%), radial-gradient(70% 110% at 100% 100%, rgba(45,212,191,.18), transparent 60%), linear-gradient(135deg, #0f241b, #08140f); border-color: rgba(167,208,181,.14); }
+html.theme-paper .dash-hero { background: linear-gradient(135deg, #3b3226, #231d16); }
+html.theme-monochrome .dash-hero { background: linear-gradient(135deg, #1c1c1c, #0d0d0d); }
+@media (min-width: 900px) { .dash-hero { grid-template-columns: minmax(0, 1fr) auto; } }
+
+.dash-hero-art { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.dash-hero-art span { position: absolute; border-radius: 9999px; border: 1px solid rgba(255,255,255,.07); }
+.dash-hero-art span:nth-child(1) { width: 34rem; height: 34rem; right: -12rem; top: -14rem; }
+.dash-hero-art span:nth-child(2) { width: 22rem; height: 22rem; right: -6rem; top: -8rem; border-style: dashed; }
+.dash-hero-art span:nth-child(3) { width: 9rem; height: 9rem; left: 38%; bottom: -5rem; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 35%, transparent), transparent 70%); border: 0; filter: blur(8px); }
+@media (prefers-reduced-motion: no-preference) {
+  .dash-hero-art span:nth-child(2) { animation: dash-spin 60s linear infinite; }
+  .dash-hero-art span:nth-child(3) { animation: dash-float 9s ease-in-out infinite; }
+}
+@keyframes dash-spin { to { transform: rotate(1turn); } }
+@keyframes dash-float { 50% { transform: translate3d(3rem, -1.5rem, 0) scale(1.2); } }
+
+.dash-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .75rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.14); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.dash-title { margin-top: .9rem; font-size: clamp(1.8rem, 4.6vw, 3rem); line-height: 1.05; font-weight: 800; letter-spacing: -.035em; background: linear-gradient(120deg, #fff 45%, color-mix(in srgb, var(--accent-3, #a5b4fc) 70%, #fff)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; overflow-wrap: anywhere; }
+.dash-sub { margin-top: .6rem; max-width: 36rem; color: rgba(226,232,240,.78); font-size: .95rem; }
+.dash-actions { margin-top: 1.4rem; display: flex; flex-wrap: wrap; gap: .6rem; }
+.dash-actions .btn { min-height: 2.75rem; }
+.dash-ghost { color: #f1f5f9; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); }
+.dash-ghost:hover { background: rgba(255,255,255,.15); }
+@media (max-width: 520px) { .dash-actions { display: grid; grid-template-columns: 1fr 1fr; } .dash-actions .btn-primary { grid-column: 1 / -1; } }
+
+.dash-rings { display: flex; align-items: center; gap: 1.25rem; justify-self: center; }
+.dash-rings svg { width: clamp(9rem, 32vw, 12.5rem); height: auto; transform: rotate(-90deg); filter: drop-shadow(0 10px 30px rgba(0,0,0,.35)); }
+.dash-ring-track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 15; }
+.dash-ring-bar { fill: none; stroke-width: 15; stroke-linecap: round; transition: stroke-dashoffset 1.3s cubic-bezier(.22,1,.36,1); }
+@media (prefers-reduced-motion: reduce) { .dash-ring-bar { transition: none; } }
+.dash-legend { display: grid; gap: .65rem; font-size: .85rem; color: rgba(226,232,240,.85); }
+.dash-legend li { display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
+.dash-legend i { width: .65rem; height: .65rem; border-radius: 99px; box-shadow: 0 0 10px currentColor; }
+.dash-legend b { margin-left: auto; padding-left: .75rem; color: #fff; font-variant-numeric: tabular-nums; }
+@media (max-width: 420px) { .dash-rings { flex-direction: column; } }

@@ -1,8 +1,9 @@
 import { translate as tr } from '../lib/locales';
 import { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, Flame, Plus, Sunrise, Target } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Flame, Plus, Repeat, Sparkles, Sunrise, Target } from 'lucide-react';
+import './Overview.css';
 import { Link } from 'react-router-dom';
-import { CatBadge, PageHeader, Progress, Ring } from '../components/ui';
+import { CatBadge, CountUp, Progress, Ring, Stat } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
 import { pct, streak, today, toISODate } from '../lib/utils';
 import { useAuth } from '../lib/auth';
@@ -26,6 +27,14 @@ export default function Overview() {
   const habitsToday = activeHabits.filter((h) => h.log.includes(t)).length;
   const bestStreak = Math.max(0, ...activeHabits.filter((h) => h.frequency === 'daily').map((h) => streak(h.log)));
   const goalProgress = (g: (typeof goals)[0]) => pct(g.milestones.filter((m) => m.done).length, g.milestones.length);
+  const taskPct = pct(todayDone, todayItems.length + todayDone);
+  const habitPct = pct(habitsToday, activeHabits.length);
+  const goalPct = activeGoals.length ? Math.round(activeGoals.reduce((sum, g) => sum + goalProgress(g), 0) / activeGoals.length) : 0;
+  const hour = new Date().getHours();
+  const greeting = hour < 5 ? tr('Good night') : hour < 12 ? tr('Good morning') : hour < 18 ? tr('Good afternoon') : tr('Good evening');
+  const dateLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const [ringsReady, setRingsReady] = useState(false);
+  useEffect(() => { const frame = requestAnimationFrame(() => setRingsReady(true)); return () => cancelAnimationFrame(frame); }, []);
 
   useEffect(() => {
     let active = true;
@@ -46,20 +55,47 @@ export default function Overview() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <PageHeader title={settings.name ? `${tr("Welcome back,")} ${settings.name}` : tr("Welcome to your life map")} subtitle={tr("A clear place for the goals you care about and the next small step you can take.")} />
-
-      <section className="card overflow-hidden border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-3 text-slate-900 shadow-xl shadow-indigo-600/5 dark:border-indigo-400/20 dark:from-indigo-950 dark:via-slate-900 dark:to-violet-950 dark:text-slate-100 dark:shadow-indigo-600/10 sm:p-8">
-        <div className="max-w-2xl">
-          <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-800 sm:mb-3 sm:px-3 dark:bg-white/15 dark:text-indigo-100"><Target size={14} /> {tr("Start with what matters")}</div>
-          <h2 className="break-words text-lg font-bold leading-tight tracking-tight sm:text-3xl">{tr("Make room for one meaningful next step.")}</h2>
-          <p className="mt-1 max-w-xl text-xs leading-4 text-slate-600 sm:mt-3 sm:text-sm sm:leading-6 dark:text-slate-300">{tr("Add a task for today or set a goal for the longer term. Your overview will bring your plan and progress together.")}</p>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-6 sm:flex sm:flex-wrap">
-            <button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn min-h-11 justify-center bg-white px-2 text-xs text-indigo-700 hover:bg-white/90 sm:px-4 sm:text-sm"><Plus size={16} /> {tr("Add a task")}</button>
-            <Link to="/goals" className="btn min-h-11 justify-center bg-indigo-100 px-2 text-xs text-indigo-900 hover:bg-indigo-200 sm:px-4 sm:text-sm dark:bg-white/15 dark:text-white dark:hover:bg-white/25"><Target size={16} /> {tr("Add a goal")}</Link>
-            <Link to="/today" className="btn col-span-2 min-h-11 justify-center bg-indigo-100 px-2 text-xs text-indigo-900 hover:bg-indigo-200 sm:col-span-1 sm:px-4 sm:text-sm dark:bg-white/15 dark:text-white dark:hover:bg-white/25"><Sunrise size={16} /> {tr("View today")}</Link>
+      <section className="dash-hero">
+        <div className="dash-hero-art" aria-hidden="true"><span /><span /><span /></div>
+        <div className="dash-hero-copy">
+          <span className="dash-chip"><Sparkles size={13} /> {dateLabel}</span>
+          <h1 className="dash-title">{greeting}{settings.name ? `, ${settings.name.split(' ')[0]}` : ''}</h1>
+          <p className="dash-sub">{todayItems.length ? `${todayItems.length} ${tr('things left today')} · ${habitsToday}/${activeHabits.length} ${tr('habits checked in')}` : tr('A clear place for the goals you care about and the next small step you can take.')}</p>
+          <div className="dash-actions">
+            <button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn-primary"><Plus size={16} /> {tr('Add a task')}</button>
+            <Link to="/today" className="btn dash-ghost"><Sunrise size={16} /> {tr('View today')}</Link>
+            <Link to="/goals" className="btn dash-ghost"><Target size={16} /> {tr('Add a goal')}</Link>
           </div>
         </div>
+        <div className="dash-rings" role="img" aria-label={`${tr('Tasks')} ${taskPct}%, ${tr('Habits')} ${habitPct}%, ${tr('Goals')} ${goalPct}%`}>
+          <svg viewBox="0 0 200 200">
+            {[{ r: 86, v: taskPct, c: 'url(#ring-a)' }, { r: 64, v: habitPct, c: 'url(#ring-b)' }, { r: 42, v: goalPct, c: 'url(#ring-c)' }].map((ring, i) => {
+              const c = 2 * Math.PI * ring.r;
+              return <g key={i}>
+                <circle cx="100" cy="100" r={ring.r} className="dash-ring-track" />
+                <circle cx="100" cy="100" r={ring.r} className="dash-ring-bar" stroke={ring.c} strokeDasharray={c} strokeDashoffset={c - (ringsReady ? ring.v : 0) / 100 * c} style={{ transitionDelay: `${i * 140}ms` }} />
+              </g>;
+            })}
+            <defs>
+              <linearGradient id="ring-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#f472b6" /><stop offset="1" stopColor="#a855f7" /></linearGradient>
+              <linearGradient id="ring-b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#34d399" /><stop offset="1" stopColor="#10b981" /></linearGradient>
+              <linearGradient id="ring-c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#38bdf8" /><stop offset="1" stopColor="#6366f1" /></linearGradient>
+            </defs>
+          </svg>
+          <ul className="dash-legend">
+            <li><i style={{ background: '#ec4899' }} />{tr('Tasks')} <b><CountUp value={taskPct} />%</b></li>
+            <li><i style={{ background: '#10b981' }} />{tr('Habits')} <b><CountUp value={habitPct} />%</b></li>
+            <li><i style={{ background: '#3b82f6' }} />{tr('Goals')} <b><CountUp value={goalPct} />%</b></li>
+          </ul>
+        </div>
       </section>
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Stat label={tr('Done today')} value={todayDone} icon={<CheckCircle2 size={18} />} color="#ec4899" />
+        <Stat label={tr('Habits today')} value={`${habitsToday}/${activeHabits.length}`} icon={<Repeat size={18} />} color="#10b981" />
+        <Stat label={tr('Best streak')} value={bestStreak} sub={tr('days')} icon={<Flame size={18} />} color="#f59e0b" />
+        <Stat label={tr('Active goals')} value={activeGoals.length} icon={<Target size={18} />} color="#6366f1" />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="card p-3 sm:p-5 lg:col-span-2">
