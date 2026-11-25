@@ -39,6 +39,7 @@ function accountListError(error: unknown): string {
   if (error instanceof TypeError || /failed to fetch|networkerror|network request failed|fetch failed/.test(message)) return `Network or offline error${codeLabel}. Check your connection and retry.`;
   if (code === '42501') return `Permission denied${codeLabel}. Sign in with the owner account and confirm the owner-admin migration is installed.`;
   if (code === 'PGRST203') return `Ambiguous RPC overload${codeLabel}. Check the deployed function signature in this project and remove conflicting overloads; then refresh.`;
+  if (code === '42804') return `The account-list function returns a column type the database rejects${codeLabel}. Run supabase/migrations/2026112501_owner_account_list_types.sql in the Supabase SQL Editor, then press Retry.`;
   if (code === '42883') return `The owner RPC exists, but PostgreSQL cannot resolve an expression inside it${codeLabel}. Apply the corrected owner-admin repair SQL, then refresh the schema cache and retry.`;
   if (['PGRST202', 'PGRST205'].includes(code)) return `Owner RPC is missing from the API schema cache${codeLabel}. Apply the latest owner-admin repair in this app’s Supabase project, then reload the API schema cache and retry.`;
   if (error instanceof Error && error.message === 'Unexpected account directory response') return 'Unexpected response from the account-list RPC. No server details are shown; verify the deployed function response shape and retry.';

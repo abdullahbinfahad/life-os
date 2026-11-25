@@ -44,14 +44,14 @@ export default function AccountDirectory({ accounts, query, onQueryChange, page,
       </label>
       {error && <div role="alert" className="mt-3 rounded-xl border border-rose-300/60 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">
         <p>{error}</p>
-        {/RPC|schema|owner-admin|PostgreSQL|backend/i.test(error) && <details className="mt-2 text-xs leading-5">
-          <summary className="cursor-pointer font-semibold">{tr('How to fix this')}</summary>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
+        {/RPC|schema|owner-admin|PostgreSQL|backend|column type/i.test(error) && <div className="mt-3 rounded-lg bg-white/60 p-3 text-xs leading-5 dark:bg-white/[.04]">
+          <p className="font-semibold">{tr('How to fix this')}</p>
+          <ol className="mt-1.5 list-decimal space-y-1 pl-5">
             <li>{tr('Open the Supabase SQL Editor for the same project this app uses.')}</li>
-            <li>{tr('Run supabase/migrations/20261026_owner_account_list_repair.sql from the repository.')}</li>
+            <li>{tr('Run the newest owner-admin file from the repository: supabase/migrations/2026112501_owner_account_list_types.sql.')}</li>
             <li>{tr('It reloads the API schema cache itself. Come back here and press Retry.')}</li>
           </ol>
-        </details>}
+        </div>}
         <button type="button" className="btn-outline mt-3 !py-1.5 text-xs" onClick={onRefresh} disabled={loading}>{tr('Retry')}</button>
       </div>}
       <div className="mt-3 max-h-[30rem] space-y-2 overflow-y-auto pr-1">
