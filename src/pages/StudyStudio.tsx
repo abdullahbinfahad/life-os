@@ -62,7 +62,8 @@ export default function StudyStudio() {
   const settings = useStore((state) => state.settings);
   const updateSettings = useStore((state) => state.updateSettings);
   const update = (recipe: (x: StudyState) => StudyState) => updateStudy(recipe);
-  const slug = location.pathname.split('/')[2] || 'focus';
+  // A bare /study opens the Overview; the Focus Room only opens when the user chooses it.
+  const slug = location.pathname.split('/')[2] || 'overview';
   const current = sections.some(([id]) => id === slug) ? slug : 'overview';
 
   const subjects = study?.subjects || [],
@@ -365,7 +366,6 @@ function Focus({
     [discarding, setDiscarding] = useState(false),
     [confirm, setConfirm] = useState(false);
   const discardDialogRef = useRef<HTMLDivElement>(null);
-  const autoStarted = useRef(false);
   const [tick, setTick] = useState(Date.now());
   useEffect(() => {
     setObjective(study.activeSession?.objective || '');
@@ -393,18 +393,7 @@ function Focus({
     : 0;
   const invalid = !!a && (!Number.isFinite(Date.parse(a.startedAt)) || !a.intervals);
   const mutate = (f: (s: StudyState) => StudyState) => update(f);
-  useEffect(() => {
-    if (study.activeSession || autoStarted.current) return;
-    autoStarted.current = true;
-    mutate((s) =>
-      s.activeSession
-        ? s
-        : {
-            ...s,
-            activeSession: startSession({ id: uid() }),
-          },
-    );
-  }, [study.activeSession]);
+  // No auto-start: a session begins only when the user presses "Begin focus session".
   const start = () =>
     mutate((s) => ({
       ...s,
@@ -644,7 +633,7 @@ function Focus({
               </label>
             </div>
             <button className="study-primary study-start" onClick={start}>
-              Begin focus session
+              {tr('Begin focus session')}
             </button>
           </>
         )}

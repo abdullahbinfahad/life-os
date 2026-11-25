@@ -1,54 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="lifeos-title lifeos-desc">
-  <title id="lifeos-title">Life OS</title>
-  <desc id="lifeos-desc">A circular indigo, violet, and cyan compass orbit with four balanced points around a steady center.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Life OS">
+  <title>Life OS</title>
   <defs>
-    <linearGradient id="tile" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#10102e"/>
-      <stop offset=".52" stop-color="#101a37"/>
-      <stop offset="1" stop-color="#071827"/>
-    </linearGradient>
-    <radialGradient id="disc" cx="112" cy="91" r="156" fx="76" fy="55" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8b79ff"/>
-      <stop offset=".36" stop-color="#514fe2"/>
-      <stop offset=".72" stop-color="#253d8d"/>
-      <stop offset="1" stop-color="#122646"/>
-    </radialGradient>
-    <linearGradient id="rim" x1="42" y1="30" x2="219" y2="226" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#c4b5fd"/>
-      <stop offset=".48" stop-color="#6fe5f2"/>
-      <stop offset="1" stop-color="#747bff"/>
-    </linearGradient>
-    <linearGradient id="orbit" x1="51" y1="56" x2="211" y2="206" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#b8aaff"/>
-      <stop offset=".5" stop-color="#75e7ef"/>
-      <stop offset="1" stop-color="#9295ff"/>
-    </linearGradient>
-    <linearGradient id="star" x1="86" y1="78" x2="173" y2="178" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ffffff"/>
-      <stop offset=".52" stop-color="#d9e6ff"/>
-      <stop offset="1" stop-color="#87f0ef"/>
-    </linearGradient>
-    <linearGradient id="node" x1="120" y1="42" x2="145" y2="211" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#b9f8ff"/>
-      <stop offset=".55" stop-color="#72e6f3"/>
-      <stop offset="1" stop-color="#b4a6ff"/>
-    </linearGradient>
-    <filter id="soft-glow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="5" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <linearGradient id="t" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse"><stop stop-color="#6366f1"/><stop offset=".55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ec4899"/></linearGradient>
+    <radialGradient id="s" cx="16" cy="10" r="40" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
   </defs>
-  <rect width="256" height="256" fill="url(#tile)"/>
-  <circle cx="128" cy="128" r="117" fill="url(#disc)" stroke="url(#rim)" stroke-opacity=".75" stroke-width="2.5"/>
-  <circle cx="128" cy="128" r="108" fill="none" stroke="#e0e7ff" stroke-opacity=".14" stroke-width="1.5"/>
-  <circle cx="128" cy="128" r="83" fill="none" stroke="url(#orbit)" stroke-opacity=".76" stroke-width="3"/>
-  <circle cx="128" cy="128" r="69" fill="none" stroke="#c7d2fe" stroke-opacity=".11" stroke-width="1.5"/>
-  <g fill="url(#node)" filter="url(#soft-glow)">
-    <circle cx="128" cy="45" r="7.5"/>
-    <circle cx="211" cy="128" r="7.5"/>
-    <circle cx="128" cy="211" r="7.5"/>
-    <circle cx="45" cy="128" r="7.5"/>
-  </g>
-  <path d="m128 74 15 39 39 15-39 15-15 39-15-39-39-15 39-15 15-39Z" fill="url(#star)" filter="url(#soft-glow)"/>
-  <circle cx="128" cy="128" r="7" fill="#fff"/>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#t)"/>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#s)"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="17.5" fill="none" stroke="#fff" stroke-opacity=".22"/>
+  <circle cx="32" cy="32" r="14" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="5"/>
+  <circle cx="32" cy="32" r="14" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-dasharray="66 88" transform="rotate(-90 32 32)"/>
+  <circle cx="18" cy="32" r="7" fill="#a5f3fc" opacity=".28"/>
+  <circle cx="18" cy="32" r="4.2" fill="#a5f3fc"/>
+  <circle cx="32" cy="32" r="3.4" fill="#fff"/>
 </svg>

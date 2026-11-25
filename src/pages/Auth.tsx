@@ -79,9 +79,9 @@ export default function AuthPage() {
 
   return (
     <div className="auth-shell">
-      <div className="auth-bg" aria-hidden="true"><span /><span /></div>
+      <div className="auth-bg" aria-hidden="true"><span /><span /><span /><i className="auth-grid" /></div>
       <aside className="auth-showcase" aria-hidden="true">
-        <div className="flex items-center gap-3"><Logo size={40} /><span className="text-lg font-bold">{APP_NAME}</span></div>
+        <div className="flex items-center gap-3"><Logo size={44} /><span className="text-xl font-extrabold tracking-tight">{APP_NAME}</span></div>
         <h2 className="auth-showcase-title">{tr('Your goals, habits, projects and memories — in one calm place.')}</h2>
         <ul className="auth-features">
           <li><Target size={18} /> {tr('Goals with milestones and progress')}</li>
@@ -89,15 +89,28 @@ export default function AuthPage() {
           <li><GraduationCap size={18} /> {tr('Study Studio with a focus room')}</li>
           <li><ShieldCheck size={18} /> {tr('Private by default, synced to your account')}</li>
         </ul>
-        <div className="auth-float-cards">
-          <div className="auth-float auth-float-1"><span className="auth-ring"><i /></span><div><b>{tr('Run a half marathon')}</b><small>{tr('3 of 9 milestones')}</small></div></div>
-          <div className="auth-float auth-float-2"><Flame size={18} className="text-orange-400" /><div><b>{tr('6 day streak')}</b><small>{tr('Morning workout')}</small></div></div>
-          <div className="auth-float auth-float-3"><CheckCircle2 size={18} className="text-emerald-400" /><div><b>{tr('Today: 4 of 5 done')}</b><small>{tr('Nice work')}</small></div></div>
+        <div className="auth-preview">
+          <div className="auth-preview-card">
+            <div className="auth-preview-head"><span>{tr('Good morning')}</span><i /><i /><i /></div>
+            <div className="auth-preview-body">
+              <svg className="auth-rings" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" className="trk" /><circle cx="60" cy="60" r="50" className="arc a" />
+                <circle cx="60" cy="60" r="36" className="trk" /><circle cx="60" cy="60" r="36" className="arc b" />
+                <circle cx="60" cy="60" r="22" className="trk" /><circle cx="60" cy="60" r="22" className="arc c" />
+              </svg>
+              <div className="auth-preview-side">
+                <div className="auth-habits">{Array.from({ length: 21 }, (_, i) => <i key={i} className={[0, 1, 3, 4, 5, 7, 8, 9, 11, 12, 14, 15, 16, 18, 19, 20].includes(i) ? 'on' : ''} style={{ animationDelay: `${i * 40}ms` }} />)}</div>
+                <div className="auth-bars">{[40, 65, 30, 85, 55, 75, 95].map((h, i) => <i key={i} style={{ height: `${h}%`, animationDelay: `${300 + i * 70}ms` }} />)}</div>
+              </div>
+            </div>
+          </div>
+          <div className="auth-float auth-float-1"><Flame size={18} className="text-orange-400" /><div><b>{tr('6 day streak')}</b><small>{tr('Morning workout')}</small></div></div>
+          <div className="auth-float auth-float-2"><CheckCircle2 size={18} className="text-emerald-400" /><div><b>{tr('Today: 4 of 5 done')}</b><small>{tr('Nice work')}</small></div></div>
         </div>
       </aside>
       <div className="auth-panel">
-        <div className="mb-6 flex flex-col items-center text-center lg:hidden">
-          <Logo size={64} />
+        <div className="auth-mobile-hero mb-6 flex flex-col items-center text-center lg:hidden">
+          <div className="auth-mobile-mark"><Logo size={68} /><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="56" className="arc a" /><circle cx="60" cy="60" r="56" className="arc b" /></svg></div>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight">{APP_NAME}</h1>
           <p className="mt-1 text-sm muted">{tr("A personal system for everything that matters")}</p>
         </div>
