@@ -287,12 +287,12 @@ export default function Library() {
               </div>
               <div className={view === 'grid' ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3' : 'card divide-y divide-slate-100 overflow-hidden dark:divide-white/[.05]'}>
                 {g.items.map((i) => view === 'list' ? (
-                  <SortableItem key={i.id} id={i.id} label={i.title} className={cx('group flex items-center gap-3 px-4 py-2.5 transition hover:bg-slate-50 dark:hover:bg-white/[.02]', sel.has(i.id) && 'bg-indigo-500/5')}>
+                  <SortableItem key={i.id} id={i.id} label={i.title} className={cx('group flex min-h-11 items-center gap-2 px-3 py-1 transition hover:bg-slate-50 dark:hover:bg-white/[.02]', sel.has(i.id) && 'bg-indigo-500/5')}>
                     <input type="checkbox" checked={sel.has(i.id)} onChange={() => toggleSel(i.id)} className="h-4 w-4 accent-indigo-600" />
-                    <button title={i.status === 'done' ? 'Mark as open' : 'Mark complete'} aria-label={i.status === 'done' ? `Mark ${i.title} as open` : `Mark ${i.title} complete`} onClick={() => markItemDone(i.id, i.status === 'done')} className={i.status === 'done' ? 'text-emerald-500' : 'muted hover:text-emerald-500'}>
-                      {i.status === 'done' ? <CheckCircle2 size={19} /> : <Circle size={19} />}
+                    <button title={i.status === 'done' ? 'Mark as open' : 'Mark complete'} aria-label={i.status === 'done' ? `Mark ${i.title} as open` : `Mark ${i.title} complete`} onClick={() => markItemDone(i.id, i.status === 'done')} className={cx('tap-check', i.status === 'done' && 'is-done')}>
+                      {i.status === 'done' ? <CheckCircle2 size={20} /> : <Circle size={20} />}
                     </button>
-                    <button onClick={() => setEditing(i)} className={cx('min-w-0 flex-1 truncate text-left text-sm', i.status === 'done' && 'line-through muted')}>
+                    <button onClick={() => setEditing(i)} className={cx('min-h-10 min-w-0 flex-1 truncate text-left text-sm', i.status === 'done' && 'line-through muted')}>
                       {i.title}
                       {(i.checklist?.length ?? 0) > 0 && <span className="ml-2 text-xs muted">☑ {i.checklist!.filter((c) => c.done).length}/{i.checklist!.length}</span>}
                       {i.tags.slice(0, 3).map((t) => <span key={t} className="ml-1.5 text-xs text-indigo-400">#{t}</span>)}
@@ -318,7 +318,7 @@ export default function Library() {
                     <div className="mt-3 flex flex-wrap items-center gap-1.5">
                       <span className="chip" style={{ background: STATUS_META[i.status].color + '1f', color: STATUS_META[i.status].color }}>{STATUS_META[i.status].label}</span>
                       <span className="chip bg-slate-200/70 dark:bg-white/[.06]">{HORIZON_META[i.horizon]}</span>
-                      <button title={i.status === 'done' ? 'Mark as open' : 'Mark complete'} aria-label={i.status === 'done' ? `Mark ${i.title} as open` : `Mark ${i.title} complete`} onClick={() => markItemDone(i.id, i.status === 'done')} className="ml-auto text-emerald-500">{i.status === 'done' ? <CheckCircle2 size={18} /> : <Circle size={18} />}</button>
+                      <button title={i.status === 'done' ? 'Mark as open' : 'Mark complete'} aria-label={i.status === 'done' ? `Mark ${i.title} as open` : `Mark ${i.title} complete`} onClick={() => markItemDone(i.id, i.status === 'done')} className={cx('tap-check ml-auto -mr-2', i.status === 'done' && 'is-done')}>{i.status === 'done' ? <CheckCircle2 size={20} /> : <Circle size={20} />}</button>
                     </div>
                   </SortableItem>
                 ))}

@@ -329,12 +329,12 @@ export default function Projects() {
                   const isBlocked = !task.done && blocked(open, task.dependsOn);
                   const dependencyNames = task.dependsOn.map((id) => open.tasks.find((other) => other.id === id)?.title).filter(Boolean).join(', ');
                   return (
-                    <article key={task.id} className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-2 gap-y-3 rounded-xl border border-slate-200 bg-white/70 p-3 transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-white/[.025] dark:hover:bg-white/[.045] sm:gap-x-3">
-                      <button type="button" disabled={isBlocked} aria-label={task.done ? tr('Mark task active') : tr('Mark task done')} onClick={() => updateTask(open.id, task.id, { done: !task.done })} className={cx('mt-1', task.done ? 'text-emerald-600' : 'muted', isBlocked && 'text-amber-500')}>
-                        {isBlocked ? <Lock size={18} /> : task.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                    <article key={task.id} className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-2 gap-y-2 rounded-xl border border-slate-200 bg-white/70 p-3 transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-white/[.025] dark:hover:bg-white/[.045] sm:gap-x-3">
+                      <button type="button" disabled={isBlocked} aria-label={task.done ? tr('Mark task active') : tr('Mark task done')} onClick={() => updateTask(open.id, task.id, { done: !task.done })} className={cx('tap-check -ml-1.5 -mt-1', task.done && 'is-done', isBlocked && '!text-amber-500')}>
+                        {isBlocked ? <Lock size={19} /> : task.done ? <CheckCircle2 size={20} /> : <Circle size={20} />}
                       </button>
                       <div className="min-w-0">
-                        <span className={cx('block break-words text-sm leading-5', task.done && 'line-through muted')}>{task.title}</span>
+                        <button type="button" disabled={isBlocked} onClick={() => updateTask(open.id, task.id, { done: !task.done })} className={cx('block min-h-8 w-full break-words text-left text-sm leading-5 disabled:cursor-not-allowed', task.done && 'line-through muted')}>{task.title}</button>
                         {dependencyNames && <span className="mt-1 inline-flex max-w-full items-center gap-1 break-words text-xs text-amber-700 dark:text-amber-300"><Link2 size={12} className="shrink-0" />{tr('After')} {dependencyNames}</span>}
                       </div>
                       <div className="col-start-2 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_2.5rem] sm:items-end">

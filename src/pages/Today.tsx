@@ -126,18 +126,18 @@ export default function Today() {
             ) : (
               <Empty icon={<Sunrise size={28} />} title={tr("Nothing planned yet")} text="Add a few priorities or pick from your library. Keep it to 3–5 important things." />
             ) : (
-              <div className="space-y-1">
+              <div>
                 {todays.map((i, index) => (
-                  <div key={i.id} data-personal-index={index} onPointerMove={trackPointer} onPointerUp={(event) => { if (dragIndexRef.current === null) return; const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-personal-index]'); finishDrag(row ? Number(row.dataset.personalIndex) : dragIndexRef.current); }} className={cx('group flex min-w-0 flex-wrap items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-50 dark:hover:bg-white/[.03]', dropIndex === index && dragIndex !== index && 'bg-indigo-500/10', dragIndex === index && 'opacity-50')}>
+                  <div key={i.id} data-personal-index={index} onPointerMove={trackPointer} onPointerUp={(event) => { if (dragIndexRef.current === null) return; const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-personal-index]'); finishDrag(row ? Number(row.dataset.personalIndex) : dragIndexRef.current); }} className={cx('tap-row group flex min-w-0 items-center gap-1 px-1', dropIndex === index && dragIndex !== index && 'bg-indigo-500/10', dragIndex === index && 'opacity-50')}>
                     <button type="button" aria-label={`${tr('Reorder item')}: ${i.title}`} title={tr('Drag to reorder')} onPointerDown={(event) => { if (event.button !== 0) return; dragIndexRef.current = index; setDragIndex(index); setDropIndex(index); event.currentTarget.setPointerCapture(event.pointerId); }} onPointerCancel={() => finishDrag(dragIndexRef.current ?? index)} onKeyDown={(event) => { if (event.key === 'ArrowUp' && index > 0) { event.preventDefault(); moveItem(index, index - 1); } else if (event.key === 'ArrowDown' && index < todays.length - 1) { event.preventDefault(); moveItem(index, index + 1); } else if (event.key === 'Home') { event.preventDefault(); moveItem(index, 0); } else if (event.key === 'End') { event.preventDefault(); moveItem(index, todays.length - 1); } }} className="shrink-0 touch-none cursor-grab text-slate-400 hover:text-indigo-500 active:cursor-grabbing" onClick={(event) => event.preventDefault()}><GripVertical size={18} /></button>
-                    <button onClick={() => toggleItemDone(i.id)} className={cx('shrink-0', i.status === 'done' ? 'text-emerald-500' : 'muted hover:text-emerald-500')}>{i.status === 'done' ? <CheckCircle2 size={22} /> : <Circle size={22} />}</button>
-                    <span className="h-6 w-1 shrink-0 rounded-full" style={{ background: PRIORITY_META[i.priority].color }} />
-                    <span title={i.title} aria-label={i.title} className={cx('min-w-0 flex-1 truncate whitespace-nowrap', i.status === 'done' && 'line-through muted')}>{i.title}</span>
-                    <div className="ml-auto flex w-full items-center justify-end gap-3 md:ml-0 md:w-auto">
-                      <CatBadge cat={catMap[i.categoryId]} />
-                      <button title={tr("Edit item")} aria-label={`${tr("Edit item")}: ${i.title}`} onClick={() => setEditing(i.id)} className="opacity-100 muted hover:text-indigo-500 md:opacity-0 md:group-hover:opacity-100"><Pencil size={15} /></button>
-                      <button title={tr("Remove from today")} aria-label={`${tr("Remove from today")}: ${i.title}`} onClick={() => updateItem(i.id, { todayDate: undefined })} className="opacity-100 muted md:opacity-0 md:group-hover:opacity-100"><X size={16} /></button>
-                    </div>
+                    <button type="button" role="checkbox" aria-checked={i.status === 'done'} onClick={() => toggleItemDone(i.id)} className={cx('tap-toggle', i.status === 'done' && 'is-done')}>
+                      <span className="tap-check-icon" aria-hidden="true">{i.status === 'done' ? <CheckCircle2 size={20} /> : <Circle size={20} />}</span>
+                      <span className="h-5 w-1 shrink-0 rounded-full" style={{ background: PRIORITY_META[i.priority].color }} aria-hidden="true" />
+                      <span className={cx('min-w-0 flex-1 break-words', i.status === 'done' && 'line-through muted')}>{i.title}</span>
+                    </button>
+                    <span className="hidden shrink-0 sm:inline-flex"><CatBadge cat={catMap[i.categoryId]} /></span>
+                    <button title={tr("Edit item")} aria-label={`${tr("Edit item")}: ${i.title}`} onClick={() => setEditing(i.id)} className="tap-action"><Pencil size={14} /></button>
+                    <button title={tr("Remove from today")} aria-label={`${tr("Remove from today")}: ${i.title}`} onClick={() => updateItem(i.id, { todayDate: undefined })} className="tap-action"><X size={15} /></button>
                   </div>
                 ))}
               </div>
@@ -149,10 +149,11 @@ export default function Today() {
             <div className="card p-5">
               <h3 className="mb-3 font-semibold">{tr("Project tasks due")}</h3>
               {projectTasks.map((x) => (
-                <div key={x.id} className="flex items-center gap-3 py-2">
-                  <button onClick={() => updateTask(x.project.id, x.id, { done: true })} className="muted hover:text-emerald-500"><Circle size={20} /></button>
-                  <span className="flex-1">{x.title}</span>
-                  <span className="text-xs muted">{x.project.title}</span>
+                <div key={x.id} className="tap-row flex items-center gap-2">
+                  <button type="button" role="checkbox" aria-checked={false} onClick={() => updateTask(x.project.id, x.id, { done: true })} className="tap-toggle">
+                    <span className="tap-check-icon" aria-hidden="true"><Circle size={20} /></span>
+                    <span className="min-w-0 flex-1"><span className="block break-words">{x.title}</span><span className="block text-xs muted">{x.project.title}</span></span>
+                  </button>
                   {x.dueDate! < t && <span className="chip bg-rose-500/15 text-rose-500">{tr("Overdue")}</span>}
                 </div>
               ))}
@@ -162,7 +163,7 @@ export default function Today() {
           {user && <section className="card min-w-0 p-5" aria-labelledby="assigned-shared-heading">
             <div className="mb-3 flex items-center justify-between gap-2"><h3 id="assigned-shared-heading" className="font-semibold">{tr('Team tasks assigned to you')}</h3><span className="chip bg-indigo-500/10 text-indigo-700 dark:text-indigo-200">{sharedTasks.length}</span></div>
             {sharedError && <p className="mb-2 break-words text-xs text-rose-600 dark:text-rose-300">{sharedError}</p>}
-            {sharedTasks.length ? <div className="space-y-1">{sharedTasks.map((task) => <div key={task.id} className="flex min-w-0 items-start gap-3 rounded-lg py-2"><button type="button" aria-label={`${tr('Mark task done')}: ${task.title}`} className="mt-0.5 shrink-0 text-slate-500 hover:text-emerald-600" onClick={() => void updateSharedTask(task.id, { status: 'done' }).then(() => setSharedTasks((current) => current.filter((item) => item.id !== task.id))).catch((error) => setSharedError(error instanceof Error ? error.message : tr('Could not update shared task.')))}><Circle size={19} /></button><div className="min-w-0 flex-1"><p className="break-words text-sm">{task.title}</p><p className="break-words text-xs muted">{task.project_title}{task.due_date ? ` · ${task.due_date}` : ''}</p></div></div>)}</div> : <p className="text-sm muted">{tr('Tasks assigned to you in shared projects will appear here.')}</p>}
+            {sharedTasks.length ? <div>{sharedTasks.map((task) => <div key={task.id} className="tap-row flex min-w-0 items-center"><button type="button" role="checkbox" aria-checked={false} aria-label={`${tr('Mark task done')}: ${task.title}`} className="tap-toggle" onClick={() => void updateSharedTask(task.id, { status: 'done' }).then(() => setSharedTasks((current) => current.filter((item) => item.id !== task.id))).catch((error) => setSharedError(error instanceof Error ? error.message : tr('Could not update shared task.')))}><span className="tap-check-icon" aria-hidden="true"><Circle size={20} /></span><span className="min-w-0 flex-1"><span className="block break-words text-sm">{task.title}</span><span className="block break-words text-xs muted">{task.project_title}{task.due_date ? ` · ${task.due_date}` : ''}</span></span></button></div>)}</div> : <p className="text-sm muted">{tr('Tasks assigned to you in shared projects will appear here.')}</p>}
           </section>}
 
           {overdue.length > 0 && (

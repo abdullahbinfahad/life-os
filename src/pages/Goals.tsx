@@ -19,7 +19,7 @@ function SortableRow({ id, children, card = false, goalId }: { id: string; child
     }
     listeners?.onKeyDown?.(event);
   };
-  return <div ref={setNodeRef} {...attributes} {...listeners} onKeyDown={handleKeyDown} role="group" tabIndex={0} aria-label={tr(card ? 'Reorder goal' : 'Reorder milestone')} aria-roledescription={tr('Draggable card; press and hold to move')} style={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'pan-y' }} className={cx(card ? 'card relative p-5' : 'group flex items-center gap-2 rounded text-sm', 'cursor-grab active:cursor-grabbing', isDragging && 'z-10 bg-indigo-500/10 ring-2 ring-indigo-400')}>
+  return <div ref={setNodeRef} {...attributes} {...listeners} onKeyDown={handleKeyDown} role="group" tabIndex={0} aria-label={tr(card ? 'Reorder goal' : 'Reorder milestone')} aria-roledescription={tr('Draggable card; press and hold to move')} style={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'pan-y' }} className={cx(card ? 'card relative p-5' : 'milestone-row group flex items-center gap-1 text-sm', 'cursor-grab active:cursor-grabbing', isDragging && 'z-10 bg-indigo-500/10 ring-2 ring-indigo-400')}>
     {children}
   </div>;
 }
@@ -119,20 +119,20 @@ export default function Goals() {
                     {g.description && <p className="mt-2 text-sm muted">{g.description}</p>}
                   </div>
                 </div>
-                <div className="mt-4 space-y-1">
-                  <div className="label">{tr("Milestones")}</div>
+                <div className="mt-4">
+                  <div className="label mb-1">{tr("Milestones")}</div>
                   <SortableContext items={g.milestones.map((m) => `milestone:${m.id}`)} strategy={verticalListSortingStrategy}>
                   {g.milestones.map((m) => (
                     <SortableRow key={m.id} id={`milestone:${m.id}`} goalId={g.id}>
-                      <button className={m.done ? 'text-emerald-500' : 'muted'} onClick={() => updateGoal(g.id, { milestones: g.milestones.map((x) => (x.id === m.id ? { ...x, done: !x.done } : x)) })}>
-                        {m.done ? <CheckCircle2 size={17} /> : <Circle size={17} />}
+                      <button type="button" role="checkbox" aria-checked={m.done} className={cx('milestone-toggle', m.done && 'is-done')} onClick={() => updateGoal(g.id, { milestones: g.milestones.map((x) => (x.id === m.id ? { ...x, done: !x.done } : x)) })}>
+                        <span className="milestone-check" aria-hidden="true">{m.done ? <CheckCircle2 size={19} /> : <Circle size={19} />}</span>
+                        <span className="min-w-0 flex-1 text-left"><span className={cx('break-words', m.done && 'line-through muted')}>{m.title}</span>{m.dueDate && <span className="mt-0.5 block text-xs muted">{tr('Due date')}: {fmtDate(m.dueDate)}</span>}</span>
                       </button>
-                      <div className="min-w-0 flex-1"><span className={cx(m.done && 'line-through muted')}>{m.title}</span>{m.dueDate && <span className="mt-0.5 block text-xs muted">{tr('Due date')}: {fmtDate(m.dueDate)}</span>}</div>
-                      <button className="opacity-0 group-hover:opacity-100 muted" onClick={() => updateGoal(g.id, { milestones: g.milestones.filter((x) => x.id !== m.id) })}><Trash2 size={14} /></button>
+                      <button type="button" className="milestone-delete" aria-label={`${tr('Delete milestone')}: ${m.title}`} title={tr('Delete milestone')} onClick={() => confirm(tr('Delete this milestone?')) && updateGoal(g.id, { milestones: g.milestones.filter((x) => x.id !== m.id) })}><Trash2 size={14} /></button>
                     </SortableRow>
                   ))}
                   </SortableContext>
-                  <input className="input mt-2 !py-1.5" placeholder={tr("+ Add milestone, press Enter")} value={ms[g.id] ?? ''} onChange={(e) => setMs({ ...ms, [g.id]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && addMilestone(g)} />
+                  <input className="input mt-2 min-h-10 !py-2" enterKeyHint="done" placeholder={tr("+ Add milestone, press Enter")} value={ms[g.id] ?? ''} onChange={(e) => setMs({ ...ms, [g.id]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && addMilestone(g)} />
                 </div>
                 {(linkedItems.length > 0 || linkedProjects.length > 0) && (
                   <div className="mt-4 border-t border-slate-200 pt-3 text-xs muted dark:border-white/[.06]">

@@ -1,6 +1,6 @@
 import { translate as tr } from '../lib/locales';
 import { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, Flame, Plus, Repeat, Sparkles, Sunrise, Target } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Circle, Flame, Plus, Repeat, Sparkles, Sunrise, Target } from 'lucide-react';
 import './Overview.css';
 import { Link } from 'react-router-dom';
 import { CatBadge, CountUp, Progress, Ring, Stat } from '../components/ui';
@@ -12,7 +12,7 @@ import { fetchMyAssignedSharedTasks, type AssignedSharedTask } from '../lib/shar
 import DailyWrapUp from '../components/DailyWrapUp';
 
 export default function Overview() {
-  const { items, goals, habits, settings } = useStore();
+  const { items, goals, habits, settings, toggleItemDone } = useStore();
   const { user } = useAuth();
   const [assignedTasks, setAssignedTasks] = useState<AssignedSharedTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
@@ -115,11 +115,13 @@ export default function Overview() {
               </div>
             )
           ) : (
-            <div className="space-y-1.5 sm:space-y-2">
+            <div>
               {todayItems.slice(0, 5).map((item) => (
-                <div key={item.id} className="flex items-center gap-2 rounded-xl bg-slate-50 px-2.5 py-1.5 text-xs sm:px-3 sm:py-2.5 sm:text-sm dark:bg-white/[.04]">
-                  <CheckCircle2 size={16} className="muted" />
-                  <span className="truncate">{item.title}</span>
+                <div key={item.id} className="tap-row flex items-center">
+                  <button type="button" role="checkbox" aria-checked={false} aria-label={`${tr('Mark complete')}: ${item.title}`} onClick={() => toggleItemDone(item.id)} className="tap-toggle">
+                    <span className="tap-check-icon" aria-hidden="true"><Circle size={20} /></span>
+                    <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                  </button>
                 </div>
               ))}
               {todayItems.length > 5 && (
