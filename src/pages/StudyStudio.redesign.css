@@ -11,7 +11,7 @@ html.theme-monochrome .study-studio { --study-cyan: #e5e5e5; }
 
 /* ---- Section rail: segmented glass bar with a gradient active pill ---- */
 .study-studio .study-top-rail {
-  position: sticky; top: calc(4.25rem + env(safe-area-inset-top)); z-index: 20;
+  position: sticky; top: calc(4.6rem + env(safe-area-inset-top)); z-index: 20;
   gap: .25rem; padding: .35rem; border-radius: 1.1rem;
   border: 1px solid color-mix(in srgb, var(--study-cyan) 18%, var(--study-border));
   background: color-mix(in srgb, var(--card, #121722) 78%, transparent);

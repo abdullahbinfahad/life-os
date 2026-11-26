@@ -242,14 +242,15 @@ export async function fetchMyAssignedSharedTasks(userId: string): Promise<Assign
   return empty(data as unknown as Array<SharedTask & { shared_projects: { title: string } }> | null).map((row) => ({ ...row, project_title: row.shared_projects.title }));
 }
 
-export function subscribeToSharedWorkspace(userId: string, onChange: () => void): () => void {
+export function subscribeToSharedWorkspace(userId: string, onChange: (table: string, row?: Record<string, unknown>) => void): () => void {
   const db = getClient();
+  const tell = (table: string) => (payload: { new?: unknown; old?: unknown }) => onChange(table, (payload.new && Object.keys(payload.new as object).length ? payload.new : payload.old) as Record<string, unknown> | undefined);
   let channel: RealtimeChannel = db.channel(`lifeos-shared:${userId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_members', filter: `user_id=eq.${userId}` }, onChange)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_tasks' }, onChange)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_comments' }, onChange)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_notes' }, onChange)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_notifications', filter: `recipient_id=eq.${userId}` }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_members', filter: `user_id=eq.${userId}` }, tell('shared_project_members'))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_tasks' }, tell('shared_project_tasks'))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_comments' }, tell('shared_project_comments'))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_notes' }, tell('shared_project_notes'))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_project_notifications', filter: `recipient_id=eq.${userId}` }, tell('shared_project_notifications'))
     .subscribe();
   return () => { void db.removeChannel(channel); channel = undefined as unknown as RealtimeChannel; };
 }

@@ -1,179 +1,72 @@
 import { translate as tr } from '../../lib/locales';
 import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { ArrowLeft, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, Pencil, X, Circle, ClipboardList, Copy, Eye, EyeOff, FileText, Flag, GripVertical, Link2, LockKeyhole, MessageCircle, Pin, Plus, RefreshCw, Send, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Activity, ArrowLeft, CalendarDays, Check, ChevronDown, ClipboardList, FileText, FolderKanban, GripVertical, LayoutDashboard, Link2, LockKeyhole, MessageCircle, Pencil, Plus, RefreshCw, Route, Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { useStore } from '../../lib/store';
 import { cloudEnabled } from '../../lib/supabase';
 import { playFeedback } from '../../lib/sounds';
-import { addDays, cx, fmtDate, localeForLanguage, today } from '../../lib/utils';
+import { cx, localeForLanguage } from '../../lib/utils';
 import {
-  acceptSharedInvitation, addPrivateTaskLink, addProjectToPortfolio, addSharedComment, addSharedDependency, fetchSharedCommentsPage,
-  addSharedNote, createSharedInvitation, createSharedPortfolio, createSharedProject, createSharedTask, markSharedCommentsRead, setSharedCommentReadState, updateSharedNote, updateSharedComment,
-  fetchMyPrivateTaskLinks, fetchSharedWorkspace, removePrivateTaskLink,
-  removeProjectFromPortfolio, removeSharedDependency, removeSharedMember, revokeSharedInvitation,
-  claimSharedProjectAdmin, markSharedProjectNotificationsRead, setSharedMemberRole, sharedServiceError, subscribeToSharedWorkspace, updateSharedProject, updateSharedProjectStatus, updateSharedTask,
-  type SharedComment, type SharedCommentReceipt, type SharedMember, type SharedNoteType, type SharedProject,
-  type SharedRole, type SharedStatus, type SharedTask, type SharedTaskStatus, type SharedWorkspaceSnapshot,
-  type PrivateTaskLink,
+  acceptSharedInvitation, addSharedComment, claimSharedProjectAdmin, createSharedInvitation, createSharedProject, createSharedTask,
+  fetchMyPrivateTaskLinks, fetchSharedCommentsPage, fetchSharedWorkspace, markSharedCommentsRead, markSharedProjectNotificationsRead,
+  removeSharedMember, setSharedCommentReadState, setSharedMemberRole, sharedServiceError, subscribeToSharedWorkspace, updateSharedComment,
+  updateSharedProject, updateSharedProjectStatus, updateSharedTask,
+  type PrivateTaskLink, type SharedComment, type SharedProject, type SharedRole, type SharedStatus, type SharedTask, type SharedWorkspaceSnapshot,
 } from '../../lib/sharedProjects';
+import { AvatarStack, ProgressRing, ROLE_LABEL, STATUS, isOpen, isOverdue, mayChangeProjectStatus, relativeDay, roleCanWork, statusMeta } from './team/shared';
+import TeamTasks, { type TaskContext } from './team/TeamTasks';
+import TeamChat from './team/TeamChat';
+import TeamOverview from './team/TeamOverview';
+import TeamNotes from './team/TeamNotes';
+import TeamPeople from './team/TeamPeople';
+import { PortfolioSection, TeamActivity, TeamTimeline } from './team/TeamExtras';
+import './team/TeamWorkspace.css';
 
-const STATUS: { id: SharedStatus; label: string; color: string }[] = [
-  { id: 'planning', label: 'Planning', color: '#64748b' },
-  { id: 'active', label: 'Active', color: '#16a34a' },
-  { id: 'on-hold', label: 'On hold', color: '#d97706' },
-  { id: 'done', label: 'Done', color: '#635bff' },
-];
-const TASK_STATUS: { id: SharedTaskStatus; label: string; color: string }[] = [
-  { id: 'todo', label: 'To do', color: '#64748b' },
-  { id: 'in-progress', label: 'In progress', color: '#635bff' },
-  { id: 'blocked', label: 'Blocked', color: '#e11d48' },
-  { id: 'done', label: 'Done', color: '#16a34a' },
-  { id: 'cancelled', label: 'Cancelled', color: '#94a3b8' },
-];
-const ROLE_LABEL: Record<SharedRole, string> = { lead: 'Lead', admin: 'Admin', member: 'Member', guest: 'Guest', viewer: 'Viewer' };
-const memberLabel = (id: string | null | undefined, members: SharedMember[], currentUserId: string) => id === currentUserId ? tr('You') : members.find((member) => member.user_id === id)?.display_name?.trim() || tr(id ? 'Member' : 'Former member');
-const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'M';
-const NOTE_TONES = { paper: 'bg-amber-50/90 dark:bg-amber-500/[.08]', lavender: 'bg-violet-50/90 dark:bg-violet-500/[.08]', mint: 'bg-emerald-50/90 dark:bg-emerald-500/[.08]', sky: 'bg-sky-50/90 dark:bg-sky-500/[.08]' } as const;
-const roleCanWork = (role?: SharedRole) => Boolean(role && ['lead', 'admin', 'member', 'guest'].includes(role));
-const mayChangeProjectStatus = (role?: SharedRole, hasAdmin = false) => Boolean(role && (['lead', 'admin'].includes(role) || (role === 'member' && !hasAdmin)));
+type Tab = 'overview' | 'tasks' | 'people' | 'discussion' | 'notes' | 'timeline' | 'activity';
+type Filter = SharedStatus | 'all';
+const EMPTY: SharedWorkspaceSnapshot = { projects: [], members: [], tasks: [], dependencies: [], comments: [], commentReceipts: [], notes: [], activity: [], invitations: [], notifications: [], portfolios: [], portfolioMembers: [], portfolioProjects: [] };
 
-type Tab = 'tasks' | 'people' | 'discussion' | 'notes' | 'timeline' | 'activity';
-
-function SharedStatusTab({ item, value, count, onChange }: { item: (typeof STATUS)[number]; value: SharedStatus; count: number; onChange: (value: SharedStatus) => void }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `shared-project-status:${item.id}`, data: { type: 'shared-project-status', status: item.id } });
-  return <button ref={setNodeRef} type="button" role="tab" aria-selected={value === item.id} onClick={() => onChange(item.id)} className={cx('project-status-tab flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition', value === item.id ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 dark:border-white/10 dark:bg-white/[.035] dark:text-slate-200', isOver && 'ring-2 ring-indigo-400 ring-offset-2 dark:ring-offset-[#0b0d12]')}><span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />{tr(item.label)}<span className={cx('rounded-full px-1.5 py-0.5 text-xs tabular-nums', value === item.id ? 'bg-white/15' : 'bg-slate-100 dark:bg-white/10')}>{count}</span></button>;
+function StatusChip({ id, label, color, count, selected, onSelect }: { id: Filter; label: string; color?: string; count: number; selected: boolean; onSelect: () => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `shared-project-status:${id}`, data: { type: 'shared-project-status', status: id }, disabled: id === 'all' });
+  return <button ref={setNodeRef} type="button" role="tab" aria-selected={selected} onClick={onSelect} className={cx('tw-chip', selected && 'is-on', isOver && 'is-drop')}>{color && <span className="tw-dot" style={{ background: color }} />}{tr(label)}<b>{count}</b></button>;
 }
 
-function StatusRail({ value, counts, onChange }: { value: SharedStatus; counts: Record<SharedStatus, number>; onChange: (value: SharedStatus) => void }) {
-  return <div className="project-status-rail" role="tablist" aria-label={tr('Shared project statuses')}>
-    {STATUS.map((item) => <SharedStatusTab key={item.id} item={item} value={value} count={counts[item.id]} onChange={onChange} />)}
-  </div>;
-}
-
-function SharedProjectCard({ project, memberCount, taskCount, doneCount, role, canChangeStatus, canClaimAdmin, busy, onOpen, onStatusChange, onClaimAdmin }: { project: SharedProject; memberCount: number; taskCount: number; doneCount: number; role: SharedRole; canChangeStatus: boolean; canClaimAdmin: boolean; busy: boolean; onOpen: () => void; onStatusChange: (status: SharedStatus) => void; onClaimAdmin: () => void }) {
+function ProjectCard({ project, tasks, memberIds, members, currentUserId, role, unread, canChangeStatus, canClaimAdmin, busy, language, onOpen, onStatus, onClaim }: {
+  project: SharedProject; tasks: SharedTask[]; memberIds: string[]; members: SharedWorkspaceSnapshot['members']; currentUserId: string; role: SharedRole; unread: number;
+  canChangeStatus: boolean; canClaimAdmin: boolean; busy: boolean; language: string; onOpen: () => void; onStatus: (status: SharedStatus) => void; onClaim: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `shared-project:${project.id}`, data: { type: 'shared-project', projectId: project.id }, disabled: !canChangeStatus || busy });
-  const dueOver = project.due_date && project.due_date < today() && project.status !== 'done';
-  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
-  const completion = taskCount ? Math.round(doneCount / taskCount * 100) : 0;
-  return <article ref={setNodeRef} style={style} role="group" aria-label={`${tr('Shared project')}: ${project.title}`} className={cx('shared-project-card card group min-w-0 p-4 transition hover:border-indigo-300', isDragging && 'z-20 opacity-60 shadow-xl')}>
-    <div className="flex min-w-0 items-start gap-2"><button type="button" className="min-w-0 flex-1 text-left focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={onOpen}><span className="flex min-w-0 items-start gap-2"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS.find((item) => item.id === project.status)?.color }} /><span className="min-w-0 break-words text-[15px] font-semibold">{project.title}</span></span></button><span className="chip shrink-0">{tr(ROLE_LABEL[role])}</span>{canChangeStatus && <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag to change project status')} disabled={busy} {...attributes} {...listeners} className="grid h-9 w-9 shrink-0 touch-none place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-indigo-300"><GripVertical size={17} aria-hidden="true" /></button>}</div>
-    {project.description && <p className="mt-2 line-clamp-2 break-words text-sm leading-5 muted">{project.description}</p>}
-    <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5"><span className="chip"><Users size={12} />{memberCount}</span><span className="chip"><ClipboardList size={12} />{doneCount}/{taskCount}</span>{project.due_date && <span className={cx('chip', dueOver && 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300')}><CalendarDays size={12} />{fmtDate(project.due_date)}</span>}</div>
-    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full rounded-full bg-indigo-500 transition-[width]" style={{ width: `${completion}%` }} /></div>
-    <label className="mt-3 block min-w-0"><span className="sr-only">{tr('Project status')}</span><select className="input min-w-0 !py-2 text-sm" aria-label={`${tr('Project status')}: ${project.title}`} value={project.status} disabled={!canChangeStatus || busy} title={canChangeStatus ? tr('Change project status') : tr('Only project leads and admins can change project status')} onChange={(event) => onStatusChange(event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select></label>
-    {canClaimAdmin && <button type="button" className="btn-outline mt-2 w-full justify-center" title={tr('No admin is assigned. Project members can claim the admin role.')} disabled={busy} onClick={onClaimAdmin}><ShieldCheck size={15} />{tr('Become admin')}</button>}
-  </article>;
-}
-function TeamMember({ member, currentUserId, canManage, isLead, onRole, onRemove }: {
-  member: SharedMember; currentUserId: string; canManage: boolean; isLead: boolean;
-  onRole: (role: SharedRole) => void; onRemove: () => void;
-}) {
-  const self = member.user_id === currentUserId;
-  const label = memberLabel(member.user_id, [member], currentUserId);
-  const choices: SharedRole[] = isLead ? ['lead', 'admin', 'member', 'guest', 'viewer'] : ['admin', 'member', 'guest', 'viewer'];
-  return <div className="flex min-w-0 flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[.025]">
-    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-indigo-500/10 text-xs font-bold text-indigo-700 dark:text-indigo-300">{initials(label)}</span>
-    <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{label}</p><p className="text-xs muted">{tr(ROLE_LABEL[member.role])}{member.role === 'lead' ? ` · ${tr('Team lead')}` : ''}</p></div>
-    {canManage && <div className="flex shrink-0 items-center gap-2"><select aria-label={`${tr('Role for')} ${memberLabel(member.user_id, [member], currentUserId)}`} className="input !w-auto !min-w-0 !py-2 text-sm" value={member.role} onChange={(event) => onRole(event.target.value as SharedRole)}>{choices.map((role) => <option key={role} value={role}>{tr(ROLE_LABEL[role])}</option>)}</select><button type="button" className="btn-ghost !p-2 text-rose-600" title={self ? tr('Leave project') : tr('Remove member')} onClick={onRemove}><Trash2 size={16} /></button></div>}
-    {!canManage && self && <span className="chip">{tr('You')}</span>}
-  </div>;
-}
-
-function BoardDropColumn({ status, count, children }: { status: SharedTaskStatus; count: number; children: ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `shared-task-status:${status}`, data: { status } });
-  const meta = TASK_STATUS.find((item) => item.id === status)!;
-  return <section ref={setNodeRef} aria-label={`${tr(meta.label)} · ${count}`} className={cx('shared-board-col min-w-0 rounded-xl border border-t-2 p-2.5 transition-colors sm:p-3', isOver ? 'border-indigo-400 bg-indigo-50/70 dark:bg-indigo-500/10' : 'border-slate-200 bg-slate-50/80 dark:border-white/10 dark:bg-white/[.02]')} style={{ borderTopColor: meta.color }}><h4 className="mb-3 flex min-h-8 items-center gap-2 text-sm font-semibold"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} /><span className="min-w-0 flex-1 break-words">{tr(meta.label)}</span><span className="rounded-full bg-white/80 px-2 py-0.5 text-xs tabular-nums text-slate-600 dark:bg-white/10 dark:text-slate-200">{count}</span></h4><div className="min-h-20 space-y-2 rounded-lg">{children}</div></section>;
-}
-
-function TaskCard({ task, projectId, members, currentUserId, canWork, dependencies, allTasks, privateLinks, privateLabels, goals, habits, runAction, onChange }: {
-  task: SharedTask; projectId: string; members: SharedMember[]; currentUserId: string; canWork: boolean;
-  dependencies: SharedWorkspaceSnapshot['dependencies']; allTasks: SharedTask[]; privateLinks: PrivateTaskLink[];
-  privateLabels: Record<string, string>; goals: Array<{ id: string; title: string }>; habits: Array<{ id: string; title: string }>;
-  runAction: (action: () => Promise<unknown>) => Promise<boolean>; onChange: (patch: Partial<SharedTask>) => Promise<boolean>;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `shared-task:${task.id}`, data: { type: 'shared-task', taskId: task.id }, disabled: !canWork });
-  const [expanded, setExpanded] = useState(false);
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(task.title);
-  useEffect(() => { setTitleDraft(task.title); setEditingTitle(false); }, [task.id, task.title]);
-  const [dependsOn, setDependsOn] = useState('');
-  const [privateLinkValue, setPrivateLinkValue] = useState('');
-  const taskDeps = dependencies.filter((dep) => dep.task_id === task.id);
-  const taskLinks = privateLinks.filter((link) => link.task_id === task.id);
-  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
-  const waitingOn = taskDeps.map((dep) => allTasks.find((candidate) => candidate.id === dep.depends_on_task_id)).filter((candidate) => candidate && candidate.status !== 'done');
-  return <article ref={setNodeRef} style={style} className={cx('shared-task-card min-w-0 rounded-xl border border-slate-200 bg-white p-3 transition dark:border-white/10 dark:bg-[#151821]', isDragging && 'z-20 opacity-60 shadow-xl')}>
-    <div className="flex min-w-0 items-start gap-2">
-      <button type="button" aria-label={`${tr('Drag to change task status')}: ${task.title}`} title={tr('Drag to change task status')} {...attributes} {...listeners} className="mt-1 grid h-8 w-7 shrink-0 touch-none place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-white/10"><GripVertical size={17} /></button>
-      <div className="min-w-0 flex-1">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-start gap-2">
-            <div className="min-w-0 flex-1">{editingTitle ? <form className="flex min-w-0 gap-1.5" onSubmit={(event) => { event.preventDefault(); if (!titleDraft.trim()) return; if (titleDraft.trim() === task.title) { setEditingTitle(false); return; } void onChange({ title: titleDraft.trim() }).then((saved) => { if (saved) setEditingTitle(false); }); }}><input autoFocus className="input min-w-0 !py-1 text-sm" value={titleDraft} maxLength={500} onChange={(event) => setTitleDraft(event.target.value)} aria-label={tr('Task title')} /><button className="btn-primary !min-h-8 !px-2" type="submit" aria-label={tr('Save title')}><Check size={14} /></button><button className="btn-ghost !min-h-8 !px-2" type="button" onClick={() => { setTitleDraft(task.title); setEditingTitle(false); }} aria-label={tr('Cancel')}><X size={14} /></button></form> : <div className="flex min-w-0 items-start gap-1"><h4 className={cx('min-w-0 flex-1 break-words text-sm font-semibold leading-5 [overflow-wrap:anywhere]', task.status === 'done' && 'text-slate-500 line-through dark:text-slate-400')}>{task.title}</h4>{canWork && <button type="button" className="btn-ghost !min-h-7 !p-1" onClick={() => setEditingTitle(true)} aria-label={tr('Edit task title')} title={tr('Edit task title')}><Pencil size={13} /></button>}</div>}{task.details && <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 muted">{task.details}</p>}</div>
-            <button type="button" className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-lg transition hover:bg-slate-100 dark:hover:bg-white/10', task.status === 'done' ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600')} disabled={!canWork} aria-label={tr(task.status === 'done' ? 'Reopen task' : 'Mark task done')} title={tr(task.status === 'done' ? 'Reopen task' : 'Mark task done')} onClick={() => void onChange({ status: task.status === 'done' ? 'todo' : 'done' })}>{task.status === 'done' ? <CheckCircle2 size={19} /> : <Circle size={19} />}</button>
-          </div>
-          <select aria-label={tr('Task status')} disabled={!canWork} className="input mt-2 !w-full min-w-0 !py-1.5 text-xs" value={task.status} onChange={(event) => void onChange({ status: event.target.value as SharedTaskStatus })}>{TASK_STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select>
-        </div>
-        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
-          {task.due_date && <span className={cx('chip', task.due_date < today() && task.status !== 'done' ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300' : '')}><CalendarDays size={12} />{fmtDate(task.due_date)}</span>}
-          {task.assignee_id && <span className="chip"><Users size={12} />{task.assignee_id === currentUserId ? tr('Assigned to you') : memberLabel(task.assignee_id, members, currentUserId)}</span>}
-          {waitingOn.length > 0 && <span className="chip bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200">{tr('Blocked by')} {waitingOn.length}</span>}
-          {task.estimate_minutes !== null && <span className="chip">{task.estimate_minutes} {tr('min')}</span>}
-          <button type="button" className="ml-auto inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? tr('Hide details') : tr('Details')}<ChevronDown size={13} className={cx('transition-transform', expanded && 'rotate-180')} /></button>
-        </div>
-        {expanded && <div className="mt-3 grid min-w-0 gap-3 border-t border-slate-200 pt-3 dark:border-white/10 sm:grid-cols-2">
-          <label className="min-w-0"><span className="label">{tr('Due date')}</span><input disabled={!canWork} type="date" className="input min-w-0" value={task.due_date ?? ''} onChange={(event) => void onChange({ due_date: event.target.value || null })} /></label>
-          <label className="min-w-0"><span className="label">{tr('Assignee')}</span><select disabled={!canWork} className="input min-w-0" value={task.assignee_id ?? ''} onChange={(event) => void onChange({ assignee_id: event.target.value || null })}><option value="">{tr('Unassigned')}</option>{members.map((member) => <option key={member.user_id} value={member.user_id}>{memberLabel(member.user_id, members, currentUserId)} · {tr(ROLE_LABEL[member.role])}</option>)}</select></label>
-          <label className="min-w-0"><span className="label">{tr('Estimate (minutes)')}</span><input disabled={!canWork} type="number" min="0" max="100000" className="input min-w-0" value={task.estimate_minutes ?? ''} onChange={(event) => void onChange({ estimate_minutes: event.target.value ? Number(event.target.value) : null })} /></label>
-          <label className="min-w-0 sm:col-span-2"><span className="label">{tr('Task details')}</span><textarea disabled={!canWork} className="input min-h-20 min-w-0 resize-y" defaultValue={task.details} onBlur={(event) => { if (event.currentTarget.value !== task.details) void onChange({ details: event.currentTarget.value }); }} /></label>
-          <div className="min-w-0 rounded-lg bg-slate-50 p-3 dark:bg-white/[.03]">
-            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold"><Link2 size={13} />{tr('Dependencies')}</p>
-            {taskDeps.length > 0 && <ul className="mb-2 space-y-1">{taskDeps.map((dep) => <li key={dep.depends_on_task_id} className="flex min-w-0 items-center gap-2 text-xs"><span className="min-w-0 flex-1 break-words">{allTasks.find((candidate) => candidate.id === dep.depends_on_task_id)?.title ?? tr('Task')}</span>{canWork && <button type="button" className="btn-ghost !p-1 text-rose-600" aria-label={tr('Remove dependency')} onClick={() => void runAction(() => removeSharedDependency(projectId, task.id, dep.depends_on_task_id))}><Trash2 size={13} /></button>}</li>)}</ul>}
-            <div className="flex min-w-0 gap-2"><select disabled={!canWork} className="input min-w-0 flex-1 !py-2 text-xs" value={dependsOn} onChange={(event) => setDependsOn(event.target.value)}><option value="">{tr('Depends on…')}</option>{allTasks.filter((candidate) => candidate.id !== task.id && !taskDeps.some((dep) => dep.depends_on_task_id === candidate.id)).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title}</option>)}</select><button type="button" disabled={!canWork || !dependsOn} className="btn-outline !px-2" aria-label={tr('Add dependency')} onClick={() => { if (!dependsOn) return; void runAction(() => addSharedDependency(projectId, task.id, dependsOn, currentUserId)).then(() => setDependsOn('')); }}><Plus size={14} /></button></div>
-          </div>
-          <div className="min-w-0 rounded-lg bg-indigo-50/70 p-3 dark:bg-indigo-500/[.07]">
-            <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold"><LockKeyhole size={13} />{tr('Private link to my goal or habit')}</p><p className="mb-2 text-[11px] leading-4 muted">{tr('Only you can see this connection; it is not shared with project members.')}</p>
-            {taskLinks.map((link) => <div key={link.id} className="mb-1 flex items-center gap-2 text-xs"><span className="min-w-0 flex-1 break-words">{privateLabels[`${link.personal_item_type}:${link.personal_item_id}`] ?? tr('Personal item')}</span><button type="button" className="btn-ghost !p-1 text-rose-600" aria-label={tr('Remove private link')} onClick={() => void runAction(() => removePrivateTaskLink(link.id))}><Trash2 size={13} /></button></div>)}
-            <div className="flex min-w-0 gap-2"><select disabled={!canWork} className="input min-w-0 flex-1 !py-2 text-xs" value={privateLinkValue} onChange={(event) => setPrivateLinkValue(event.target.value)}><option value="">{tr('Link a personal outcome…')}</option>{goals.map((item) => <option key={`goal:${item.id}`} value={`goal:${item.id}`}>🎯 {item.title}</option>)}{habits.map((item) => <option key={`habit:${item.id}`} value={`habit:${item.id}`}>↻ {item.title}</option>)}</select><button type="button" disabled={!canWork || !privateLinkValue} className="btn-outline !px-2" aria-label={tr('Add private link')} onClick={() => { const [type, id] = privateLinkValue.split(':'); if (id && (type === 'goal' || type === 'habit')) void runAction(() => addPrivateTaskLink(task.id, currentUserId, type, id)).then(() => setPrivateLinkValue('')); }}><Plus size={14} /></button></div>
-          </div>
-        </div>}
-      </div>
+  const done = tasks.filter((task) => task.status === 'done').length;
+  const pct = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+  const overdue = tasks.filter(isOverdue).length;
+  const next = tasks.filter(isOpen).sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999'))[0];
+  const meta = statusMeta(project.status);
+  const late = project.due_date && project.status !== 'done' && project.due_date < new Date().toISOString().slice(0, 10);
+  return <article ref={setNodeRef} style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(1deg)` } : undefined} className={cx('tw-project-card', isDragging && 'is-dragging')} aria-label={`${tr('Shared project')}: ${project.title}`}>
+    <span className="tw-project-glow" style={{ background: meta.color }} aria-hidden="true" />
+    <div className="flex min-w-0 items-center gap-2">
+      <label className="tw-status-select" style={{ ['--tone' as string]: meta.color }}><span className="tw-dot" style={{ background: meta.color }} /><select value={project.status} disabled={!canChangeStatus || busy} aria-label={`${tr('Project status')}: ${project.title}`} onChange={(event) => onStatus(event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select>{canChangeStatus && <ChevronDown size={12} />}</label>
+      <span className="tw-role-tag">{tr(ROLE_LABEL[role])}</span>
+      <span className="flex-1" />
+      {unread > 0 && <span className="tw-unread" title={tr('Unread messages')}><MessageCircle size={12} />{unread}</span>}
+      {canChangeStatus && <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag to change project status')} {...attributes} {...listeners} className="tw-grip"><GripVertical size={16} /></button>}
     </div>
+    <button type="button" className="mt-3 flex w-full min-w-0 items-start gap-3 text-left" onClick={onOpen}>
+      <span className="min-w-0 flex-1"><span className="block break-words text-[15px] font-semibold leading-snug">{project.title}</span>{project.description && <span className="mt-1 line-clamp-2 block break-words text-sm leading-5 muted">{project.description}</span>}</span>
+      <ProgressRing value={pct} size={46} label={`${pct}% ${tr('complete')}`} />
+    </button>
+    {next && <button type="button" className="tw-next" onClick={onOpen}><span className="muted">{tr('Next')}:</span><span className="min-w-0 flex-1 truncate">{next.title}</span>{next.due_date && <span className={cx('shrink-0', isOverdue(next) ? 'text-rose-400' : 'muted')}>{relativeDay(next.due_date, localeForLanguage(language))}</span>}</button>}
+    <div className="mt-3 flex min-w-0 items-center gap-2">
+      <AvatarStack ids={memberIds} members={members} currentUserId={currentUserId} max={4} size={26} />
+      <span className="flex-1" />
+      <span className="tw-meta"><ClipboardList size={12} />{done}/{tasks.length}</span>
+      {overdue > 0 && <span className="tw-meta is-late">{overdue} {tr('late')}</span>}
+      {project.due_date && <span className={cx('tw-meta', late && 'is-late')}><CalendarDays size={12} />{relativeDay(project.due_date, localeForLanguage(language))}</span>}
+    </div>
+    {canClaimAdmin && <button type="button" className="tw-link-btn mt-3" disabled={busy} onClick={onClaim}><ShieldCheck size={14} />{tr('No admin yet — become admin')}</button>}
   </article>;
-}
-
-function PortfolioSection({ snapshot, currentUserId, runAction }: { snapshot: SharedWorkspaceSnapshot; currentUserId: string; runAction: (action: () => Promise<unknown>) => Promise<boolean> }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [activePortfolio, setActivePortfolio] = useState<string | null>(null);
-  const [addProjectId, setAddProjectId] = useState('');
-  const portfolio = snapshot.portfolios.find((item) => item.id === activePortfolio);
-  const linkedIds = snapshot.portfolioProjects.filter((link) => link.portfolio_id === portfolio?.id).map((link) => link.project_id);
-  const linkedProjects = snapshot.projects.filter((project) => linkedIds.includes(project.id));
-  const portfolioRole = snapshot.portfolioMembers.find((member) => member.portfolio_id === portfolio?.id && member.user_id === currentUserId)?.role;
-  const canManagePortfolio = portfolioRole === 'lead' || portfolioRole === 'admin';
-  return <div className="min-w-0 space-y-4">
-    {!portfolio ? <>
-      <form className="card grid min-w-0 gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] sm:items-end" onSubmit={(event) => { event.preventDefault(); if (!title.trim()) return; void runAction(async () => { await createSharedPortfolio(title.trim(), description.trim()); setTitle(''); setDescription(''); }); }}>
-        <label className="min-w-0"><span className="label">{tr('Portfolio name')}</span><input className="input min-w-0" value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={200} /></label>
-        <label className="min-w-0"><span className="label">{tr('Description')}</span><input className="input min-w-0" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} /></label>
-        <button className="btn-primary" type="submit"><Plus size={16} />{tr('Create portfolio')}</button>
-      </form>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {snapshot.portfolios.map((item) => <button key={item.id} type="button" className="card min-w-0 p-4 text-left transition hover:-translate-y-0.5 hover:border-indigo-300" onClick={() => setActivePortfolio(item.id)}><h3 className="break-words font-semibold">{item.title}</h3>{item.description && <p className="mt-1 break-words text-sm muted">{item.description}</p>}<p className="mt-3 text-xs muted">{snapshot.portfolioProjects.filter((link) => link.portfolio_id === item.id).length} {tr('connected projects')}</p></button>)}
-        {snapshot.portfolios.length === 0 && <div className="card p-5 text-sm muted">{tr('Group existing shared project IDs into a portfolio; connecting a project never grants access to it.')}</div>}
-      </div>
-    </> : <>
-      <button type="button" className="btn-ghost -ml-2" onClick={() => setActivePortfolio(null)}><ArrowLeft size={16} />{tr('All portfolios')}</button>
-      <section className="card min-w-0 p-4 sm:p-5"><h3 className="break-words text-lg font-semibold">{portfolio.title}</h3><p className="mt-1 text-sm muted">{tr('Portfolio links reference existing projects; they do not copy tasks or grant project access.')}</p>
-        {canManagePortfolio ? <form className="mt-4 flex min-w-0 flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); if (!addProjectId) return; void runAction(() => addProjectToPortfolio(portfolio.id, addProjectId, currentUserId)).then(() => setAddProjectId('')); }}>
-          <select className="input min-w-0 flex-1" value={addProjectId} onChange={(event) => setAddProjectId(event.target.value)}><option value="">{tr('Add an accessible shared project…')}</option>{snapshot.projects.filter((project) => !linkedIds.includes(project.id)).map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select><button className="btn-outline" disabled={!addProjectId}><Plus size={15} />{tr('Add project')}</button>
-        </form> : <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm muted dark:bg-white/[.03]">{tr('Portfolio links can be managed by portfolio leads and admins. Project access is still controlled separately.')}</p>}
-        <div className="mt-4 space-y-2">{linkedProjects.map((project) => <div key={project.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 p-3 dark:border-white/10"><span className="min-w-0 flex-1 break-words text-sm font-medium">{project.title}</span><span className="chip">{tr(STATUS.find((item) => item.id === project.status)?.label ?? project.status)}</span>{canManagePortfolio && <button type="button" className="btn-ghost !p-2 text-rose-600" aria-label={tr('Remove from portfolio')} onClick={() => void runAction(() => removeProjectFromPortfolio(portfolio.id, project.id))}><Trash2 size={15} /></button>}</div>)}</div>
-      </section>
-    </>}
-  </div>;
 }
 
 export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPrivate, initialProjectId, initialTab }: { onSelectedChange?: (open: boolean) => void; onSwitchToPrivate?: () => void; initialProjectId?: string | null; initialTab?: Tab }) {
@@ -183,7 +76,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const goals = useStore((state) => state.goals);
   const habits = useStore((state) => state.habits);
   const language = useStore((state) => state.settings.language ?? 'en');
-  const [snapshot, setSnapshot] = useState<SharedWorkspaceSnapshot>({ projects: [], members: [], tasks: [], dependencies: [], comments: [], commentReceipts: [], notes: [], activity: [], invitations: [], notifications: [], portfolios: [], portfolioMembers: [], portfolioProjects: [] });
+  const [snapshot, setSnapshot] = useState<SharedWorkspaceSnapshot>(EMPTY);
   const [privateLinks, setPrivateLinks] = useState<PrivateTaskLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -191,33 +84,26 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [section, setSection] = useState<'projects' | 'portfolios'>('projects');
-  const [filter, setFilter] = useState<SharedStatus>('active');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>(initialTab ?? 'tasks');
-  const [taskView, setTaskView] = useState<'list' | 'board' | 'calendar'>('list');
-  const [calendarMonth, setCalendarMonth] = useState(today().slice(0, 7));
-  const [calendarDate, setCalendarDate] = useState(today());
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'overview');
   const [creating, setCreating] = useState(false);
-  const [newProject, setNewProject] = useState({ title: '', description: '', status: 'planning' as SharedStatus, due_date: '' });
-  const [newTask, setNewTask] = useState({ title: '', due_date: '', assignee_id: '' });
+  const [joining, setJoining] = useState(false);
+  const [newProject, setNewProject] = useState({ title: '', description: '', status: 'active' as SharedStatus, due_date: '' });
   const [joinToken, setJoinToken] = useState('');
-  const [invitationRole, setInvitationRole] = useState<Exclude<SharedRole, 'lead' | 'admin'>>('member');
-  const [inviteDays, setInviteDays] = useState(7);
   const [inviteUrl, setInviteUrl] = useState('');
-  const [newComment, setNewComment] = useState('');
-  const [sendingComment, setSendingComment] = useState(false);
   const [discussionComments, setDiscussionComments] = useState<SharedComment[]>([]);
   const [discussionHasMore, setDiscussionHasMore] = useState(false);
   const [discussionLoading, setDiscussionLoading] = useState(false);
-  const pendingCommentSends = useRef(new Map<string, { body: string; taskId: string | null; startedAt: number }>());
-  const discussionRequestId = useRef(0);
-  const [commentTask, setCommentTask] = useState('');
-  const [mentionUser, setMentionUser] = useState('');
-  const [newNote, setNewNote] = useState({ note_type: 'decision' as SharedNoteType, title: '', body: '', occurred_on: '', color: 'paper' as SharedWorkspaceSnapshot['notes'][number]['color'], is_pinned: false });
   const [projectDraft, setProjectDraft] = useState({ title: '', description: '', status: 'planning' as SharedStatus, due_date: '' });
   const [editingProject, setEditingProject] = useState(false);
-  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }), useSensor(KeyboardSensor));
+  const [descOpen, setDescOpen] = useState(false);
+  const pendingCommentSends = useRef(new Map<string, { body: string; taskId: string | null; startedAt: number }>());
+  const discussionRequestId = useRef(0);
+  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }), useSensor(KeyboardSensor));
   const selectedIdRef = useRef<string | null>(null);
+  const tabsRef = useRef<HTMLElement>(null);
   const tabRef = useRef<Tab>(tab);
   selectedIdRef.current = selectedId;
   tabRef.current = tab;
@@ -229,7 +115,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
       const profileName = String(user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '').trim();
       const next = await fetchSharedWorkspace(user.id, profileName);
       const links = await fetchMyPrivateTaskLinks(next.tasks.map((task) => task.id));
-      setSnapshot((current) => ({ ...next, comments: [...next.comments, ...current.comments.filter((comment) => comment.id.startsWith('optimistic-'))] })); setPrivateLinks(links); setError('');
+      setSnapshot(next); setPrivateLinks(links); setError('');
       setSelectedId((current) => current && next.projects.some((project) => project.id === current) ? current : initialProjectId && next.projects.some((project) => project.id === initialProjectId) ? initialProjectId : null);
     } catch (problem) { setError(sharedServiceError(problem)); }
     finally { setLoading(false); setRefreshing(false); }
@@ -238,7 +124,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const runAction = useCallback(async (action: () => Promise<unknown>) => {
     setBusy(true); setError(''); setNotice('');
     try { await action(); await refresh(true); return true; }
-    catch (problem) { setError(sharedServiceError(problem)); return false; }
+    catch (problem) { setError(sharedServiceError(problem)); playFeedback('failed'); return false; }
     finally { setBusy(false); }
   }, [refresh]);
 
@@ -248,88 +134,83 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     setDiscussionLoading(true);
     try {
       const page = await fetchSharedCommentsPage(projectId, before, 50);
-      if (requestId !== discussionRequestId.current || selectedIdRef.current !== projectId || tabRef.current !== 'discussion') return;
+      if (requestId !== discussionRequestId.current || selectedIdRef.current !== projectId) return;
       setDiscussionComments((current) => {
-        const fetchedForPending = new Set<string>();
+        const resolved = new Set<string>();
         for (const comment of current) {
           if (!comment.id.startsWith('optimistic-')) continue;
           const pending = pendingCommentSends.current.get(comment.id);
-          if (!pending) continue;
-          const persisted = page.comments.find((row) => row.author_id === user?.id && row.body === pending.body && row.task_id === pending.taskId && Date.parse(row.created_at) >= pending.startedAt - 1000);
-          if (persisted) fetchedForPending.add(comment.id);
+          if (pending && page.comments.some((row) => row.author_id === user.id && row.body === pending.body && row.task_id === pending.taskId && Date.parse(row.created_at) >= pending.startedAt - 1000)) resolved.add(comment.id);
         }
-        const pending = current.filter((comment) => comment.id.startsWith('optimistic-') && !fetchedForPending.has(comment.id));
-        const source = [...(append ? current.filter((comment) => !comment.id.startsWith('optimistic-')) : []), ...pending, ...page.comments];
-        const unique = new Map(source.map((comment) => [comment.id, comment]));
+        const keep = append ? current : current.filter((comment) => comment.id.startsWith('optimistic-') && !resolved.has(comment.id));
+        const unique = new Map([...keep, ...page.comments].map((comment) => [comment.id, comment]));
         return [...unique.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
       });
-      setDiscussionHasMore(page.hasMore);
+      if (!append) setDiscussionHasMore(page.hasMore); else setDiscussionHasMore(page.hasMore);
       const ids = new Set(page.comments.map((comment) => comment.id));
       setSnapshot((current) => ({ ...current, commentReceipts: [...current.commentReceipts.filter((receipt) => !ids.has(receipt.comment_id)), ...page.receipts] }));
-      setError('');
     } catch (problem) {
       if (requestId === discussionRequestId.current && selectedIdRef.current === projectId) setError(sharedServiceError(problem));
     } finally {
-      if (requestId === discussionRequestId.current && selectedIdRef.current === projectId) setDiscussionLoading(false);
+      if (requestId === discussionRequestId.current) setDiscussionLoading(false);
     }
   }, [user?.id]);
 
   useEffect(() => {
-    if (tab !== 'discussion' || !selectedId) { setDiscussionComments([]); setDiscussionHasMore(false); return; }
-    void loadDiscussionPage(selectedId);
+    if (!selectedId) { setDiscussionComments([]); setDiscussionHasMore(false); return; }
+    if (tab === 'discussion') void loadDiscussionPage(selectedId);
   }, [tab, selectedId, loadDiscussionPage]);
 
   useEffect(() => {
     if (!user?.id) { setLoading(false); return; }
     void refresh();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const unsubscribe = subscribeToSharedWorkspace(user.id, () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        void refresh(true);
-        const projectId = selectedIdRef.current;
-        if (projectId && tabRef.current === 'discussion') void loadDiscussionPage(projectId);
-      }, 250);
+    let full: ReturnType<typeof setTimeout> | undefined;
+    let chat: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = subscribeToSharedWorkspace(user.id, (table, row) => {
+      const projectId = selectedIdRef.current;
+      if (table === 'shared_project_comments' && projectId && tabRef.current === 'discussion' && (!row || row.project_id === projectId)) {
+        if (chat) clearTimeout(chat);
+        chat = setTimeout(() => void loadDiscussionPage(projectId), 80);
+      }
+      if (full) clearTimeout(full);
+      full = setTimeout(() => void refresh(true), table === 'shared_project_comments' ? 1200 : 300);
     });
-    return () => { if (timer) clearTimeout(timer); unsubscribe(); };
+    return () => { if (full) clearTimeout(full); if (chat) clearTimeout(chat); unsubscribe(); };
   }, [user?.id, refresh, loadDiscussionPage]);
 
-  const sendComment = async () => {
-    const body = newComment.trim();
-    if (!body || !canWork || !selected || !user?.id || sendingComment) return;
+  const selected = snapshot.projects.find((project) => project.id === selectedId) ?? null;
+
+  const sendComment = async (body: string, taskId: string | null, mentions: string[]) => {
+    if (!selected || !user?.id) return false;
     const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const startedAt = Date.now();
     const now = new Date(startedAt).toISOString();
-    const optimistic: SharedComment = { id: optimisticId, project_id: selected.id, task_id: commentTask || null, author_id: user.id, body, mentioned_user_ids: mentionUser ? [mentionUser] : [], created_at: now, updated_at: now };
-    pendingCommentSends.current.set(optimisticId, { body, taskId: commentTask || null, startedAt });
-    setSendingComment(true); setError(''); setNotice('');
-    setDiscussionComments((current) => [optimistic, ...current]);
-    setNewComment('');
+    pendingCommentSends.current.set(optimisticId, { body, taskId, startedAt });
+    setDiscussionComments((current) => [{ id: optimisticId, project_id: selected.id, task_id: taskId, author_id: user.id, body, mentioned_user_ids: mentions, created_at: now, updated_at: now }, ...current]);
     playFeedback('submit');
     try {
-      const saved = await addSharedComment(selected.id, user.id, body, commentTask || undefined, mentionUser ? [mentionUser] : []);
+      const saved = await addSharedComment(selected.id, user.id, body, taskId || undefined, mentions);
       setDiscussionComments((current) => {
-        const next = current.filter((comment) => comment.id !== optimisticId && !(comment.author_id === saved.author_id && comment.body === saved.body && comment.task_id === saved.task_id && comment.created_at === saved.created_at));
-        const byId = new Map([...next, saved].map((comment) => [comment.id, comment]));
+        const byId = new Map([...current.filter((comment) => comment.id !== optimisticId), saved].map((comment) => [comment.id, comment]));
         return [...byId.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
       });
-      setMentionUser('');
+      setSnapshot((current) => ({ ...current, comments: [saved, ...current.comments.filter((comment) => comment.id !== saved.id)] }));
+      return true;
     } catch (problem) {
       setDiscussionComments((current) => current.filter((comment) => comment.id !== optimisticId));
-      setNewComment((current) => current || body);
-      setError(sharedServiceError(problem));
-      playFeedback('failed');
-    } finally { pendingCommentSends.current.delete(optimisticId); setSendingComment(false); }
+      setError(sharedServiceError(problem)); playFeedback('failed');
+      return false;
+    } finally { pendingCommentSends.current.delete(optimisticId); }
   };
 
   const acceptInvite = useCallback(async (token: string) => {
-    const trimmed = token.trim();
+    const trimmed = token.trim().replace(/^.*[?&]invite=/, '').replace(/&.*$/, '');
     if (!trimmed || !user?.id) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      await acceptSharedInvitation(trimmed);
-      sessionStorage.removeItem('lifeos:pending-shared-invite');
-      setJoinToken(''); setNotice(tr('Invitation accepted. Shared project is ready.'));
+      await acceptSharedInvitation(decodeURIComponent(trimmed));
+      try { sessionStorage.removeItem('lifeos:pending-shared-invite'); } catch { /* storage blocked */ }
+      setJoinToken(''); setJoining(false); setNotice(tr('Invitation accepted. Shared project is ready.'));
       navigate('/projects', { replace: true });
       await refresh(true);
     } catch (problem) { setError(sharedServiceError(problem)); }
@@ -349,19 +230,47 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     if (initialProjectId) setSelectedId(initialProjectId);
     if (initialTab) setTab(initialTab);
   }, [initialProjectId, initialTab]);
-  const selected = snapshot.projects.find((project) => project.id === selectedId) ?? null;
   useEffect(() => { onSelectedChange?.(Boolean(selected)); }, [selected?.id, onSelectedChange]);
   useEffect(() => {
+    if (!selected) return;
+    setProjectDraft({ title: selected.title, description: selected.description, status: selected.status, due_date: selected.due_date ?? '' });
+    setEditingProject(false); setDescOpen(false); setInviteUrl('');
+    setTab(initialProjectId === selected.id && initialTab ? initialTab : 'overview');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [selected?.id, initialProjectId, initialTab]);
+
+  useEffect(() => {
     if (tab !== 'discussion' || !selected || !user?.id) return;
-    const unread = discussionComments.filter((comment) => comment.author_id !== user.id && !snapshot.commentReceipts.some((receipt) => receipt.comment_id === comment.id && receipt.user_id === user.id));
+    const unread = discussionComments.filter((comment) => !comment.id.startsWith('optimistic-') && comment.author_id !== user.id && !snapshot.commentReceipts.some((receipt) => receipt.comment_id === comment.id && receipt.user_id === user.id));
+    const hasUnreadNotes = snapshot.notifications.some((notification) => notification.project_id === selected.id && !notification.read_at && notification.kind.startsWith('comment.'));
+    if (!unread.length && !hasUnreadNotes) return;
     const ids = unread.map((comment) => comment.id);
     void Promise.all([ids.length ? markSharedCommentsRead(selected.id, user.id, unread) : Promise.resolve(), markSharedProjectNotificationsRead(selected.id, user.id)])
       .then(() => {
         const seenAt = new Date().toISOString();
-        setSnapshot((current) => ({ ...current, commentReceipts: [...current.commentReceipts.filter((receipt) => !ids.includes(receipt.comment_id)), ...ids.map((comment_id) => ({ comment_id, user_id: user.id, seen_at: seenAt }))], notifications: current.notifications.map((notification) => notification.project_id === selected.id && notification.kind.startsWith('comment.') ? { ...notification, read_at: notification.read_at ?? seenAt } : notification) }));
+        setSnapshot((current) => ({ ...current, commentReceipts: [...current.commentReceipts.filter((receipt) => !(ids.includes(receipt.comment_id) && receipt.user_id === user.id)), ...ids.map((comment_id) => ({ comment_id, user_id: user.id, seen_at: seenAt }))], notifications: current.notifications.map((notification) => notification.project_id === selected.id && notification.kind.startsWith('comment.') ? { ...notification, read_at: notification.read_at ?? seenAt } : notification) }));
       })
       .catch((problem) => setError(sharedServiceError(problem)));
-  }, [tab, selected?.id, user?.id, discussionComments, snapshot.commentReceipts]);
+  }, [tab, selected?.id, user?.id, discussionComments, snapshot.commentReceipts, snapshot.notifications]);
+
+  // Chat fills the screen: bring the sticky tab bar to the top so the composer sits right above the bottom nav.
+  useEffect(() => {
+    if (tab !== 'discussion' || !tabsRef.current) return;
+    const nav = tabsRef.current;
+    const frame = requestAnimationFrame(() => {
+      const stickyTop = parseFloat(getComputedStyle(nav).top) || 0;
+      const target = window.scrollY + nav.getBoundingClientRect().top - stickyTop;
+      if (Math.abs(target - window.scrollY) > 4) window.scrollTo({ top: target, behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tab, selected?.id]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('tw-chat-open', tab === 'discussion' && Boolean(selected));
+    return () => root.classList.remove('tw-chat-open');
+  }, [tab, selected?.id]);
+
   const members = snapshot.members.filter((member) => member.project_id === selected?.id);
   const me = members.find((member) => member.user_id === user?.id);
   const canManage = Boolean(me && ['lead', 'admin'].includes(me.role));
@@ -371,23 +280,13 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const canClaimAdmin = Boolean(me?.role === 'member' && !hasAdmin);
   const hasManagers = members.some((member) => member.role === 'lead' || member.role === 'admin');
   const canInvite = Boolean(me && (canManage || (!hasManagers && me.role !== 'viewer')));
-  const projectTasks = snapshot.tasks.filter((task) => task.project_id === selected?.id);
-  const completedTaskCount = projectTasks.filter((task) => task.status === 'done').length;
-  const taskProgress = projectTasks.length ? Math.round(completedTaskCount / projectTasks.length * 100) : 0;
+  const projectTasks = useMemo(() => snapshot.tasks.filter((task) => task.project_id === selected?.id), [snapshot.tasks, selected?.id]);
+  const doneCount = projectTasks.filter((task) => task.status === 'done').length;
+  const progress = projectTasks.length ? Math.round(doneCount / projectTasks.length * 100) : 0;
   const projectNotes = snapshot.notes.filter((note) => note.project_id === selected?.id).sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned) || b.updated_at.localeCompare(a.updated_at));
-  const unreadCommentCount = snapshot.comments.filter((comment) => comment.project_id === selected?.id && comment.author_id !== user?.id && !snapshot.commentReceipts.some((receipt) => receipt.comment_id === comment.id && receipt.user_id === user?.id)).length;
-  const projectCount = useMemo(() => STATUS.reduce((acc, item) => ({ ...acc, [item.id]: snapshot.projects.filter((project) => project.status === item.id).length }), {} as Record<SharedStatus, number>), [snapshot.projects]);
-  const filteredProjects = snapshot.projects.filter((project) => project.status === filter);
-  const calendarFirstDay = `${calendarMonth}-01`;
-  const calendarOffset = (new Date(`${calendarFirstDay}T12:00:00`).getDay() + 6) % 7;
-  const calendarDays = Array.from({ length: 42 }, (_, index) => addDays(calendarFirstDay, index - calendarOffset));
-  const calendarTasksByDate = new Map<string, SharedTask[]>();
-  for (const task of projectTasks) if (task.due_date) calendarTasksByDate.set(task.due_date, [...(calendarTasksByDate.get(task.due_date) ?? []), task]);
-  const selectedDateTasks = calendarTasksByDate.get(calendarDate) ?? [];
-  const unscheduledTasks = projectTasks.filter((task) => !task.due_date);
-  const weekLabels = Array.from({ length: 7 }, (_, index) => { const date = new Date('2024-01-01T12:00:00'); date.setDate(date.getDate() + index); return date.toLocaleDateString(localeForLanguage(language), { weekday: 'short' }); });
-  const calendarMonthLabel = new Date(`${calendarFirstDay}T12:00:00`).toLocaleDateString(localeForLanguage(language), { month: 'long', year: 'numeric' });
-  const shiftCalendarMonth = (offset: number) => { const date = new Date(`${calendarFirstDay}T12:00:00`); date.setMonth(date.getMonth() + offset); const nextMonth = date.toISOString().slice(0, 7); setCalendarMonth(nextMonth); setCalendarDate(`${nextMonth}-01`); };
+  const projectActivity = snapshot.activity.filter((event) => event.project_id === selected?.id);
+  const unreadFor = useCallback((projectId: string) => snapshot.comments.filter((comment) => comment.project_id === projectId && comment.author_id !== user?.id && !snapshot.commentReceipts.some((receipt) => receipt.comment_id === comment.id && receipt.user_id === user?.id)).length, [snapshot.comments, snapshot.commentReceipts, user?.id]);
+  const unreadHere = selected ? unreadFor(selected.id) : 0;
   const privateLabels = useMemo(() => {
     const labels: Record<string, string> = {};
     goals.forEach((goal) => { labels[`goal:${goal.id}`] = goal.title; });
@@ -395,43 +294,56 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     return labels;
   }, [goals, habits]);
 
-  useEffect(() => {
-    if (!selected) return;
-    setProjectDraft({ title: selected.title, description: selected.description, status: selected.status, due_date: selected.due_date ?? '' });
-    setEditingProject(false);
-    setTab(initialProjectId === selected.id && initialTab ? initialTab : 'tasks'); setInviteUrl('');
-  }, [selected?.id, initialProjectId, initialTab]);
-
   const createProject = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true); setError('');
     try {
       const id = await createSharedProject(newProject.title.trim(), newProject.description.trim(), newProject.status);
-      if (newProject.due_date) await updateSharedProject(id, { due_date: newProject.due_date } as Partial<Pick<SharedProject, 'title' | 'description' | 'status'>>);
-      setNewProject({ title: '', description: '', status: 'planning', due_date: '' }); setCreating(false); setFilter(newProject.status);
+      if (newProject.due_date) await updateSharedProject(id, { due_date: newProject.due_date });
+      setNewProject({ title: '', description: '', status: 'active', due_date: '' }); setCreating(false); setFilter('all');
+      playFeedback('confirm');
       await refresh(true); setSelectedId(id);
     } catch (problem) { setError(sharedServiceError(problem)); }
     finally { setBusy(false); }
   };
 
-  const issueInvite = async () => {
+  const issueInvite = async (role: Exclude<SharedRole, 'lead' | 'admin'>, days: number) => {
     if (!selected) return;
     setBusy(true); setError(''); setInviteUrl('');
     try {
-      const expiresAt = new Date(Date.now() + inviteDays * 86400000).toISOString();
-      const invitation = await createSharedInvitation(selected.id, invitationRole, expiresAt);
-      const url = new URL(window.location.href); url.hash = `/projects?invite=${encodeURIComponent(invitation.token)}`;
+      const invitation = await createSharedInvitation(selected.id, role, new Date(Date.now() + days * 86400000).toISOString());
+      const url = new URL(window.location.href); url.search = ''; url.hash = `/projects?invite=${encodeURIComponent(invitation.token)}`;
       setInviteUrl(url.toString()); await refresh(true);
     } catch (problem) { setError(sharedServiceError(problem)); }
     finally { setBusy(false); }
   };
 
-  const addTask = async (event: FormEvent) => {
-    event.preventDefault(); if (!selected || !user?.id || !newTask.title.trim()) return;
-    setBusy(true); setError('');
-    try { await createSharedTask(selected.id, user.id, newTask.title.trim(), newTask.due_date || undefined, newTask.assignee_id || undefined); setNewTask({ title: '', due_date: '', assignee_id: '' }); await refresh(true); }
-    catch (problem) { setError(sharedServiceError(problem)); }
-    finally { setBusy(false); }
+  /** Optimistic: the UI changes instantly, the server catches up, and a failure rolls back. */
+  const updateTask = useCallback(async (taskId: string, patch: Partial<SharedTask>) => {
+    const before = snapshot.tasks.find((row) => row.id === taskId);
+    if (!before) return false;
+    setSnapshot((current) => ({ ...current, tasks: current.tasks.map((task) => task.id === taskId ? { ...task, ...patch, updated_at: new Date().toISOString() } : task) }));
+    if (patch.status === 'done' && before.status !== 'done') playFeedback('confirm');
+    setError('');
+    try {
+      await updateSharedTask(taskId, patch);
+      if (patch.status === 'done' && before.status !== 'done' && user?.id) useStore.getState().awardReward(`shared-task:${user.id}:${taskId}`, before.title, 'task', 20);
+      void refresh(true);
+      return true;
+    } catch (problem) {
+      setSnapshot((current) => ({ ...current, tasks: current.tasks.map((task) => task.id === taskId ? before : task) }));
+      setError(sharedServiceError(problem)); playFeedback('failed');
+      return false;
+    }
+  }, [snapshot.tasks, refresh, user?.id]);
+
+  const addTask = async (title: string, due: string, assignee: string) => {
+    if (!selected || !user?.id) return false;
+    const tempId = `temp-${Date.now()}`;
+    const now = new Date().toISOString();
+    setSnapshot((current) => ({ ...current, tasks: [{ id: tempId, project_id: selected.id, title, details: '', status: 'todo', due_date: due || null, estimate_minutes: null, assignee_id: assignee || null, created_by: user.id, created_at: now, updated_at: now }, ...current.tasks] }));
+    try { await createSharedTask(selected.id, user.id, title, due || undefined, assignee || undefined); playFeedback('add'); void refresh(true); return true; }
+    catch (problem) { setSnapshot((current) => ({ ...current, tasks: current.tasks.filter((task) => task.id !== tempId) })); setError(sharedServiceError(problem)); return false; }
   };
 
   const saveProjectEdit = async () => {
@@ -439,210 +351,176 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
     const draft = { ...projectDraft, title: projectDraft.title.trim(), description: projectDraft.description.trim() };
     const saved = await runAction(async () => {
       await updateSharedProject(selected.id, { ...draft, due_date: draft.due_date || null });
-      if (selected.status !== 'done' && draft.status === 'done' && user?.id) {
-        useStore.getState().awardReward(`shared-project:${user.id}:${selected.id}`, draft.title, 'project', 100);
-      }
+      if (selected.status !== 'done' && draft.status === 'done' && user?.id) useStore.getState().awardReward(`shared-project:${user.id}:${selected.id}`, draft.title, 'project', 100);
     });
-    if (saved) { setProjectDraft(draft); setEditingProject(false); }
+    if (saved) setEditingProject(false);
   };
   const claimProjectAdmin = async (projectId = selected?.id) => {
     if (!projectId) return;
-    const claimed = await runAction(() => claimSharedProjectAdmin(projectId));
-    if (claimed) setNotice(tr('Your project role is now Admin.'));
-  };
-
-  const updateTask = async (taskId: string, patch: Partial<SharedTask>) => {
-    const task = snapshot.tasks.find((row) => row.id === taskId);
-    return runAction(async () => {
-      await updateSharedTask(taskId, patch);
-      if (patch.status === 'done' && task && task.status !== 'done' && user?.id) {
-        useStore.getState().awardReward(`shared-task:${user.id}:${taskId}`, task.title, 'task', 20);
-      }
-    });
-  };
-  const onDragEnd = (event: DragEndEvent) => {
-    const active = event.active.data.current; const target = event.over?.data.current?.status as SharedTaskStatus | undefined;
-    if (active?.type === 'shared-task' && active.taskId && target) {
-      const task = projectTasks.find((item) => item.id === active.taskId);
-      if (task && task.status !== target) void updateTask(task.id, { status: target });
-    }
+    if (await runAction(() => claimSharedProjectAdmin(projectId))) setNotice(tr('Your project role is now Admin.'));
   };
   const moveSharedProjectStatus = async (projectId: string, target: SharedStatus) => {
     const project = snapshot.projects.find((item) => item.id === projectId);
     const role = snapshot.members.find((member) => member.project_id === projectId && member.user_id === user?.id)?.role;
-    const hasAdmin = snapshot.members.some((member) => member.project_id === projectId && member.role === 'admin');
+    const adminAssigned = snapshot.members.some((member) => member.project_id === projectId && member.role === 'admin');
     if (!project || project.status === target) return;
-    if (!mayChangeProjectStatus(role, hasAdmin)) {
-      setError(tr('Only project leads and admins can change project status.'));
-      return;
-    }
+    if (!mayChangeProjectStatus(role, adminAssigned)) { setError(tr('Only project leads and admins can change project status.')); return; }
     setBusy(true); setError('');
     setSnapshot((current) => ({ ...current, projects: current.projects.map((item) => item.id === projectId ? { ...item, status: target } : item) }));
-    setFilter(target);
-    try {
-      await updateSharedProjectStatus(projectId, target);
-      await refresh(true);
-    } catch (problem) {
+    try { await updateSharedProjectStatus(projectId, target); await refresh(true); }
+    catch (problem) {
       setSnapshot((current) => ({ ...current, projects: current.projects.map((item) => item.id === projectId ? { ...item, status: project.status } : item) }));
-      setFilter(project.status);
       setError(sharedServiceError(problem));
     } finally { setBusy(false); }
   };
   const onProjectDragEnd = (event: DragEndEvent) => {
     const active = event.active.data.current;
-    const over = event.over?.data.current as { type?: string; status?: SharedStatus } | undefined;
-    if (active?.type !== 'shared-project' || !active.projectId || over?.type !== 'shared-project-status' || !over.status || !STATUS.some((item) => item.id === over.status)) return;
+    const over = event.over?.data.current as { type?: string; status?: Filter } | undefined;
+    if (active?.type !== 'shared-project' || !active.projectId || over?.type !== 'shared-project-status' || !over.status || over.status === 'all') return;
     void moveSharedProjectStatus(active.projectId, over.status);
   };
 
-  if (!cloudEnabled || !user) return <div className="card mx-auto max-w-2xl p-6 sm:p-8"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-600"><Users size={24} /></div><h2 className="mt-3 text-center text-lg font-semibold">{tr('Shared projects need an account')}</h2><p className="mx-auto mt-2 max-w-lg text-center text-sm leading-6 muted">{tr('Sign in to your account to collaborate across devices. Guest-mode projects remain private on this device.')}</p></div>;
+  if (!cloudEnabled || !user) return <div className="tw-empty mx-auto max-w-xl"><span>👥</span><p className="font-semibold">{tr('Shared projects need an account')}</p><p className="text-sm muted">{tr('Sign in to your account to collaborate across devices. Guest-mode projects remain private on this device.')}</p></div>;
 
-  return <div className="min-w-0 space-y-4">
-    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-      <div className="flex min-w-0 flex-wrap gap-2" role="tablist" aria-label={tr('Project workspace type')}>
-        <button type="button" role="tab" aria-selected={section === 'projects'} onClick={() => { setSection('projects'); setSelectedId(null); }} className={cx('btn', section === 'projects' ? 'bg-indigo-600 text-white' : 'btn-outline')}><Users size={16} />{tr('Shared work')}</button>
-        <button type="button" role="tab" aria-selected={section === 'portfolios'} onClick={() => { setSection('portfolios'); setSelectedId(null); }} className={cx('btn', section === 'portfolios' ? 'bg-indigo-600 text-white' : 'btn-outline')}><ClipboardList size={16} />{tr('Portfolios')}</button>
+  const taskCtx: TaskContext = { projectId: selected?.id ?? '', members, currentUserId: user.id, canWork, canManage, language, allTasks: projectTasks, dependencies: snapshot.dependencies, privateLinks, privateLabels, goals, habits, runAction, updateTask };
+  const openTasks = projectTasks.filter(isOpen).length;
+  const TABS: { id: Tab; label: string; icon: typeof Users; badge?: number; alert?: boolean }[] = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'tasks', label: 'Tasks', icon: ClipboardList, badge: openTasks },
+    { id: 'discussion', label: 'Chat', icon: MessageCircle, badge: unreadHere, alert: unreadHere > 0 },
+    { id: 'notes', label: 'Notes', icon: FileText, badge: projectNotes.length },
+    { id: 'timeline', label: 'Timeline', icon: Route },
+    { id: 'people', label: 'People', icon: Users, badge: members.length },
+    { id: 'activity', label: 'Activity', icon: Activity },
+  ];
+
+  // Workspace-wide numbers for the list view.
+  const myIds = new Set(snapshot.members.filter((member) => member.user_id === user.id).map((member) => member.project_id));
+  const allOpen = snapshot.tasks.filter((task) => myIds.has(task.project_id) && isOpen(task));
+  const mineOpen = allOpen.filter((task) => task.assignee_id === user.id).length;
+  const totalUnread = snapshot.projects.reduce((sum, project) => sum + unreadFor(project.id), 0);
+  const counts = STATUS.reduce((acc, item) => ({ ...acc, [item.id]: snapshot.projects.filter((project) => project.status === item.id).length }), { all: snapshot.projects.length } as Record<Filter, number>);
+  const q = query.trim().toLowerCase();
+  const shownProjects = snapshot.projects.filter((project) => (filter === 'all' || project.status === filter) && (!q || `${project.title} ${project.description}`.toLowerCase().includes(q)));
+
+  return <div className="tw-root min-w-0 space-y-3">
+    {!selected && <div className="flex min-w-0 items-center gap-2">
+      <div className="tw-seg" role="tablist" aria-label={tr('Project workspace type')}>
+        <button type="button" role="tab" aria-selected={section === 'projects'} className={cx(section === 'projects' && 'is-on')} onClick={() => setSection('projects')}><Users size={15} /><span>{tr('Team projects')}</span></button>
+        <button type="button" role="tab" aria-selected={section === 'portfolios'} className={cx(section === 'portfolios' && 'is-on')} onClick={() => setSection('portfolios')}><FolderKanban size={15} /><span>{tr('Portfolios')}</span></button>
       </div>
-      <div className="flex shrink-0 items-center gap-2"><span className="hidden text-xs muted sm:inline">{tr('Private projects stay separate')}</span><button type="button" className="btn-ghost !p-2" title={tr('Refresh shared work')} onClick={() => void refresh(true)}><RefreshCw size={16} className={cx(refreshing && 'animate-spin')} /></button></div>
-    </div>
+      <span className="flex-1" />
+      <button type="button" className="tw-icon-btn" title={tr('Refresh shared work')} aria-label={tr('Refresh shared work')} onClick={() => void refresh(true)}><RefreshCw size={16} className={cx(refreshing && 'animate-spin')} /></button>
+      {section === 'projects' && <button type="button" className="btn-primary !min-h-10 shrink-0 max-sm:!px-3" aria-label={tr('New team project')} onClick={() => setCreating(true)}><Plus size={17} /><span className="hidden sm:inline">{tr('New team project')}</span></button>}
+    </div>}
 
-    {error && <div className="flex min-w-0 items-start gap-2 rounded-xl border border-rose-300/70 bg-rose-50 px-3 py-3 text-sm text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200" role="alert"><ShieldCheck size={17} className="mt-0.5 shrink-0" /><p className="min-w-0 break-words">{error} {/migration|setup is incomplete/i.test(error) && <span className="mt-1 inline-flex flex-wrap gap-x-2"><a className="font-semibold underline underline-offset-2" href="https://github.com/abdullahbinfahad/life-os/blob/main/README.md#supabase-setup" target="_blank" rel="noreferrer">{tr('Open setup instructions')}</a><a className="font-semibold underline underline-offset-2" href="https://github.com/abdullahbinfahad/life-os/blob/main/supabase/migrations/20261023_shared_projects.sql" target="_blank" rel="noreferrer">{tr('Open migration')}</a><a className="font-semibold underline underline-offset-2" href="https://github.com/abdullahbinfahad/life-os/blob/main/supabase/migrations/20261024_shared_workspace_upgrade.sql" target="_blank" rel="noreferrer">{tr('Open workspace upgrade')}</a></span>}</p></div>}
-    {notice && <p role="status" className="rounded-lg border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">{notice}</p>}
-    {loading ? <div className="card flex min-h-40 items-center justify-center gap-3 p-6 text-sm muted"><RefreshCw size={18} className="animate-spin" />{tr('Loading shared workspace…')}</div> : section === 'portfolios' ? <PortfolioSection snapshot={snapshot} currentUserId={user.id} runAction={runAction} /> : selected ? (
-      <section className="min-w-0 space-y-4">
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><div className="flex min-w-0 flex-wrap items-center gap-2"><button type="button" className="btn-ghost -ml-2" onClick={() => setSelectedId(null)}><ArrowLeft size={16} />{tr('Shared projects')}</button><span className="text-slate-300 dark:text-slate-600">/</span><span className="min-w-0 break-words text-sm font-semibold">{selected.title}</span><span className="chip shrink-0">{tr(ROLE_LABEL[me?.role ?? 'viewer'])}</span></div>{onSwitchToPrivate && <button type="button" className="btn-ghost shrink-0" onClick={onSwitchToPrivate}><LockKeyhole size={15} />{tr('Private projects')}</button>}</div>
-        <div className="card relative isolate min-w-0 overflow-hidden border-indigo-200/70 bg-gradient-to-br from-indigo-50/80 via-white to-sky-50/60 p-4 dark:border-indigo-400/15 dark:from-indigo-950/30 dark:via-[#151821] dark:to-sky-950/20 sm:p-5">
-          <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl motion-safe:animate-pulse" />
-          <span aria-hidden="true" className="pointer-events-none absolute -bottom-12 left-1/3 h-28 w-28 rounded-full bg-sky-500/[.07] blur-2xl" />
-          <div className="relative">
-          {canManage && editingProject ? <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(140px,1fr)_minmax(140px,1fr)]"><label className="min-w-0 sm:col-span-3"><span className="label">{tr('Project title')}</span><input className="input min-w-0" value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} maxLength={200} /></label><label className="min-w-0 sm:col-span-3"><span className="label">{tr('Description')}</span><textarea className="input min-h-32 min-w-0 resize-y leading-6" value={projectDraft.description} onChange={(event) => setProjectDraft({ ...projectDraft, description: event.target.value })} maxLength={20000} /></label><label className="min-w-0"><span className="label">{tr('Status')}</span><select className="input min-w-0" value={projectDraft.status} onChange={(event) => setProjectDraft({ ...projectDraft, status: event.target.value as SharedStatus })}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select></label><label className="min-w-0"><span className="label">{tr('Due date')}</span><input className="input min-w-0" type="date" value={projectDraft.due_date} onChange={(event) => setProjectDraft({ ...projectDraft, due_date: event.target.value })} /></label><div className="flex items-end"><div className="flex flex-wrap items-end gap-2"><button type="button" className="btn-primary" disabled={busy} onClick={() => void saveProjectEdit()}><Check size={16} />{tr('Save project')}</button><button type="button" className="btn-outline" onClick={() => { setProjectDraft({ title: selected.title, description: selected.description, status: selected.status, due_date: selected.due_date ?? '' }); setEditingProject(false); }}>{tr('Cancel')}</button></div></div></div> : <><div className="flex min-w-0 items-start justify-between gap-3"><h2 className="break-words text-lg font-semibold">{selected.title}</h2>{canManage && <button type="button" className="btn-outline shrink-0" onClick={() => setEditingProject(true)}><Pencil size={15} />{tr('Edit project')}</button>}</div>{selected.description && <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 muted">{selected.description}</p>}<div className="mt-3 flex flex-wrap gap-2"><span className="chip"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS.find((item) => item.id === selected.status)?.color ?? "#64748b" }} />{tr(STATUS.find((item) => item.id === selected.status)?.label ?? selected.status)}</span>{selected.due_date && <span className="chip"><CalendarDays size={12} />{fmtDate(selected.due_date)}</span>}</div></>}
-          </div>
-          {(canChangeStatus && !canManage || canClaimAdmin) && <div className="relative z-10 mt-4 flex min-w-0 flex-col gap-3 border-t border-indigo-200/70 pt-4 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between">
-            {canChangeStatus && !canManage && <div className="min-w-0 flex-1"><label className="block max-w-xs"><span className="label">{tr('Project status')}</span><select className="input min-w-0" value={selected.status} disabled={busy} onChange={(event) => void moveSharedProjectStatus(selected.id, event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select></label><p className="mt-1 text-xs muted">{tr('Members may change the project status while no admin is assigned.')}</p></div>}
-            {canClaimAdmin && <div className="min-w-0"><p className="text-sm font-medium">{tr('No admin is assigned. Project members can claim the admin role.')}</p><button type="button" className="btn-outline mt-2" disabled={busy} onClick={() => void claimProjectAdmin(selected.id)}><ShieldCheck size={15} />{tr('Become admin')}</button></div>}
-          </div>}
+    {error && <div className="tw-alert" role="alert"><ShieldCheck size={16} className="mt-0.5 shrink-0" /><p className="min-w-0 flex-1 break-words">{error} {/migration|setup is incomplete/i.test(error) && <a className="font-semibold underline" href="https://github.com/abdullahbinfahad/life-os/blob/main/README.md#supabase-setup" target="_blank" rel="noreferrer">{tr('Open setup instructions')}</a>}</p><button type="button" onClick={() => setError('')} aria-label={tr('Dismiss')}><X size={14} /></button></div>}
+    {notice && <div className="tw-notice" role="status"><Check size={15} />{notice}<button type="button" className="ms-auto" onClick={() => setNotice('')} aria-label={tr('Dismiss')}><X size={14} /></button></div>}
+
+    {loading ? <div className="space-y-3" aria-busy="true"><div className="tw-stats">{[0, 1, 2, 3].map((index) => <div key={index} className="tw-stat tw-skel" />)}</div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((index) => <div key={index} className="tw-project-card tw-skel h-44" />)}</div></div>
+      : section === 'portfolios' && !selected ? <PortfolioSection snapshot={snapshot} currentUserId={user.id} runAction={runAction} />
+      : selected ? <section className="min-w-0 space-y-3 tw-enter">
+        <div className="flex min-w-0 items-center gap-1">
+          <button type="button" className="btn-ghost -ml-2 !min-h-10" onClick={() => setSelectedId(null)}><ArrowLeft size={17} />{tr('Team projects')}</button>
+          <span className="flex-1" />
+          {canManage && !editingProject && <button type="button" className="tw-icon-btn" title={tr('Edit project')} aria-label={tr('Edit project')} onClick={() => { setProjectDraft({ title: selected.title, description: selected.description, status: selected.status, due_date: selected.due_date ?? '' }); setEditingProject(true); }}><Pencil size={16} /></button>}
+          {onSwitchToPrivate && <button type="button" className="tw-icon-btn" onClick={onSwitchToPrivate} title={tr('Private projects')} aria-label={tr('Private projects')}><LockKeyhole size={16} /></button>}
+          <button type="button" className="tw-icon-btn" title={tr('Refresh')} aria-label={tr('Refresh')} onClick={() => void refresh(true)}><RefreshCw size={16} className={cx(refreshing && 'animate-spin')} /></button>
         </div>
-        <section className="card grid min-w-0 gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-4" aria-label={tr('Project progress')}>
-          <div className="min-w-0"><div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">{tr('Project progress')}</h3><span className="text-xs tabular-nums muted">{completedTaskCount}/{projectTasks.length} {tr('Completed')} · {taskProgress}%</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10" role="progressbar" aria-label={tr('Project progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={taskProgress}><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-500" style={{ width: `${taskProgress}%` }} /></div></div>
-          <div className="flex flex-wrap gap-2"><span className="chip"><Users size={12} />{members.length} {tr('People')}</span><span className="chip"><ClipboardList size={12} />{projectTasks.length} {tr('Tasks')}</span></div>
-        </section>
-        <div className="shared-project-layout min-w-0">
-          <nav className="shared-project-tabs" role="tablist" aria-label={tr('Project workspace sections')}>
-            {([['tasks', 'Tasks', ClipboardList], ['people', 'People', Users], ['discussion', 'Discussion', MessageCircle], ['notes', 'Notes & decisions', FileText], ['timeline', 'Timeline', CalendarDays], ['activity', 'Activity', Bell]] as const).map(([id, label, Icon]) => <button key={id} id={`shared-tab-${id}`} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cx('shared-project-tab flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition', tab === id ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 dark:border-white/10 dark:bg-white/[.035] dark:text-slate-200')}><Icon size={16} />{tr(label)}{id === 'people' && <span className="ms-auto text-xs opacity-80">{members.length}</span>}{id === 'discussion' && unreadCommentCount > 0 && <span className="ms-auto min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white">{unreadCommentCount}</span>}</button>)}
-          </nav>
-          <div className="min-w-0 space-y-4" role="tabpanel" aria-labelledby={`shared-tab-${tab}`}>
-        {tab === 'tasks' && <section className="min-w-0 space-y-3" aria-label={tr('Shared project tasks')}>
-          <form className="card grid min-w-0 gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(145px,190px)_minmax(145px,220px)_auto] sm:items-end" onSubmit={addTask}><label className="min-w-0"><span className="label">{tr('New shared task')}</span><input className="input min-w-0" value={newTask.title} onChange={(event) => setNewTask({ ...newTask, title: event.target.value })} maxLength={500} placeholder={tr('Add one clear next step')} disabled={!canWork} required /></label><label className="min-w-0"><span className="label">{tr('Due date')}</span><input className="input min-w-0" type="date" value={newTask.due_date} onChange={(event) => setNewTask({ ...newTask, due_date: event.target.value })} disabled={!canWork} /></label><label className="min-w-0"><span className="label">{tr('Assign to')}</span><select className="input min-w-0" value={newTask.assignee_id} onChange={(event) => setNewTask({ ...newTask, assignee_id: event.target.value })} disabled={!canWork}><option value="">{tr('No assignee')}</option>{members.map((member) => <option key={member.user_id} value={member.user_id}>{memberLabel(member.user_id, members, user.id)}</option>)}</select></label><button className="btn-primary" disabled={!canWork || busy}><Plus size={16} />{tr('Add task')}</button></form>
-          {!canWork && <p className="text-xs muted">{tr('Viewer access is read-only.')}</p>}
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold">{tr(taskView === 'calendar' ? 'Calendar' : 'Team task list')}</h3><div className="flex max-w-full shrink-0 gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 dark:bg-white/[.05]">{(['list', 'board', 'calendar'] as const).map((view) => <button key={view} type="button" className={cx('min-h-9 shrink-0 rounded-md px-2.5 py-1.5 text-xs', taskView === view ? 'bg-white shadow dark:bg-white/10' : 'muted')} onClick={() => setTaskView(view)}>{tr(view === 'list' ? 'List' : view === 'board' ? 'Board' : 'Calendar')}</button>)}</div></div>
-          {projectTasks.length === 0 ? <div className="card p-6 text-center"><ClipboardList className="mx-auto text-indigo-500" size={28} /><p className="mt-2 font-medium">{tr('No shared tasks yet')}</p><p className="mt-1 text-sm muted">{tr('Add the first next step so everyone can see the same work.')}</p></div> : <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            {taskView === 'list' ? <div className="min-w-0 space-y-2">{projectTasks.map((task) => <TaskCard key={task.id} task={task} projectId={selected.id} members={members} currentUserId={user.id} canWork={Boolean(canWork)} dependencies={snapshot.dependencies} allTasks={projectTasks} privateLinks={privateLinks} privateLabels={privateLabels} goals={goals} habits={habits} runAction={runAction} onChange={(patch) => updateTask(task.id, patch)} />)}</div> : taskView === 'board' ? <div className="grid min-w-0 gap-3 md:grid-cols-2 2xl:grid-cols-4">{TASK_STATUS.filter((status) => status.id !== 'cancelled' || projectTasks.some((task) => task.status === 'cancelled')).map((status) => { const columnTasks = projectTasks.filter((task) => task.status === status.id); return <BoardDropColumn key={status.id} status={status.id} count={columnTasks.length}>{columnTasks.map((task) => <TaskCard key={task.id} task={task} projectId={selected.id} members={members} currentUserId={user.id} canWork={Boolean(canWork)} dependencies={snapshot.dependencies} allTasks={projectTasks} privateLinks={privateLinks} privateLabels={privateLabels} goals={goals} habits={habits} runAction={runAction} onChange={(patch) => updateTask(task.id, patch)} />)}</BoardDropColumn>; })}</div> : <div className="min-w-0 space-y-3"><section className="card min-w-0 p-3 sm:p-4"><div className="mb-3 flex items-center justify-between gap-2"><button type="button" className="btn-ghost !p-2" onClick={() => shiftCalendarMonth(-1)} aria-label={tr('Previous month')}><ArrowLeft size={16} /></button><h4 className="text-sm font-semibold">{calendarMonthLabel}</h4><button type="button" className="btn-ghost !p-2" onClick={() => shiftCalendarMonth(1)} aria-label={tr('Next month')}><ChevronDown size={16} className="-rotate-90" /></button></div><div className="grid grid-cols-7 gap-1">{weekLabels.map((day, index) => <div key={`${day}-${index}`} className="py-1 text-center text-[10px] font-medium muted sm:text-xs">{day}</div>)}{calendarDays.map((date) => { const inMonth = date.slice(0, 7) === calendarMonth; const count = calendarTasksByDate.get(date)?.length ?? 0; return <button key={date} type="button" aria-pressed={calendarDate === date} aria-label={`${new Date(`${date}T12:00:00`).toLocaleDateString(localeForLanguage(language), { dateStyle: 'full' })}${count ? ` · ${count}` : ''}`} onClick={() => setCalendarDate(date)} className={cx('min-h-11 min-w-0 rounded-lg border p-1 text-center transition sm:min-h-14 sm:p-2', inMonth ? 'border-slate-200 dark:border-white/10' : 'border-transparent opacity-45', calendarDate === date ? 'bg-indigo-600 text-white' : 'hover:bg-indigo-500/10')}><span className="block text-xs font-medium">{new Date(`${date}T12:00:00`).getDate()}</span>{count > 0 && <span className={cx('mx-auto mt-1 block h-1.5 w-1.5 rounded-full', calendarDate === date ? 'bg-white' : 'bg-indigo-500')} />}</button>; })}</div><p className="mt-3 text-xs muted">{tr('Tasks for this date')}: {fmtDate(calendarDate, language)}</p><div className="mt-2 space-y-2">{selectedDateTasks.length ? selectedDateTasks.map((task) => <TaskCard key={task.id} task={task} projectId={selected.id} members={members} currentUserId={user.id} canWork={Boolean(canWork)} dependencies={snapshot.dependencies} allTasks={projectTasks} privateLinks={privateLinks} privateLabels={privateLabels} goals={goals} habits={habits} runAction={runAction} onChange={(patch) => updateTask(task.id, patch)} />) : <p className="rounded-lg border border-dashed border-slate-300 p-3 text-center text-xs muted dark:border-white/10">{tr('No tasks due on this date')}</p>}</div></section>{unscheduledTasks.length > 0 && <section className="space-y-2"><h4 className="text-sm font-semibold">{tr('Tasks without due dates')}</h4>{unscheduledTasks.map((task) => <TaskCard key={task.id} task={task} projectId={selected.id} members={members} currentUserId={user.id} canWork={Boolean(canWork)} dependencies={snapshot.dependencies} allTasks={projectTasks} privateLinks={privateLinks} privateLabels={privateLabels} goals={goals} habits={habits} runAction={runAction} onChange={(patch) => updateTask(task.id, patch)} />)}</section>}</div>}
-          </DndContext>}
-        </section>}
 
-        {tab === 'people' && <section className="min-w-0 space-y-3"><div className="card min-w-0 p-4 sm:p-5"><h3 className="flex items-center gap-2 font-semibold"><Users size={17} />{tr('Project members')}</h3><p className="mt-1 text-sm muted">{tr('Multiple leads are allowed. A team can also work as equal members with no lead; at least one member stays on the project.')}</p><div className="mt-3 space-y-2">{members.map((member) => <TeamMember key={member.user_id} member={member} currentUserId={user.id} canManage={canManage} isLead={me?.role === 'lead'} onRole={(role) => void runAction(() => setSharedMemberRole(selected.id, member.user_id, role))} onRemove={() => { const action = member.user_id === user.id ? tr('Leave this shared project?') : tr('Remove this member from the project?'); if (confirm(action)) void runAction(() => removeSharedMember(selected.id, member.user_id)); }} />)}</div></div>
-          <div className="card min-w-0 p-4 sm:p-5"><h3 className="flex items-center gap-2 font-semibold"><UserPlus size={17} />{tr('Invite collaborators')}</h3><p className="mt-1 text-sm muted">{canManage ? tr('Create a one-use invite link. The secret is shown only here and is stored hashed on the server.') : hasManagers ? tr('A project lead or admin can invite people.') : tr('This team has no lead or admin; any member can issue a limited-role invite.')}</p>
-            {canInvite && <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(120px,180px)_minmax(120px,170px)_auto]"><label className="min-w-0"><span className="label">{tr('Invite role')}</span><select className="input min-w-0" value={invitationRole} onChange={(event) => setInvitationRole(event.target.value as Exclude<SharedRole, 'lead' | 'admin'>)}><option value="member">{tr('Member — can work')}</option><option value="guest">{tr('Guest — can work')}</option><option value="viewer">{tr('Viewer — read only')}</option></select></label><label className="min-w-0"><span className="label">{tr('Expires in')}</span><select className="input min-w-0" value={inviteDays} onChange={(event) => setInviteDays(Number(event.target.value))}><option value={7}>7 {tr('days')}</option><option value={30}>30 {tr('days')}</option><option value={90}>90 {tr('days')}</option></select></label><div className="hidden sm:block" /><button type="button" className="btn-primary self-end" onClick={() => void issueInvite()} disabled={busy}><UserPlus size={15} />{tr('Create invite')}</button></div>}
-            {inviteUrl && <div className="mt-3 rounded-xl border border-emerald-300/60 bg-emerald-50 p-3 dark:border-emerald-500/20 dark:bg-emerald-500/10"><p className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">{tr('Copy this private invite link now. It will not be shown again.')}</p><div className="mt-2 flex min-w-0 flex-wrap gap-2"><input aria-label={tr('Private invitation link')} className="input min-w-0 flex-1 text-xs" readOnly value={inviteUrl} onFocus={(event) => event.currentTarget.select()} /><button type="button" className="btn-outline" onClick={() => void navigator.clipboard?.writeText(inviteUrl).then(() => setNotice(tr('Invitation link copied.'))).catch(() => setNotice(tr('Select and copy the invitation link.')))}><Copy size={14} />{tr('Copy link')}</button></div><p className="mt-1 break-words text-[11px] text-emerald-800/80 dark:text-emerald-200/80">{tr('The link contains a one-use access token. Share it privately with the intended collaborator.')}</p></div>}
-            {snapshot.invitations.filter((invite) => invite.project_id === selected.id).map((invite) => <div key={invite.id} className="mt-2 flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-slate-200 p-2.5 text-xs dark:border-white/10"><span className="min-w-0 flex-1 break-words">{tr(ROLE_LABEL[invite.role])} · {invite.accepted_at ? tr('Accepted') : invite.revoked_at ? tr('Revoked') : new Date(invite.expires_at).getTime() < Date.now() ? tr('Expired') : tr('Pending')} · {fmtDate(invite.expires_at.slice(0, 10))}</span>{canInvite && !invite.accepted_at && !invite.revoked_at && <button type="button" className="btn-ghost !p-1 text-rose-600" aria-label={tr('Revoke invite')} onClick={() => void runAction(() => revokeSharedInvitation(invite.id))}><Trash2 size={14} /></button>}</div>)}
-          </div>
-        </section>}
-
-        {tab === 'discussion' && <section className="min-w-0 space-y-3">
-          <div className="card min-w-0 overflow-hidden p-0">
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10">
-              <div><h3 className="flex items-center gap-2 font-semibold"><MessageCircle size={18} className="text-indigo-600 dark:text-indigo-300" />{tr('Project discussion')}</h3><p className="mt-1 text-xs muted">{tr('A shared conversation for project updates, decisions, and task context.')}</p></div>
-              <button type="button" className="btn-outline shrink-0" disabled={!discussionComments.some((comment) => !comment.id.startsWith('optimistic-'))} onClick={() => void runAction(async () => { await markSharedCommentsRead(selected.id, user.id, discussionComments.filter((comment) => !comment.id.startsWith('optimistic-'))); await markSharedProjectNotificationsRead(selected.id, user.id); })}><Eye size={15} />{tr('Mark all read')}</button>
+        <header className="tw-hero" style={{ ['--tone' as string]: statusMeta(selected.status).color }}>
+          <span className="tw-hero-orb" aria-hidden="true" />
+          {canManage && editingProject ? <div className="relative grid min-w-0 gap-2.5">
+            <input className="input min-w-0 text-base font-semibold" value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} maxLength={200} aria-label={tr('Project title')} />
+            <textarea className="input min-h-24 min-w-0 resize-y leading-6" value={projectDraft.description} onChange={(event) => setProjectDraft({ ...projectDraft, description: event.target.value })} maxLength={20000} aria-label={tr('Description')} placeholder={tr('What is this project about?')} />
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <select className="input !w-auto !py-2" value={projectDraft.status} onChange={(event) => setProjectDraft({ ...projectDraft, status: event.target.value as SharedStatus })} aria-label={tr('Status')}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select>
+              <input className="input !w-auto !py-2" type="date" value={projectDraft.due_date} onChange={(event) => setProjectDraft({ ...projectDraft, due_date: event.target.value })} aria-label={tr('Due date')} />
+              <span className="flex-1" />
+              <button type="button" className="btn-ghost" onClick={() => setEditingProject(false)}>{tr('Cancel')}</button>
+              <button type="button" className="btn-primary" disabled={busy} onClick={() => void saveProjectEdit()}><Check size={16} />{tr('Save')}</button>
             </div>
-            <form className="grid min-w-0 gap-2 border-b border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[.02]" onSubmit={(event) => { event.preventDefault(); void sendComment(); }}>
-              <label className="min-w-0"><span className="label">{tr('Write a message')}</span><textarea className="input min-h-24 min-w-0 resize-y rounded-2xl" value={newComment} onChange={(event) => setNewComment(event.target.value)} maxLength={10000} disabled={!canWork} placeholder={tr('Share an update with your team…')} required /></label>
-              <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                <label className="min-w-0"><span className="label">{tr('Attach to task (optional)')}</span><select className="input min-w-0" value={commentTask} onChange={(event) => setCommentTask(event.target.value)} disabled={!canWork}><option value="">{tr('Project discussion')}</option>{projectTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</select></label>
-                <label className="min-w-0"><span className="label">{tr('Mention a member (optional)')}</span><select className="input min-w-0" value={mentionUser} onChange={(event) => setMentionUser(event.target.value)} disabled={!canWork}><option value="">{tr('No mention')}</option>{members.filter((member) => member.user_id !== user.id).map((member) => <option key={member.user_id} value={member.user_id}>{memberLabel(member.user_id, members, user.id)}</option>)}</select></label>
-                <button type="submit" className="btn-primary self-end" disabled={!canWork || sendingComment || !newComment.trim()}><Send size={15} />{tr(sendingComment ? 'Sending…' : 'Send message')}</button>
+          </div> : <div className="relative flex min-w-0 items-start gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <label className="tw-status-select" style={{ ['--tone' as string]: statusMeta(selected.status).color }}><span className="tw-dot" style={{ background: statusMeta(selected.status).color }} /><select value={selected.status} disabled={!canChangeStatus || busy} aria-label={tr('Project status')} onChange={(event) => void moveSharedProjectStatus(selected.id, event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select>{canChangeStatus && <ChevronDown size={12} />}</label>
+                {selected.due_date && <span className={cx('tw-meta', selected.status !== 'done' && isOverdue({ due_date: selected.due_date, status: 'todo' }) && 'is-late')}><CalendarDays size={12} />{tr('Due')} {relativeDay(selected.due_date, localeForLanguage(language))}</span>}
+                <span className="tw-role-tag">{tr(ROLE_LABEL[me?.role ?? 'viewer'])}</span>
               </div>
-            </form>
-            {sendingComment && <p className="px-4 pt-2 text-xs text-indigo-600 dark:text-indigo-300" role="status">{tr('Sending…')}</p>}
-            <div className="space-y-3 p-3 sm:p-4">
-              {discussionHasMore && <div className="flex justify-center"><button type="button" className="btn-outline min-h-10" disabled={discussionLoading} onClick={() => { const realComments = discussionComments.filter((comment) => !comment.id.startsWith('optimistic-')); const oldest = realComments[realComments.length - 1]; if (oldest) void loadDiscussionPage(selected.id, { created_at: oldest.created_at, id: oldest.id }, true); }}>{discussionLoading ? tr('Loading older messages…') : tr('Load older messages')}</button></div>}
-              {discussionLoading && discussionComments.length === 0 ? <div className="rounded-xl border border-slate-200 p-6 text-center text-sm muted dark:border-white/10">{tr('Loading shared messages…')}</div> : discussionComments.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center dark:border-white/10"><MessageCircle size={24} className="mx-auto text-indigo-500" /><p className="mt-2 font-medium">{tr('No messages yet')}</p><p className="mt-1 text-sm muted">{tr('Start the conversation with a useful update or question.')}</p></div> : discussionComments.map((comment) => <CommentCard key={comment.id} comment={comment} members={members} currentUserId={user.id} tasks={projectTasks} language={language} receipts={snapshot.commentReceipts} onReadState={(commentId, isRead) => void runAction(() => setSharedCommentReadState(commentId, user.id, isRead))} onEdit={(body) => runAction(() => updateSharedComment(comment.id, body))} />)}
+              <h2 className="mt-2 break-words text-xl font-bold leading-tight tracking-tight sm:text-2xl">{selected.title}</h2>
+              {selected.description && <><p className={cx('mt-1.5 whitespace-pre-wrap break-words text-sm leading-6 muted', !descOpen && 'line-clamp-2')}>{selected.description}</p>{selected.description.length > 110 && <button type="button" className="tw-link-btn mt-0.5" onClick={() => setDescOpen((value) => !value)}>{tr(descOpen ? 'Show less' : 'Show more')}</button>}</>}
             </div>
-          </div>
-        </section>}
+            <ProgressRing value={progress} size={64} stroke={5} label={`${progress}% ${tr('complete')}`} />
+          </div>}
+          {!editingProject && <div className="relative mt-3 flex min-w-0 flex-wrap items-center gap-2">
+            <button type="button" className="flex items-center gap-2" onClick={() => setTab('people')} aria-label={tr('People')}><AvatarStack ids={members.map((member) => member.user_id)} members={members} currentUserId={user.id} max={5} size={28} /></button>
+            <span className="text-xs muted">{doneCount}/{projectTasks.length} {tr('tasks done')}</span>
+            <span className="flex-1" />
+            {canInvite && <button type="button" className="btn-outline !min-h-9 !px-3" onClick={() => setTab('people')}><UserPlus size={15} />{tr('Invite')}</button>}
+          </div>}
+          {canClaimAdmin && !editingProject && <div className="tw-claim"><ShieldCheck size={16} /><span className="min-w-0 flex-1 text-sm">{tr('No admin is assigned. Project members can claim the admin role.')}</span><button type="button" className="btn-outline !min-h-9" disabled={busy} onClick={() => void claimProjectAdmin(selected.id)}>{tr('Become admin')}</button></div>}
+        </header>
 
-        {tab === 'notes' && <section className="min-w-0 space-y-3"><form className="card grid min-w-0 gap-3 p-4 sm:grid-cols-2 sm:p-5" onSubmit={(event) => { event.preventDefault(); if (!newNote.title.trim()) return; void runAction(() => addSharedNote(selected.id, user.id, newNote.note_type, newNote.title.trim(), newNote.body.trim(), newNote.occurred_on || undefined, newNote.color, newNote.is_pinned)).then(() => setNewNote({ note_type: 'decision', title: '', body: '', occurred_on: '', color: 'paper', is_pinned: false })); }}><div className="sm:col-span-2"><h3 className="flex items-center gap-2 font-semibold"><FileText size={18} className="text-indigo-600 dark:text-indigo-300" />{tr('Notes & decisions')}</h3><p className="mt-1 text-xs muted">{tr('Capture context once so the whole team can find it later.')}</p></div><label className="min-w-0"><span className="label">{tr('Note type')}</span><select className="input min-w-0" value={newNote.note_type} onChange={(event) => setNewNote({ ...newNote, note_type: event.target.value as SharedNoteType })} disabled={!canWork}><option value="decision">{tr('Decision')}</option><option value="meeting">{tr('Meeting notes')}</option><option value="milestone">{tr('Milestone')}</option><option value="sticky">{tr('Sticky note')}</option></select></label><label className="min-w-0"><span className="label">{tr('Date')}</span><input className="input min-w-0" type="date" value={newNote.occurred_on} onChange={(event) => setNewNote({ ...newNote, occurred_on: event.target.value })} disabled={!canWork} /></label><label className="min-w-0 sm:col-span-2"><span className="label">{tr('Title')}</span><input className="input min-w-0" value={newNote.title} onChange={(event) => setNewNote({ ...newNote, title: event.target.value })} maxLength={500} disabled={!canWork} required /></label><label className="min-w-0 sm:col-span-2"><span className="label">{tr('Details')}</span><textarea className="input min-h-24 min-w-0 resize-y" value={newNote.body} onChange={(event) => setNewNote({ ...newNote, body: event.target.value })} maxLength={50000} disabled={!canWork} /></label><label className="min-w-0"><span className="label">{tr('Note color')}</span><select className="input min-w-0" value={newNote.color} onChange={(event) => setNewNote({ ...newNote, color: event.target.value as typeof newNote.color })} disabled={!canWork}><option value="paper">{tr('Paper')}</option><option value="lavender">{tr('Lavender')}</option><option value="mint">{tr('Mint')}</option><option value="sky">{tr('Sky')}</option></select></label><label className="flex min-h-11 items-center gap-2 self-end text-sm"><input type="checkbox" checked={newNote.is_pinned} onChange={(event) => setNewNote({ ...newNote, is_pinned: event.target.checked })} disabled={!canWork} />{tr('Pin note')}</label><div className="sm:col-span-2"><button className="btn-primary" disabled={!canWork || busy}><Plus size={15} />{tr('Add note')}</button></div></form><div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">{projectNotes.map((note) => <NoteCard key={note.id} note={note} canWork={Boolean(canWork)} language={language} onSave={(patch) => runAction(() => updateSharedNote(note.id, patch))} />)}{projectNotes.length === 0 && <p className="card p-5 text-sm muted sm:col-span-2 xl:col-span-3">{tr('Capture decisions, meeting notes, and milestones so collaborators share the same context.')}</p>}</div></section>}
+        <nav ref={tabsRef} className="tw-tabs" role="tablist" aria-label={tr('Project workspace sections')}>
+          {TABS.map(({ id, label, icon: Icon, badge, alert }) => <button key={id} id={`shared-tab-${id}`} type="button" role="tab" aria-selected={tab === id} className={cx('tw-tab', tab === id && 'is-on')} onClick={() => setTab(id)}><Icon size={16} /><span>{tr(label)}</span>{badge ? <b className={cx(alert && 'is-alert')}>{badge}</b> : null}</button>)}
+        </nav>
 
-        {tab === 'timeline' && <ProjectTimeline tasks={projectTasks} members={members} currentUserId={user.id} language={language} onChange={(taskId, patch) => updateTask(taskId, patch)} />}
-
-        {tab === 'activity' && <section className="card min-w-0 p-4"><h3 className="flex items-center gap-2 font-semibold"><Bell size={17} />{tr('Recent project activity')}</h3><ul className="mt-3 space-y-3">{snapshot.activity.filter((event) => event.project_id === selected.id).slice(0, 100).map((event) => <li key={event.id} className="flex min-w-0 gap-3 border-s border-slate-200 ps-3 dark:border-white/10"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-indigo-500" /><div className="min-w-0 flex-1"><p className="break-words text-sm"><span className="font-medium">{event.actor_id === user.id ? tr('You') : event.actor_id ? memberLabel(event.actor_id, members, user.id) : tr('Former member')}</span> · {tr(event.event_type.split('.').join(' '))}{typeof event.payload.title === 'string' ? ` · ${event.payload.title}` : ''}</p><time className="text-xs muted" dateTime={event.created_at}>{new Date(event.created_at).toLocaleString(localeForLanguage(language))}</time></div></li>)}</ul>{snapshot.activity.filter((event) => event.project_id === selected.id).length === 0 && <p className="mt-3 text-sm muted">{tr('Team changes will appear here.')}</p>}</section>}
-          </div>
+        <div className="min-w-0 tw-enter" key={tab} role="tabpanel" aria-labelledby={`shared-tab-${tab}`}>
+          {tab === 'overview' && <TeamOverview tasks={projectTasks} ctx={taskCtx} notes={projectNotes} comments={snapshot.comments.filter((comment) => comment.project_id === selected.id)} activity={projectActivity} onGo={setTab} />}
+          {tab === 'tasks' && <TeamTasks tasks={projectTasks} ctx={taskCtx} busy={busy} onAdd={addTask} />}
+          {tab === 'discussion' && <TeamChat messages={discussionComments} members={members} currentUserId={user.id} tasks={projectTasks} language={language} receipts={snapshot.commentReceipts} canWork={canWork} hasMore={discussionHasMore} loading={discussionLoading}
+            onLoadOlder={() => { const real = discussionComments.filter((comment) => !comment.id.startsWith('optimistic-')); const oldest = real[real.length - 1]; if (oldest) void loadDiscussionPage(selected.id, { created_at: oldest.created_at, id: oldest.id }, true); }}
+            onSend={sendComment}
+            onEdit={async (id, body) => { try { await updateSharedComment(id, body); setDiscussionComments((current) => current.map((comment) => comment.id === id ? { ...comment, body, updated_at: new Date().toISOString() } : comment)); return true; } catch (problem) { setError(sharedServiceError(problem)); return false; } }}
+            onMarkUnread={(id) => void setSharedCommentReadState(id, user.id, false).then(() => setSnapshot((current) => ({ ...current, commentReceipts: current.commentReceipts.filter((receipt) => !(receipt.comment_id === id && receipt.user_id === user.id)) }))).catch((problem) => setError(sharedServiceError(problem)))} />}
+          {tab === 'notes' && <TeamNotes notes={projectNotes} projectId={selected.id} currentUserId={user.id} canWork={canWork} language={language} runAction={runAction} />}
+          {tab === 'timeline' && <TeamTimeline tasks={projectTasks} members={members} currentUserId={user.id} language={language} canWork={canWork} onChange={updateTask} />}
+          {tab === 'people' && <TeamPeople members={members} tasks={projectTasks} invitations={snapshot.invitations.filter((invite) => invite.project_id === selected.id)} currentUserId={user.id} myRole={me?.role} canManage={canManage} canInvite={canInvite} hasManagers={hasManagers} inviteUrl={inviteUrl} busy={busy} runAction={runAction}
+            onRole={(userId, role) => void runAction(() => setSharedMemberRole(selected.id, userId, role))}
+            onRemove={(userId) => { if (confirm(userId === user.id ? tr('Leave this shared project?') : tr('Remove this member from the project?'))) void runAction(() => removeSharedMember(selected.id, userId)); }}
+            onInvite={(role, days) => void issueInvite(role, days)} onNotice={setNotice} />}
+          {tab === 'activity' && <TeamActivity activity={projectActivity} members={members} currentUserId={user.id} language={language} />}
         </div>
       </section>
-    ) : (
-      <div className="min-w-0 space-y-4">
+      : <div className="min-w-0 space-y-3 tw-enter">
+        <div className="tw-stats">
+          {([['Projects', snapshot.projects.length, FolderKanban, '#8b5cf6'], ['Open tasks', allOpen.length, ClipboardList, '#6366f1'], ['Assigned to me', mineOpen, Users, '#06b6d4'], ['Unread', totalUnread, MessageCircle, totalUnread ? '#f43f5e' : '#64748b']] as const).map(([label, value, Icon, tone]) => <div key={label} className="tw-stat" style={{ ['--tone' as string]: tone }}><span className="tw-stat-icon"><Icon size={16} /></span><b>{value}</b><span>{tr(label)}</span></div>)}
+        </div>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onProjectDragEnd}>
-          <section className="card min-w-0 p-3 sm:p-4"><div className="mb-3 flex min-w-0 flex-wrap items-end justify-between gap-2"><div className="min-w-0"><h2 className="text-sm font-semibold">{tr('Work view')}</h2><p className="mt-0.5 text-xs muted">{tr('Choose one status. The same shared project is visible to each authorized member.')}</p><p className="mt-1 text-xs text-indigo-700 dark:text-indigo-300">{tr('Drag a project card to a status or use its status selector.')}</p></div><button type="button" className="btn-primary shrink-0" onClick={() => setCreating(true)}><Plus size={16} />{tr('New shared project')}</button></div><StatusRail value={filter} counts={projectCount} onChange={setFilter} /></section>
-          <div className="card min-w-0 p-3 sm:p-4"><form className="flex min-w-0 flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); void acceptInvite(joinToken); }}><label className="min-w-0 flex-1"><span className="label">{tr('Join with an invitation link or code')}</span><input className="input min-w-0" value={joinToken} onChange={(event) => setJoinToken(event.target.value)} placeholder={tr('Paste the private invitation token')} /></label><button type="submit" className="btn-outline shrink-0" disabled={!joinToken.trim() || busy}><Link2 size={15} />{tr('Join project')}</button></form></div>
-          {filteredProjects.length === 0 ? <div className="card px-5 py-8 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-600"><Users size={24} /></div><h3 className="mt-3 text-base font-semibold">{snapshot.projects.length ? tr(`No ${filter} shared projects`) : tr('No shared projects yet')}</h3><p className="mx-auto mt-1 max-w-lg text-sm leading-6 muted">{tr('Create a team workspace or accept a secure invite. Your personal projects, routines, and account snapshot stay private.')}</p>{!snapshot.projects.length && <button type="button" className="btn-primary mt-4" onClick={() => setCreating(true)}><Plus size={16} />{tr('Create a shared project')}</button>}</div> : <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">{filteredProjects.map((project) => {
-            const projectMembers = snapshot.members.filter((member) => member.project_id === project.id);
-            const tasks = snapshot.tasks.filter((task) => task.project_id === project.id);
-            const done = tasks.filter((task) => task.status === 'done').length;
-            const role = projectMembers.find((member) => member.user_id === user.id)?.role ?? 'viewer';
-            const hasAdmin = projectMembers.some((member) => member.role === 'admin');
-            const canChangeStatus = mayChangeProjectStatus(role, hasAdmin);
-            const canClaimAdmin = role === 'member' && !hasAdmin;
-            return <SharedProjectCard key={project.id} project={project} memberCount={projectMembers.length} taskCount={tasks.length} doneCount={done} role={role} canChangeStatus={canChangeStatus} canClaimAdmin={canClaimAdmin} busy={busy} onOpen={() => setSelectedId(project.id)} onStatusChange={(status) => void moveSharedProjectStatus(project.id, status)} onClaimAdmin={() => void claimProjectAdmin(project.id)} />;
-          })}</div>}
+          <div className="tw-toolbar">
+            <div className="tw-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tr('Search team projects')} aria-label={tr('Search team projects')} />{query && <button type="button" onClick={() => setQuery('')} aria-label={tr('Clear')}><X size={14} /></button>}</div>
+            <button type="button" className={cx('tw-chip !min-h-10', joining && 'is-on')} onClick={() => setJoining((value) => !value)}><Link2 size={14} />{tr('Join')}</button>
+          </div>
+          {joining && <form className="tw-panel flex min-w-0 flex-wrap items-center gap-2 tw-enter" onSubmit={(event) => { event.preventDefault(); void acceptInvite(joinToken); }}>
+            <input autoFocus className="input min-w-0 flex-1" value={joinToken} onChange={(event) => setJoinToken(event.target.value)} placeholder={tr('Paste an invite link or code')} aria-label={tr('Join with an invitation link or code')} />
+            <button type="submit" className="btn-primary shrink-0" disabled={!joinToken.trim() || busy}>{tr('Join project')}</button>
+          </form>}
+          <div className="tw-chip-row" role="tablist" aria-label={tr('Shared project statuses')}>
+            <StatusChip id="all" label="All" count={counts.all} selected={filter === 'all'} onSelect={() => setFilter('all')} />
+            {STATUS.map((item) => <StatusChip key={item.id} id={item.id} label={item.label} color={item.color} count={counts[item.id]} selected={filter === item.id} onSelect={() => setFilter(item.id)} />)}
+          </div>
+          {shownProjects.length === 0 ? <div className="tw-empty"><span>{snapshot.projects.length ? '🔍' : '🚀'}</span><p className="font-semibold">{snapshot.projects.length ? tr('No projects match') : tr('Start your first team project')}</p><p className="text-sm muted">{tr('Plan tasks together, chat in one place and see who is doing what. Your private projects stay private.')}</p>{!snapshot.projects.length && <div className="mt-3 flex flex-wrap justify-center gap-2"><button type="button" className="btn-primary" onClick={() => setCreating(true)}><Plus size={16} />{tr('Create a team project')}</button><button type="button" className="btn-outline" onClick={() => setJoining(true)}><Link2 size={15} />{tr('Join with invite')}</button></div>}</div>
+            : <div className="tw-project-grid">{shownProjects.map((project) => {
+              const projectMembers = snapshot.members.filter((member) => member.project_id === project.id);
+              const role = projectMembers.find((member) => member.user_id === user.id)?.role ?? 'viewer';
+              const adminAssigned = projectMembers.some((member) => member.role === 'admin');
+              return <ProjectCard key={project.id} project={project} tasks={snapshot.tasks.filter((task) => task.project_id === project.id)} memberIds={projectMembers.map((member) => member.user_id)} members={snapshot.members.filter((member) => member.project_id === project.id)} currentUserId={user.id} role={role} unread={unreadFor(project.id)} canChangeStatus={mayChangeProjectStatus(role, adminAssigned)} canClaimAdmin={role === 'member' && !adminAssigned} busy={busy} language={language} onOpen={() => setSelectedId(project.id)} onStatus={(status) => void moveSharedProjectStatus(project.id, status)} onClaim={() => void claimProjectAdmin(project.id)} />;
+            })}</div>}
         </DndContext>
-      </div>
-    )}
+      </div>}
 
-    {creating && <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreating(false); }}><section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-[#171a22]" role="dialog" aria-modal="true" aria-labelledby="new-shared-project-title"><div className="flex items-start justify-between gap-3"><div><h2 id="new-shared-project-title" className="text-lg font-semibold">{tr('Create a shared project')}</h2><p className="mt-1 text-sm muted">{tr('The project is stored separately from private personal projects. You can invite other accounts after creating it.')}</p></div><button type="button" className="btn-ghost !p-2" onClick={() => setCreating(false)} aria-label={tr('Close')}>×</button></div><form className="mt-4 grid min-w-0 gap-3" onSubmit={(event) => void createProject(event)}><label className="min-w-0"><span className="label">{tr('Project name')}</span><input autoFocus className="input min-w-0" value={newProject.title} onChange={(event) => setNewProject({ ...newProject, title: event.target.value })} maxLength={200} required /></label><label className="min-w-0"><span className="label">{tr('Description / shared context')}</span><textarea className="input min-h-20 min-w-0 resize-y" value={newProject.description} onChange={(event) => setNewProject({ ...newProject, description: event.target.value })} maxLength={20000} /></label><div className="grid min-w-0 gap-3 sm:grid-cols-2"><label className="min-w-0"><span className="label">{tr('Initial status')}</span><select className="input min-w-0" value={newProject.status} onChange={(event) => setNewProject({ ...newProject, status: event.target.value as SharedStatus })}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select></label><label className="min-w-0"><span className="label">{tr('Due date')}</span><input className="input min-w-0" type="date" value={newProject.due_date} onChange={(event) => setNewProject({ ...newProject, due_date: event.target.value })} /></label></div><div className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl bg-indigo-50/70 p-3 text-xs leading-5 text-indigo-800 dark:bg-indigo-500/[.07] dark:text-indigo-200"><ShieldCheck size={16} className="shrink-0" />{tr('You start as a transferable lead. You can add other leads or let the team work as equal members.')}</div><div className="flex justify-end gap-2 border-t border-slate-200 pt-3 dark:border-white/10"><button type="button" className="btn-ghost" onClick={() => setCreating(false)}>{tr('Cancel')}</button><button type="submit" className="btn-primary" disabled={busy}><Plus size={15} />{tr('Create shared project')}</button></div></form></section></div>}
+    {creating && <div className="tw-modal" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreating(false); }}>
+      <section className="tw-modal-card" role="dialog" aria-modal="true" aria-labelledby="new-shared-project-title">
+        <div className="flex items-start gap-3"><span className="tw-modal-icon"><Users size={20} /></span><div className="min-w-0 flex-1"><h2 id="new-shared-project-title" className="text-lg font-semibold">{tr('New team project')}</h2><p className="mt-0.5 text-sm muted">{tr('Invite people after you create it.')}</p></div><button type="button" className="tw-icon-btn" onClick={() => setCreating(false)} aria-label={tr('Close')}><X size={16} /></button></div>
+        <form className="mt-4 grid min-w-0 gap-3" onSubmit={(event) => void createProject(event)}>
+          <input autoFocus className="input min-w-0 text-base font-semibold" value={newProject.title} onChange={(event) => setNewProject({ ...newProject, title: event.target.value })} maxLength={200} placeholder={tr('Project name')} aria-label={tr('Project name')} required />
+          <textarea className="input min-h-20 min-w-0 resize-y" value={newProject.description} onChange={(event) => setNewProject({ ...newProject, description: event.target.value })} maxLength={20000} placeholder={tr('Goal, scope or shared context (optional)')} aria-label={tr('Description / shared context')} />
+          <div className="tw-chip-row !pb-0">{STATUS.filter((item) => item.id !== 'done').map((item) => <button key={item.id} type="button" className={cx('tw-chip', newProject.status === item.id && 'is-on')} onClick={() => setNewProject({ ...newProject, status: item.id })}><span className="tw-dot" style={{ background: item.color }} />{tr(item.label)}</button>)}</div>
+          <label className="flex min-w-0 items-center gap-2 text-sm"><CalendarDays size={15} className="muted" /><span className="muted">{tr('Due date')}</span><input className="input !w-auto !py-1.5" type="date" value={newProject.due_date} onChange={(event) => setNewProject({ ...newProject, due_date: event.target.value })} /></label>
+          <p className="tw-hint"><ShieldCheck size={15} />{tr('You start as lead. Your private projects and personal data are never shared.')}</p>
+          <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setCreating(false)}>{tr('Cancel')}</button><button type="submit" className="btn-primary" disabled={busy || !newProject.title.trim()}><Plus size={15} />{tr('Create project')}</button></div>
+        </form>
+      </section>
+    </div>}
   </div>;
-}
-
-function NoteCard({ note, canWork, language, onSave }: { note: SharedWorkspaceSnapshot['notes'][number]; canWork: boolean; language: string; onSave: (patch: Partial<Pick<SharedWorkspaceSnapshot['notes'][number], 'note_type' | 'title' | 'body' | 'occurred_on' | 'color' | 'is_pinned'>>) => Promise<boolean> }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ note_type: note.note_type, title: note.title, body: note.body, occurred_on: note.occurred_on ?? '', color: note.color, is_pinned: note.is_pinned });
-  useEffect(() => { setDraft({ note_type: note.note_type, title: note.title, body: note.body, occurred_on: note.occurred_on ?? '', color: note.color, is_pinned: note.is_pinned }); setEditing(false); }, [note.id, note.title, note.body, note.note_type, note.occurred_on, note.color, note.is_pinned]);
-  const reset = () => { setDraft({ note_type: note.note_type, title: note.title, body: note.body, occurred_on: note.occurred_on ?? '', color: note.color, is_pinned: note.is_pinned }); setEditing(false); };
-  return <article className={cx('min-w-0 rounded-2xl border border-slate-200/80 p-4 shadow-sm dark:border-white/10', NOTE_TONES[editing ? draft.color : note.color] ?? NOTE_TONES.paper)}>{editing ? <form className="grid min-w-0 gap-3" onSubmit={(event) => { event.preventDefault(); if (!draft.title.trim()) return; void onSave({ ...draft, title: draft.title.trim(), body: draft.body.trim(), occurred_on: draft.occurred_on || null }).then((saved) => { if (saved) setEditing(false); }); }}><label className="min-w-0"><span className="label">{tr('Note type')}</span><select className="input min-w-0" value={draft.note_type} onChange={(event) => setDraft({ ...draft, note_type: event.target.value as SharedNoteType })}><option value="decision">{tr('Decision')}</option><option value="meeting">{tr('Meeting notes')}</option><option value="milestone">{tr('Milestone')}</option><option value="sticky">{tr('Sticky note')}</option></select></label><label className="min-w-0"><span className="label">{tr('Title')}</span><input className="input min-w-0" value={draft.title} maxLength={500} onChange={(event) => setDraft({ ...draft, title: event.target.value })} required /></label><label className="min-w-0"><span className="label">{tr('Details')}</span><textarea className="input min-h-24 min-w-0 resize-y" value={draft.body} maxLength={50000} onChange={(event) => setDraft({ ...draft, body: event.target.value })} /></label><label className="min-w-0"><span className="label">{tr('Date')}</span><input className="input min-w-0" type="date" value={draft.occurred_on} onChange={(event) => setDraft({ ...draft, occurred_on: event.target.value })} /></label><label className="min-w-0"><span className="label">{tr('Note color')}</span><select className="input min-w-0" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value as typeof draft.color })}><option value="paper">{tr('Paper')}</option><option value="lavender">{tr('Lavender')}</option><option value="mint">{tr('Mint')}</option><option value="sky">{tr('Sky')}</option></select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.is_pinned} onChange={(event) => setDraft({ ...draft, is_pinned: event.target.checked })} />{tr('Pin note')}</label><div className="flex flex-wrap gap-2"><button className="btn-primary" type="submit"><Check size={15} />{tr('Save')}</button><button className="btn-outline" type="button" onClick={reset}>{tr('Cancel')}</button></div></form> : <><div className="flex min-w-0 flex-wrap items-center gap-2"><span className="chip"><Flag size={12} />{tr(note.note_type === 'decision' ? 'Decision' : note.note_type === 'meeting' ? 'Meeting notes' : note.note_type === 'sticky' ? 'Sticky note' : 'Milestone')}</span>{note.occurred_on && <span className="text-xs muted">{fmtDate(note.occurred_on, language)}</span>}{note.is_pinned && <span className="ms-auto inline-flex items-center gap-1 text-xs font-medium text-indigo-700 dark:text-indigo-300"><Pin size={12} />{tr('Pinned')}</span>}</div><h3 className="mt-3 break-words font-semibold">{note.title}</h3>{note.body && <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 muted">{note.body}</p>}{canWork && <div className="mt-4 border-t border-slate-300/50 pt-2 dark:border-white/10"><button type="button" className="btn-ghost !min-h-8 !px-2 !py-1 text-xs" onClick={() => setEditing(true)}><Pencil size={13} />{tr('Edit note')}</button></div>}</>}</article>;
-}
-
-function ProjectTimeline({ tasks, members, currentUserId, language, onChange }: { tasks: SharedTask[]; members: SharedMember[]; currentUserId: string; language: string; onChange: (taskId: string, patch: Partial<SharedTask>) => Promise<boolean> }) {
-  const scheduled = [...tasks].filter((task) => task.due_date).sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''));
-  const unscheduled = tasks.filter((task) => !task.due_date);
-  const done = tasks.filter((task) => task.status === 'done').length;
-  const progress = tasks.length ? Math.round(done / tasks.length * 100) : 0;
-  return <section className="card min-w-0 p-4 sm:p-6">
-    <div className="flex min-w-0 flex-wrap items-start justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-semibold"><CalendarDays size={19} className="text-indigo-600 dark:text-indigo-300" />{tr('Project roadmap')}</h3><p className="mt-1 text-sm muted">{tr('A clear sequence of dated milestones and next steps.')}</p></div><span className="chip">{scheduled.length} {tr('scheduled tasks')}</span></div>
-    <div className="mt-5 grid grid-cols-3 gap-2"><div className="rounded-xl bg-slate-50 p-3 text-center dark:bg-white/[.04]"><p className="text-xl font-semibold tabular-nums">{tasks.length}</p><p className="text-xs muted">{tr('Tasks')}</p></div><div className="rounded-xl bg-emerald-50 p-3 text-center dark:bg-emerald-500/[.08]"><p className="text-xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{done}</p><p className="text-xs muted">{tr('Completed')}</p></div><div className="rounded-xl bg-indigo-50 p-3 text-center dark:bg-indigo-500/[.08]"><p className="text-xl font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">{progress}%</p><p className="text-xs muted">{tr('Progress')}</p></div></div>
-    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-500" style={{ width: `${progress}%` }} /></div>
-    <div className="mt-6 space-y-0">{scheduled.map((task) => <article key={task.id} className="timeline-item relative grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] gap-2 pb-5 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3"><div className="pt-3 text-right text-xs font-medium tabular-nums muted sm:text-sm">{fmtDate(task.due_date!, language)}</div><div className="relative min-w-0 border-s-2 border-indigo-200 ps-3 dark:border-indigo-400/20 sm:ps-4"><span className={cx('absolute -start-[7px] top-4 h-3 w-3 rounded-full border-2 border-white shadow-sm dark:border-[#171a22]', task.status === 'done' ? 'bg-emerald-500' : task.status === 'blocked' ? 'bg-rose-500' : 'bg-indigo-500')} /><div className="rounded-xl border border-slate-200 bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-white/[.025] sm:p-4"><div className="flex min-w-0 items-start gap-2"><div className="min-w-0 flex-1"><h4 className={cx('break-words text-sm font-semibold', task.status === 'done' && 'line-through muted')}>{task.title}</h4>{task.details && <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 muted">{task.details}</p>}</div><button type="button" className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-lg transition hover:bg-slate-100 dark:hover:bg-white/10', task.status === 'done' ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600')} aria-label={tr(task.status === 'done' ? 'Reopen task' : 'Mark task done')} title={tr(task.status === 'done' ? 'Reopen task' : 'Mark task done')} onClick={() => void onChange(task.id, { status: task.status === 'done' ? 'todo' : 'done' })}>{task.status === 'done' ? <CheckCircle2 size={18} /> : <Circle size={18} />}</button></div><div className="mt-2 flex flex-wrap gap-1.5"><span className="chip">{tr(TASK_STATUS.find((status) => status.id === task.status)?.label ?? task.status)}</span>{task.assignee_id && <span className="chip"><Users size={12} />{memberLabel(task.assignee_id, members, currentUserId)}</span>}{task.estimate_minutes !== null && <span className="chip">{task.estimate_minutes} {tr('min')}</span>}</div></div></div></article>)}
-      {unscheduled.length > 0 && <div className="rounded-xl border border-dashed border-slate-300 p-3 sm:ms-[8rem] dark:border-white/10"><p className="text-xs font-semibold muted">{tr('Unscheduled next steps')}</p><ul className="mt-2 space-y-2">{unscheduled.map((task) => <li key={task.id} className="flex min-w-0 items-center gap-2 text-sm"><span className="h-2 w-2 shrink-0 rounded-full bg-slate-400" /><span className="min-w-0 flex-1 break-words">{task.title}</span><span className="chip shrink-0">{tr(TASK_STATUS.find((status) => status.id === task.status)?.label ?? task.status)}</span></li>)}</ul></div>}
-      {!tasks.length && <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm muted dark:border-white/10">{tr('Add a task with a due date to start the roadmap.')}</p>}
-    </div>
-  </section>;
-}
-
-function CommentCard({ comment, members, currentUserId, tasks, language, receipts, onReadState, onEdit }: { comment: SharedComment; members: SharedMember[]; currentUserId: string; tasks: SharedTask[]; language: string; receipts: SharedCommentReceipt[]; onReadState: (commentId: string, isRead: boolean) => void; onEdit: (body: string) => Promise<boolean> }) {
-  const task = tasks.find((item) => item.id === comment.task_id);
-  const ownReceipt = receipts.find((receipt) => receipt.comment_id === comment.id && receipt.user_id === currentUserId);
-  const seenBy = receipts.filter((receipt) => receipt.comment_id === comment.id).map((receipt) => memberLabel(receipt.user_id, members, currentUserId));
-  const own = comment.author_id === currentUserId;
-  const sender = memberLabel(comment.author_id, members, currentUserId);
-  const seenNames = [...new Set(seenBy)];
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(comment.body);
-  useEffect(() => { setDraft(comment.body); setEditing(false); }, [comment.id, comment.body]);
-  return <article className={cx('flex min-w-0 animate-[fadeIn_.18s_ease-out] motion-reduce:animate-none', own ? 'justify-end' : 'justify-start')}><div className={cx('flex min-w-0 max-w-[92%] items-end gap-2 sm:max-w-[82%]', own && 'flex-row-reverse')}>
-    <span aria-hidden="true" className={cx('mb-5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-[10px] font-bold', own ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200')}>{initials(sender)}</span>
-    <div className="min-w-0"><div className={cx('mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs', own ? 'justify-end' : 'justify-start')}><span className="font-semibold">{sender}</span>{task && <span className="max-w-full truncate text-indigo-600 dark:text-indigo-300">{tr('Task')}: {task.title}</span>}</div>
-      <div className={cx('min-w-0 rounded-2xl px-3.5 py-2.5 shadow-sm sm:px-4', own ? 'rounded-br-md bg-indigo-600 text-white dark:bg-indigo-500' : 'rounded-bl-md border border-slate-200 bg-white dark:border-white/10 dark:bg-[#191d27]')}>
-        {editing ? <form onSubmit={(event) => { event.preventDefault(); if (draft.trim()) void onEdit(draft.trim()).then((saved) => { if (saved) setEditing(false); }); }}><textarea className="input min-h-24 min-w-0 bg-white text-slate-900" value={draft} maxLength={10000} onChange={(event) => setDraft(event.target.value)} aria-label={tr('Edit message')} /><div className="mt-2 flex gap-2"><button className="btn-primary !min-h-8 !px-2" type="submit"><Check size={14} />{tr('Save')}</button><button className="btn-outline !min-h-8 !px-2" type="button" onClick={() => { setDraft(comment.body); setEditing(false); }}>{tr('Cancel')}</button></div></form> : <><p className="whitespace-pre-wrap break-words text-sm leading-6">{comment.body}</p>{own && <button type="button" className={cx('mt-1 inline-flex items-center gap-1 text-xs', own ? 'text-indigo-100 hover:text-white' : 'text-indigo-600')} onClick={() => setEditing(true)}><Pencil size={12} />{tr('Edit message')}</button>}</>}
-        {comment.mentioned_user_ids.length > 0 && <p className={cx('mt-2 border-t pt-2 text-xs', own ? 'border-white/20 text-indigo-100' : 'border-slate-200 text-slate-500 dark:border-white/10 dark:text-slate-400')}>{tr('Mentioned')}: {comment.mentioned_user_ids.map((id) => memberLabel(id, members, currentUserId)).join(', ')}</p>}
-      </div>
-      <div className={cx('mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] muted', own ? 'justify-end' : 'justify-start')}><time dateTime={comment.created_at} title={new Date(comment.created_at).toLocaleString(localeForLanguage(language))}>{new Date(comment.created_at).toLocaleTimeString(localeForLanguage(language), { hour: 'numeric', minute: '2-digit' })}</time>{seenNames.length > 0 && <span className="min-w-0 truncate" title={`${tr('Seen by')}: ${seenNames.join(', ')}`}>{tr('Seen by')}: {seenNames.slice(0, 3).join(', ')}{seenNames.length > 3 ? ` +${seenNames.length - 3}` : ''}</span>}{!own && <button type="button" className="rounded-md px-1 py-0.5 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-white/10" onClick={() => onReadState(comment.id, !ownReceipt)}>{tr(ownReceipt ? 'Mark unread' : 'Mark as read')}</button>}</div>
-    </div>
-  </div></article>;
 }

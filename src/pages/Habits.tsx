@@ -164,17 +164,16 @@ export default function Habits() {
             <div className="card overflow-hidden">
               <table className="w-max min-w-[800px] table-fixed text-sm">
                 <colgroup>
-                  <col style={{ width: '2rem' }} />
-                  <col style={{ width: '13rem' }} />
-                  {week.map((d) => <col key={d} style={{ width: '2.5rem' }} />)}
+                  <col style={{ width: '15rem' }} />
+                  {week.map((d) => <col key={d} style={{ width: '3rem' }} />)}
                   <col style={{ width: '4rem' }} />
                   <col style={{ width: '4rem' }} />
                   <col style={{ width: '3.5rem' }} />
                   <col style={{ width: '6rem' }} />
                 </colgroup>
-                <thead><tr className="border-b border-slate-200 dark:border-white/[.06]"><th className="w-9" />
+                <thead><tr className="border-b border-slate-200 dark:border-white/[.06]">
                   <th className="p-4 text-left font-medium muted">{tr("Habit")}</th>
-                  {week.map((d) => <th key={d} className={cx('w-12 p-2 text-center text-xs font-medium', d === t ? 'text-indigo-600 dark:text-indigo-300' : 'muted')}>{new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' })}<div>{d.slice(8)}</div></th>)}
+                  {week.map((d) => <th key={d} className={cx('px-1 py-2 text-center text-xs font-medium', d === t ? 'text-indigo-600 dark:text-indigo-300' : 'muted')}>{new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' })}<div>{d.slice(8)}</div></th>)}
                   <th className="p-2 text-center text-xs font-medium muted">{tr("Current")}</th><th className="p-2 text-center text-xs font-medium muted">{tr("Best")}</th><th className="p-2 text-center text-xs font-medium muted">{tr("30d")}</th><th />
                 </tr></thead>
                 <tbody><SortableContext items={list.map((h) => `desktop:${h.id}`)} strategy={verticalListSortingStrategy}>{list.map((h) => <SortableHabitRow key={h.id} id={`desktop:${h.id}`} active={draggingId === `desktop:${h.id}`}>

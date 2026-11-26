@@ -5,7 +5,7 @@
 @layer base {
   html { @apply antialiased; min-height: 100%; color-scheme: light; }
   html.dark { color-scheme: dark; }
-  html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+  html, body { width: 100%; max-width: 100%; overflow-x: hidden; overflow-x: clip; }
   html { scroll-behavior: smooth; }
   body {
     @apply bg-slate-50 text-slate-900 dark:bg-[#0b0d12] dark:text-slate-100;
