@@ -72,7 +72,7 @@ function TaskDetails({ task, ctx }: { task: SharedTask; ctx: TaskContext }) {
 }
 
 export function TaskRow({ task, ctx, open, onOpen }: { task: SharedTask; ctx: TaskContext; open: boolean; onOpen: () => void }) {
-  const { members, currentUserId, canWork, dependencies, allTasks, language, updateTask } = ctx;
+  const { members, canWork, dependencies, allTasks, language, updateTask } = ctx;
   const waiting = dependencies.filter((dep) => dep.task_id === task.id).map((dep) => allTasks.find((other) => other.id === dep.depends_on_task_id)).filter((other) => other && isOpen(other)).length;
   const meta = taskStatusMeta(task.status);
   const assignee = task.assignee_id ? memberName(task.assignee_id, members) : '';
@@ -96,7 +96,7 @@ export function TaskRow({ task, ctx, open, onOpen }: { task: SharedTask; ctx: Ta
 }
 
 function BoardCard({ task, ctx, onOpen }: { task: SharedTask; ctx: TaskContext; onOpen: () => void }) {
-  const { members, currentUserId, canWork, language, updateTask } = ctx;
+  const { members, canWork, language, updateTask } = ctx;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `shared-task:${task.id}`, data: { type: 'shared-task', taskId: task.id }, disabled: !canWork });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(1.5deg)` } : undefined;
   return <article ref={setNodeRef} style={style} className={cx('tw-board-card', isDragging && 'is-dragging', task.status === 'done' && 'is-done')}>

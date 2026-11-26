@@ -1,6 +1,6 @@
 import { translate as tr } from '../../lib/locales';
 import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { Activity, ArrowLeft, CalendarDays, Check, ChevronDown, ClipboardList, FileText, FolderKanban, GripVertical, LayoutDashboard, Link2, LockKeyhole, MessageCircle, Pencil, Plus, RefreshCw, Route, Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
+import { Activity, ArrowLeft, CalendarDays, Check, ClipboardList, FileText, FolderKanban, GripVertical, LayoutDashboard, Link2, LockKeyhole, MessageCircle, Pencil, Plus, RefreshCw, Route, Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
@@ -15,7 +15,7 @@ import {
   updateSharedProject, updateSharedProjectStatus, updateSharedTask,
   type PrivateTaskLink, type SharedComment, type SharedProject, type SharedRole, type SharedStatus, type SharedTask, type SharedWorkspaceSnapshot,
 } from '../../lib/sharedProjects';
-import { AvatarStack, ProgressRing, ROLE_LABEL, STATUS, isOpen, isOverdue, mayChangeProjectStatus, relativeDay, roleCanWork, statusMeta } from './team/shared';
+import { AvatarStack, PillSelect, ProgressRing, ROLE_LABEL, STATUS, isOpen, isOverdue, mayChangeProjectStatus, relativeDay, roleCanWork, statusMeta } from './team/shared';
 import TeamTasks, { type TaskContext } from './team/TeamTasks';
 import TeamChat from './team/TeamChat';
 import TeamOverview from './team/TeamOverview';
@@ -47,7 +47,7 @@ function ProjectCard({ project, tasks, memberIds, members, currentUserId, role, 
   return <article ref={setNodeRef} style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(1deg)` } : undefined} className={cx('tw-project-card', isDragging && 'is-dragging')} aria-label={`${tr('Shared project')}: ${project.title}`}>
     <span className="tw-project-glow" style={{ background: meta.color }} aria-hidden="true" />
     <div className="flex min-w-0 items-center gap-2">
-      <label className="tw-status-select" style={{ ['--tone' as string]: meta.color }}><span className="tw-dot" style={{ background: meta.color }} /><select value={project.status} disabled={!canChangeStatus || busy} aria-label={`${tr('Project status')}: ${project.title}`} onChange={(event) => onStatus(event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select>{canChangeStatus && <ChevronDown size={12} />}</label>
+      <PillSelect className="tw-status-select" style={{ ['--tone' as string]: meta.color }} icon={<span className="tw-dot" style={{ background: meta.color }} />} value={project.status} disabled={!canChangeStatus || busy} ariaLabel={`${tr('Project status')}: ${project.title}`} onChange={(value) => onStatus(value)} options={STATUS.map((item) => ({ value: item.id, label: tr(item.label) }))} />
       <span className="tw-role-tag">{tr(ROLE_LABEL[role])}</span>
       <span className="flex-1" />
       {unread > 0 && <span className="tw-unread" title={tr('Unread messages')}><MessageCircle size={12} />{unread}</span>}
@@ -443,7 +443,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
           </div> : <div className="relative flex min-w-0 items-start gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                <label className="tw-status-select" style={{ ['--tone' as string]: statusMeta(selected.status).color }}><span className="tw-dot" style={{ background: statusMeta(selected.status).color }} /><select value={selected.status} disabled={!canChangeStatus || busy} aria-label={tr('Project status')} onChange={(event) => void moveSharedProjectStatus(selected.id, event.target.value as SharedStatus)}>{STATUS.map((item) => <option key={item.id} value={item.id}>{tr(item.label)}</option>)}</select>{canChangeStatus && <ChevronDown size={12} />}</label>
+                <PillSelect className="tw-status-select" style={{ ['--tone' as string]: statusMeta(selected.status).color }} icon={<span className="tw-dot" style={{ background: statusMeta(selected.status).color }} />} value={selected.status} disabled={!canChangeStatus || busy} ariaLabel={tr('Project status')} onChange={(value) => void moveSharedProjectStatus(selected.id, value)} options={STATUS.map((item) => ({ value: item.id, label: tr(item.label) }))} />
                 {selected.due_date && <span className={cx('tw-meta', selected.status !== 'done' && isOverdue({ due_date: selected.due_date, status: 'todo' }) && 'is-late')}><CalendarDays size={12} />{tr('Due')} {relativeDay(selected.due_date, localeForLanguage(language))}</span>}
                 <span className="tw-role-tag">{tr(ROLE_LABEL[me?.role ?? 'viewer'])}</span>
               </div>

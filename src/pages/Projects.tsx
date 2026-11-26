@@ -1,15 +1,15 @@
 import { translate as tr } from '../lib/locales';
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { AlarmClock, CalendarClock, CheckCircle2, Circle, FolderKanban, GripVertical, Link2, Lock, Plus, Share2, Trash2, Users } from 'lucide-react';
+import { AlarmClock, CalendarClock, FolderKanban, Lock, Plus, Users, X } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { CatBadge, CountUp, Empty, Modal, Progress, Ring } from '../components/ui';
+import { CountUp, Modal, Ring } from '../components/ui';
 import './Projects.css';
-import { useCategoryMap, useStore } from '../lib/store';
+import { useStore } from '../lib/store';
 import type { Project } from '../lib/types';
-import { cx, fmtDate, pct, today } from '../lib/utils';
+import { cx, pct, today } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { PrivateProjectDetail, PrivateProjectList } from '../components/projects/private/PrivateProjects';
 import { addSharedDependency, createSharedProject, createSharedTask, fetchSharedProjectOverview, updateSharedProject, updateSharedTask } from '../lib/sharedProjects';
 const SharedProjectsWorkspace = lazy(() => import('../components/projects/SharedProjectsWorkspace'));
 
@@ -19,16 +19,6 @@ const COLS: { id: Project['status']; label: string; color: string; tone: string 
   { id: 'on-hold', label: 'On hold', color: '#d97706', tone: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300' },
   { id: 'done', label: 'Done', color: '#4f46e5', tone: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300' },
 ];
-
-function dueLabel(due: string, done: boolean) {
-  if (done) return `${tr('Due')} · ${fmtDate(due)}`;
-  const days = Math.round((new Date(due + 'T00:00:00').getTime() - new Date(today() + 'T00:00:00').getTime()) / 86400000);
-  if (days < 0) return `${Math.abs(days)} ${tr('days late')}`;
-  if (days === 0) return tr('Due today');
-  if (days === 1) return tr('Due tomorrow');
-  if (days <= 14) return `${tr('Due in')} ${days} ${tr('days')}`;
-  return `${tr('Due')} · ${fmtDate(due)}`;
-}
 
 function ProjectsHero({ projects, sharedTotal, sharedLoading, actions }: { projects: Project[]; sharedTotal: number; sharedLoading: boolean; actions: ReactNode }) {
   const tasks = projects.flatMap((p) => p.tasks);
@@ -63,65 +53,15 @@ function ProjectsHero({ projects, sharedTotal, sharedLoading, actions }: { proje
   </section>;
 }
 
-function StatusTab({ status, label, count, selected, onSelect, color }: {
-  status: Project['status']; label: string; count: number; selected: boolean; onSelect: () => void; color: string;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id: `status:${status}`, data: { status } });
-  return (
-    <button ref={setNodeRef} type="button" aria-pressed={selected} onClick={onSelect}
-      className={cx('project-status-tab group flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition',
-        selected ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-600/20' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 dark:border-white/10 dark:bg-white/[.035] dark:text-slate-200',
-        isOver && 'ring-2 ring-indigo-400 ring-offset-2 dark:ring-offset-[#0b0d12]')}
-      style={!selected ? { borderInlineStartColor: color } : undefined}>
-      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: selected ? 'currentColor' : color }} />
-      {label}
-      <span className={cx('rounded-full px-1.5 py-0.5 text-xs tabular-nums', selected ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300')}>{count}</span>
-    </button>
-  );
-}
-
-function ProjectCard({ project, category, onOpen }: { project: Project; category?: { name: string; color: string; icon: string }; onOpen: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `private:${project.id}`, data: { type: 'private-project', projectId: project.id } });
-  const done = project.tasks.filter((task) => task.done).length;
-  const progress = pct(done, project.tasks.length);
-  const overdue = Boolean(project.dueDate && project.dueDate < today() && project.status !== 'done');
-  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
-  const status = COLS.find((item) => item.id === project.status)!;
-  return (
-    <article ref={setNodeRef} style={{ ...style, ['--status' as string]: status.color }} className={cx('project-card project-card-v2 card group relative min-w-0', isDragging && 'z-20 opacity-55 shadow-xl')}>
-      <span className="project-card-band" aria-hidden="true" />
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 p-4">
-        <button type="button" onClick={onOpen} className="min-w-0 text-left focus-visible:rounded-lg">
-          <span className="project-card-status">{tr(status.label)}</span>
-          <span className="mt-1.5 block break-words text-[15px] font-semibold leading-5">{project.title}</span>
-          {project.description && <p className="mt-1.5 line-clamp-2 break-words text-sm leading-5 muted">{project.description}</p>}
-          <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
-            <CatBadge cat={category as any} />
-            {project.dueDate && <span className={cx('chip max-w-full', overdue ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300' : 'bg-slate-100 text-slate-700 dark:bg-white/[.07] dark:text-slate-300')}>{dueLabel(project.dueDate, project.status === 'done')}</span>}
-          </div>
-        </button>
-        <div className="flex flex-col items-center gap-2">
-          <Ring value={progress} size={52} stroke={5} color={status.color}><span className="text-[11px] font-bold tabular-nums">{progress}%</span></Ring>
-          <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag to move between statuses')} {...attributes} {...listeners}
-            className="grid h-9 w-9 touch-none place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-white/10 dark:hover:text-indigo-300">
-            <GripVertical size={18} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-      <div className="project-card-foot"><span><CheckCircle2 size={13} /> {done}/{project.tasks.length} {tr('tasks')}</span><span className="project-card-meter"><i style={{ width: `${progress}%` }} /></span></div>
-    </article>
-  );
-}
-
 export default function Projects() {
   const { projects, goals, categories, addProject, updateProject, deleteProject, addTask, updateTask, deleteTask } = useStore();
+  const language = useStore((state) => state.settings.language ?? 'en');
+  const navigate = useNavigate();
   const { user } = useAuth();
   const location = useLocation();
   const routeParams = new URLSearchParams(location.search);
   const notificationProjectId = routeParams.get('sharedProject');
   const notificationTab = routeParams.get('section') === 'discussion' ? 'discussion' as const : undefined;
-  const catMap = useCategoryMap();
-  const [selectedStatus, setSelectedStatus] = useState<Project['status']>('active');
   const [workspaceMode, setWorkspaceMode] = useState<'private' | 'shared'>(() => notificationProjectId ? 'shared' : 'private');
   const [sharedDetailOpen, setSharedDetailOpen] = useState(false);
   const [sharedOverview, setSharedOverview] = useState<Awaited<ReturnType<typeof fetchSharedProjectOverview>>>({ projects: [], total: 0 });
@@ -130,21 +70,11 @@ export default function Projects() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', categoryId: categories[0]?.id ?? '', goalId: '', dueDate: '' });
-  const [taskText, setTaskText] = useState('');
-  const [taskDue, setTaskDue] = useState('');
-  const [dragNotice, setDragNotice] = useState('');
   const [sharePreview, setSharePreview] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareFeedback, setShareFeedback] = useState('');
   const [movePrivateToTrash, setMovePrivateToTrash] = useState(false);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 190, tolerance: 8 } }),
-    useSensor(KeyboardSensor),
-  );
   const open = projects.find((project) => project.id === openId) ?? null;
-  const visibleProjects = projects.filter((project) => project.status === selectedStatus);
-  const selectedMeta = COLS.find((column) => column.id === selectedStatus)!;
 
   useEffect(() => {
     if (!notificationProjectId) return;
@@ -163,24 +93,11 @@ export default function Projects() {
   const create = () => {
     if (!form.title.trim()) return;
     const id = addProject({ ...form, goalId: form.goalId || undefined, dueDate: form.dueDate || undefined });
-    setSelectedStatus('planning');
     setCreating(false);
     setForm({ title: '', description: '', categoryId: categories[0]?.id ?? '', goalId: '', dueDate: '' });
     setOpenId(id);
   };
-  const handleDragEnd = (event: DragEndEvent) => {
-    const target = event.over?.data.current?.status as Project['status'] | undefined;
-    const data = event.active.data.current;
-    if (data?.type === 'private-project' && target && COLS.some((column) => column.id === target)) {
-      const projectId = data.projectId as string;
-      const project = projects.find((item) => item.id === projectId);
-      if (project && project.status !== target) {
-        updateProject(projectId, { status: target });
-        setDragNotice(`${tr('Moved')} “${project.title}” ${tr('to')} ${tr(COLS.find((column) => column.id === target)!.label)}.`);
-      }
-    }
-  };
-  const blocked = (project: Project, depIds: string[]) => depIds.some((depId) => !project.tasks.find((task) => task.id === depId)?.done);
+
   const copyToShared = async () => {
     if (!open || !user?.id || !cloudEnabled || sharing) return;
     setSharing(true); setShareFeedback('');
@@ -244,120 +161,41 @@ export default function Projects() {
 
   if (workspaceMode === 'shared') return <div className="min-w-0">{shareFeedback && <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200" role="status">{shareFeedback}</p>}{!sharedDetailOpen && <ProjectsHero projects={projects} sharedTotal={sharedOverview.total} sharedLoading={sharedOverviewLoading} actions={modeActions} />}<Suspense fallback={<div className="card mt-4 p-5 text-sm muted" role="status">{tr('Opening shared workspace…')}</div>}><SharedProjectsWorkspace initialProjectId={sharedOverviewTarget} initialTab={notificationTab} onSelectedChange={setSharedDetailOpen} onSwitchToPrivate={() => { setSharedOverviewTarget(null); setSharedDetailOpen(false); setWorkspaceMode('private'); }} /></Suspense></div>;
 
+  const openGoal = () => navigate('/goals');
   return (
     <div className="min-w-0">
       {!open && <ProjectsHero projects={projects} sharedTotal={sharedOverview.total} sharedLoading={sharedOverviewLoading} actions={modeActions} />}
-      {!open && <section className="projects-recent card mb-5 min-w-0 p-3 sm:p-4" aria-label={tr('Project overview')}>
-        <div className="mb-3 flex min-w-0 items-center justify-between gap-3"><div className="min-w-0"><h2 className="text-sm font-semibold">{tr('Project overview')}</h2><p className="mt-0.5 text-xs muted">{tr('Private')} {projects.length} · {tr('Shared')} {sharedOverviewLoading ? '…' : sharedOverview.total}</p></div><FolderKanban size={18} className="shrink-0 text-indigo-600 dark:text-indigo-300" /></div>
-        <div className="grid min-w-0 gap-3 md:grid-cols-2">
-          <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[.025]"><div className="mb-2 flex items-center justify-between gap-2"><h3 className="text-sm font-semibold"><Lock size={14} className="me-1.5 inline text-indigo-600 dark:text-indigo-300" />{tr('Private')} {tr('Projects')}</h3><span className="text-xs tabular-nums muted">{projects.length}</span></div><div className="space-y-1">{projects.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3).map((project) => <button key={project.id} type="button" onClick={() => { setOpenId(project.id); setTaskText(''); setTaskDue(''); }} className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-start text-sm transition hover:bg-white hover:text-indigo-700 active:scale-[.99] dark:hover:bg-white/[.06] dark:hover:text-indigo-300"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLS.find((item) => item.id === project.status)?.color }} /><span className="min-w-0 flex-1 truncate">{project.title}</span><span className="shrink-0 text-xs muted">{tr(project.status)}</span></button>)}{projects.length === 0 && <p className="px-2 py-2 text-xs muted">{tr('No private projects yet')}</p>}</div><button type="button" className="mt-2 min-h-9 rounded-lg px-2 text-xs font-medium text-indigo-700 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10" onClick={() => setWorkspaceMode('private')}>{tr('View private projects')} →</button></div>
-          <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[.025]"><div className="mb-2 flex items-center justify-between gap-2"><h3 className="text-sm font-semibold"><Users size={14} className="me-1.5 inline text-indigo-600 dark:text-indigo-300" />{tr('Shared')} {tr('Projects')}</h3><span className="text-xs tabular-nums muted">{sharedOverviewLoading ? '…' : sharedOverview.total}</span></div><div className="space-y-1">{sharedOverview.projects.map((project) => <button key={project.id} type="button" onClick={() => { setSharedOverviewTarget(project.id); setWorkspaceMode('shared'); }} className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-start text-sm transition hover:bg-white hover:text-indigo-700 active:scale-[.99] dark:hover:bg-white/[.06] dark:hover:text-indigo-300"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLS.find((item) => item.id === project.status)?.color }} /><span className="min-w-0 flex-1 truncate">{project.title}</span><span className="shrink-0 text-xs muted">{tr(project.status)}</span></button>)}{!sharedOverviewLoading && sharedOverview.total === 0 && <p className="px-2 py-2 text-xs muted">{tr('No shared projects yet')}</p>}</div><button type="button" className="mt-2 min-h-9 rounded-lg px-2 text-xs font-medium text-indigo-700 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10" onClick={() => { setSharedOverviewTarget(null); setWorkspaceMode('shared'); }}>{tr('View shared projects')} →</button></div>
-        </div>
-      </section>}
-      {!open && <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <section aria-label={tr('Project status views')} className="card mb-5 min-w-0 p-3 sm:p-4">
-          <div className="mb-3 flex min-w-0 flex-wrap items-end justify-between gap-2">
-            <div className="min-w-0"><h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{tr('Work view')}</h2><p className="mt-0.5 text-xs muted">{tr('Choose one status. Drag a project handle onto another status to move it.')}</p></div>
-            <span className="rounded-lg px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: `${selectedMeta.color}16`, color: selectedMeta.color }}>{tr(selectedMeta.label)} · {projects.filter((project) => project.status === selectedStatus).length}</span>
-          </div>
-          <div className="project-status-rail" role="tablist" aria-label={tr('Project statuses')}>
-            {COLS.map((column) => <StatusTab key={column.id} status={column.id} label={tr(column.label)} count={projects.filter((project) => project.status === column.id).length} selected={selectedStatus === column.id} onSelect={() => setSelectedStatus(column.id)} color={column.color} />)}
-          </div>
-          {dragNotice && <p className="sr-only" role="status" aria-live="polite">{dragNotice}</p>}
-        </section>
-        <section aria-labelledby="selected-project-status" className="min-w-0">
-          <div className="mb-3 flex min-w-0 items-center gap-2">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: selectedMeta.color }} />
-            <h2 id="selected-project-status" className="min-w-0 break-words text-lg font-semibold">{tr(selectedMeta.label)} <span className="text-sm font-normal muted">{projects.filter((project) => project.status === selectedStatus).length}</span></h2>
-          </div>
-          {visibleProjects.length === 0 ? (
-            <Empty icon={<FolderKanban size={28} />} title={selectedStatus === 'planning' ? tr('No planned projects yet') : tr(`No ${selectedMeta.label.toLowerCase()} projects`)} text={tr('Projects turn goals into action. Add tasks, due dates, and dependencies as you plan.')}
-              action={<button className="btn-primary" onClick={() => setCreating(true)}><Plus size={16} /> {tr(selectedStatus === 'planning' ? 'Create your first project' : `Create ${selectedMeta.label.toLowerCase()} project`)}</button>} />
-          ) : (
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {visibleProjects.map((project) => <ProjectCard key={project.id} project={project} category={catMap[project.categoryId]} onOpen={() => { setOpenId(project.id); setTaskText(''); setTaskDue(''); }} />)}
-            </div>
-          )}
-        </section>
-      </DndContext>}
+      {!open && <PrivateProjectList projects={projects} categories={categories} goals={goals} language={language} shared={sharedOverview.projects} sharedLoading={sharedOverviewLoading}
+        onOpen={(id) => setOpenId(id)} onCreate={() => setCreating(true)} onStatus={(id, status) => updateProject(id, { status })}
+        onOpenShared={(id) => { setSharedOverviewTarget(id); setWorkspaceMode('shared'); }} />}
+      {open && <PrivateProjectDetail project={open} categories={categories} goals={goals} language={language} canShare={Boolean(cloudEnabled && user)}
+        onBack={() => setOpenId(null)} onUpdate={(patch) => updateProject(open.id, patch)}
+        onDelete={() => { if (confirm(tr('Delete project?'))) { deleteProject(open.id); setOpenId(null); } }}
+        onShare={() => { setShareFeedback(''); setSharePreview(true); }}
+        onAddTask={(title, due) => addTask(open.id, title, due)} onUpdateTask={(taskId, patch) => updateTask(open.id, taskId, patch)} onDeleteTask={(taskId) => deleteTask(open.id, taskId)}
+        onOpenGoal={openGoal} />}
 
-      <Modal open={creating} onClose={() => setCreating(false)} title={tr('New private project')} wide>
-        <form className="grid min-w-0 gap-4" onSubmit={(event) => { event.preventDefault(); create(); }}>
-          <div className="grid min-w-0 gap-4 md:grid-cols-2">
-            <div className="min-w-0"><label className="label" htmlFor="project-name">{tr('Project name')}</label><input id="project-name" autoFocus className="input min-w-0" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required /></div>
-            <div className="min-w-0"><label className="label" htmlFor="project-due-date">{tr('Due date')}</label><input id="project-due-date" type="date" className="input min-w-0" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /></div>
-            <div className="min-w-0"><label className="label" htmlFor="project-category">{tr('Category')}</label><select id="project-category" className="input min-w-0" value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })}>{categories.map((category) => <option key={category.id} value={category.id}>{category.icon} {category.name}</option>)}</select></div>
-            <div className="min-w-0"><label className="label" htmlFor="project-goal">{tr('Supports goal')}</label><select id="project-goal" className="input min-w-0" value={form.goalId} onChange={(event) => setForm({ ...form, goalId: event.target.value })}><option value="">{tr('— None —')}</option>{goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></div>
-          </div>
-          <div className="min-w-0"><label className="label" htmlFor="project-description">{tr('Description')}</label><textarea id="project-description" className="input min-h-24 min-w-0 resize-y" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></div>
-          <div className="flex min-w-0 flex-wrap justify-end gap-2 border-t border-slate-200 pt-3 dark:border-white/10"><button type="button" className="btn-ghost" onClick={() => setCreating(false)}>{tr('Cancel')}</button><button type="submit" className="btn-primary"><Plus size={16} /> {tr('Create private project')}</button></div>
-        </form>
-      </Modal>
+      {creating && <div className="tw-root"><div className="tw-modal" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreating(false); }}>
+        <section className="tw-modal-card" role="dialog" aria-modal="true" aria-labelledby="new-private-project-title">
+          <div className="flex items-start gap-3"><span className="tw-modal-icon"><FolderKanban size={20} /></span><div className="min-w-0 flex-1"><h2 id="new-private-project-title" className="text-lg font-semibold">{tr('New private project')}</h2><p className="mt-0.5 text-sm muted">{tr('Only you can see it. Add tasks right after.')}</p></div><button type="button" className="tw-icon-btn" onClick={() => setCreating(false)} aria-label={tr('Close')}><X size={16} /></button></div>
+          <form className="mt-4 grid min-w-0 gap-3" onSubmit={(event) => { event.preventDefault(); create(); }}>
+            <input id="project-name" autoFocus className="input min-w-0 text-base font-semibold" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} maxLength={200} placeholder={tr('Project name')} aria-label={tr('Project name')} required />
+            <textarea id="project-description" className="input min-h-20 min-w-0 resize-y" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder={tr('What does done look like? (optional)')} aria-label={tr('Description')} />
+            <div><span className="label">{tr('Category')}</span><div className="tw-chip-row !pb-0">{categories.map((category) => <button key={category.id} type="button" className={cx('tw-chip', form.categoryId === category.id && 'is-on')} onClick={() => setForm({ ...form, categoryId: category.id })}>{category.icon} {category.name}</button>)}</div></div>
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+              <label className="min-w-0"><span className="label">{tr('Due date')}</span><input id="project-due-date" type="date" className="input min-w-0" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /></label>
+              <label className="min-w-0"><span className="label">{tr('Supports goal')}</span><select id="project-goal" className="input min-w-0" value={form.goalId} onChange={(event) => setForm({ ...form, goalId: event.target.value })}><option value="">{tr('— None —')}</option>{goals.map((goal) => <option key={goal.id} value={goal.id}>🎯 {goal.title}</option>)}</select></label>
+            </div>
+            <p className="tw-hint"><Lock size={15} />{tr('Private projects stay on your account. You can copy one to a team project later.')}</p>
+            <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setCreating(false)}>{tr('Cancel')}</button><button type="submit" className="btn-primary" disabled={!form.title.trim()}><Plus size={15} />{tr('Create project')}</button></div>
+          </form>
+        </section>
+      </div></div>}
 
       <Modal open={sharePreview} onClose={() => { if (!sharing) { setSharePreview(false); setMovePrivateToTrash(false); } }} title={tr('Copy private project to Shared Projects')}>
         {open && <div className="space-y-4"><p className="text-sm muted">{tr('By default this creates a shared copy and keeps your private project. You can optionally move the original to Trash after every task and dependency copies successfully.')}</p><div className="rounded-xl border border-slate-200 p-3 dark:border-white/10"><p className="font-semibold">{open.title}</p><p className="mt-1 text-sm muted">{open.tasks.length} {tr('tasks')}</p></div><p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">{tr('Warning: the copied title, description, and tasks will be visible to future members of this shared project.')}</p><label className="flex min-w-0 items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm dark:border-white/10"><input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-indigo-600" checked={movePrivateToTrash} disabled={sharing} onChange={(event) => setMovePrivateToTrash(event.target.checked)} /><span>{tr('Move the private original to Trash after a complete copy (restorable).')}</span></label>{shareFeedback && <p className="text-sm text-rose-600" role="alert">{shareFeedback}</p>}<div className="flex justify-end gap-2"><button type="button" className="btn-ghost" disabled={sharing} onClick={() => { setSharePreview(false); setMovePrivateToTrash(false); }}>{tr('Cancel')}</button><button type="button" className="btn-primary" disabled={sharing || !cloudEnabled || !user} onClick={copyToShared}>{sharing ? tr('Copying…') : tr('Confirm and copy')}</button></div></div>}
       </Modal>
 
-      {open && <section className="project-fullpage card min-w-0 p-4 sm:p-6" aria-label={tr('Project details')}>
-        {open && (
-          <div className="project-detail min-w-0 space-y-5">
-            <header className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-white/10"><div className="min-w-0"><button type="button" className="btn-ghost -ml-2 mb-2" onClick={() => setOpenId(null)}><Link2 size={15} />{tr('Back to projects')}</button><h2 className="break-words text-xl font-semibold tracking-tight sm:text-2xl">{open.title}</h2><p className="mt-1 text-sm muted">{tr('Project details')} · {tr(COLS.find((column) => column.id === open.status)?.label ?? open.status)}</p></div><div className="flex flex-wrap gap-2">{cloudEnabled && user && <button type="button" className="btn-ghost" onClick={() => { setShareFeedback(''); setSharePreview(true); }}><Share2 size={15} />{tr('Copy to Shared Projects')}</button>}<button type="button" className="btn-ghost text-rose-600" onClick={() => { if (confirm(tr('Delete project?'))) { deleteProject(open.id); setOpenId(null); } }}><Trash2 size={15} />{tr('Delete project')}</button></div></header>
-            {(() => {
-              const doneTasks = open.tasks.filter((task) => task.done).length;
-              const blockedTasks = open.tasks.filter((task) => !task.done && blocked(open, task.dependsOn)).length;
-              const meta = COLS.find((item) => item.id === open.status)!;
-              return <div className="project-detail-summary" style={{ ['--status' as string]: meta.color }}>
-                <Ring value={pct(doneTasks, open.tasks.length)} size={78} stroke={8} color={meta.color}><span className="text-sm font-bold tabular-nums">{pct(doneTasks, open.tasks.length)}%</span></Ring>
-                <dl>
-                  <div><dt>{tr('Status')}</dt><dd><i style={{ background: meta.color }} />{tr(meta.label)}</dd></div>
-                  <div><dt>{tr('Tasks done')}</dt><dd>{doneTasks}/{open.tasks.length}</dd></div>
-                  <div><dt>{tr('Blocked')}</dt><dd className={blockedTasks ? 'text-amber-500' : ''}>{blockedTasks}</dd></div>
-                  <div><dt>{tr('Due')}</dt><dd>{open.dueDate ? dueLabel(open.dueDate, open.status === 'done') : '—'}</dd></div>
-                </dl>
-              </div>;
-            })()}
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-              <label className="min-w-0"><span className="label">{tr('Status')}</span><select className="input min-w-0" value={open.status} onChange={(event) => updateProject(open.id, { status: event.target.value as Project['status'] })}>{COLS.map((column) => <option key={column.id} value={column.id}>{tr(column.label)}</option>)}</select></label>
-              <label className="min-w-0"><span className="label">{tr('Due date')}</span><input type="date" className="input min-w-0" value={open.dueDate ?? ''} onChange={(event) => updateProject(open.id, { dueDate: event.target.value || undefined })} /></label>
-              <label className="min-w-0 sm:col-span-2"><span className="label">{tr('Supports goal')}</span><select className="input min-w-0" value={open.goalId ?? ''} onChange={(event) => updateProject(open.id, { goalId: event.target.value || undefined })}><option value="">{tr('No goal')}</option>{goals.map((goal) => <option key={goal.id} value={goal.id}>🎯 {goal.title}</option>)}</select></label>
-              <label className="min-w-0 sm:col-span-2"><span className="label">{tr('Description / plan…')}</span><textarea className="input min-h-24 min-w-0 resize-y" value={open.description} onChange={(event) => updateProject(open.id, { description: event.target.value })} /></label>
-            </div>
-            <section className="min-w-0 rounded-xl border border-slate-200 p-3 sm:p-4 dark:border-white/10" aria-label={tr('Project tasks')}>
-              <div className="mb-3 flex min-w-0 items-center gap-3"><h3 className="shrink-0 text-sm font-semibold">{tr('Tasks')}</h3><Progress value={pct(open.tasks.filter((task) => task.done).length, open.tasks.length)} /><span className="shrink-0 text-xs tabular-nums muted">{pct(open.tasks.filter((task) => task.done).length, open.tasks.length)}%</span></div>
-              {open.tasks.length === 0 ? <p className="rounded-lg bg-slate-50 px-3 py-4 text-sm muted dark:bg-white/[.03]">{tr('No tasks yet. Add one small next step to begin.')}</p> : <div className="space-y-2">
-                {open.tasks.map((task) => {
-                  const isBlocked = !task.done && blocked(open, task.dependsOn);
-                  const dependencyNames = task.dependsOn.map((id) => open.tasks.find((other) => other.id === id)?.title).filter(Boolean).join(', ');
-                  return (
-                    <article key={task.id} className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-2 gap-y-2 rounded-xl border border-slate-200 bg-white/70 p-3 transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-white/[.025] dark:hover:bg-white/[.045] sm:gap-x-3">
-                      <button type="button" disabled={isBlocked} aria-label={task.done ? tr('Mark task active') : tr('Mark task done')} onClick={() => updateTask(open.id, task.id, { done: !task.done })} className={cx('tap-check -ml-1.5 -mt-1', task.done && 'is-done', isBlocked && '!text-amber-500')}>
-                        {isBlocked ? <Lock size={19} /> : task.done ? <CheckCircle2 size={20} /> : <Circle size={20} />}
-                      </button>
-                      <div className="min-w-0">
-                        <button type="button" disabled={isBlocked} onClick={() => updateTask(open.id, task.id, { done: !task.done })} className={cx('block min-h-8 w-full break-words text-left text-sm leading-5 disabled:cursor-not-allowed', task.done && 'line-through muted')}>{task.title}</button>
-                        {dependencyNames && <span className="mt-1 inline-flex max-w-full items-center gap-1 break-words text-xs text-amber-700 dark:text-amber-300"><Link2 size={12} className="shrink-0" />{tr('After')} {dependencyNames}</span>}
-                      </div>
-                      <div className="col-start-2 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_2.5rem] sm:items-end">
-                        <label className="min-w-0"><span className="label">{tr('Due date')}</span><input aria-label={`${tr('Due date')}: ${task.title}`} type="date" className="input min-w-0 !py-1.5" value={task.dueDate ?? ''} onChange={(event) => updateTask(open.id, task.id, { dueDate: event.target.value || undefined })} /></label>
-                        <select className="input min-w-0 !py-1.5 text-xs" value="" aria-label={`${tr('Add dependency')}: ${task.title}`} onChange={(event) => { const id = event.target.value; if (id) updateTask(open.id, task.id, { dependsOn: task.dependsOn.includes(id) ? task.dependsOn.filter((dependency) => dependency !== id) : [...task.dependsOn, id] }); }}>
-                          <option value="">{tr('+ depends on…')}</option>{open.tasks.filter((other) => other.id !== task.id).map((other) => <option key={other.id} value={other.id}>{task.dependsOn.includes(other.id) ? '✓ ' : ''}{other.title}</option>)}
-                        </select>
-                        <button type="button" className="grid min-h-11 min-w-11 place-items-center rounded-lg text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10" aria-label={`${tr('Delete task')}: ${task.title}`} onClick={() => deleteTask(open.id, task.id)}><Trash2 size={15} /></button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>}
-              <form className="mt-4 grid min-w-0 gap-2 border-t border-slate-200 pt-3 dark:border-white/10 sm:grid-cols-[minmax(0,1fr)_10rem_2.5rem]" onSubmit={(event) => { event.preventDefault(); if (taskText.trim()) { addTask(open.id, taskText.trim(), taskDue || undefined); setTaskText(''); setTaskDue(''); } }}>
-                <input className="input min-w-0" placeholder={tr('Add a task…')} value={taskText} onChange={(event) => setTaskText(event.target.value)} />
-                <input aria-label={tr('Task due date')} type="date" className="input min-w-0" value={taskDue} onChange={(event) => setTaskDue(event.target.value)} />
-                <button type="submit" className="btn-primary min-w-10" aria-label={tr('Add task')}><Plus size={16} /></button>
-              </form>
-            </section>
-            <div className="flex justify-end border-t border-slate-200 pt-3 dark:border-white/10"><button type="button" className="btn-ghost text-rose-600 dark:text-rose-300" onClick={() => { if (confirm(tr('Delete project?'))) { deleteProject(open.id); setOpenId(null); } }}><Trash2 size={15} /> {tr('Delete project')}</button></div>
-          </div>
-        )}
-      </section>}
     </div>
   );
 }

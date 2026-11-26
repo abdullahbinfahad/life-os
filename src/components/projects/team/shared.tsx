@@ -1,4 +1,6 @@
 import { translate as tr } from '../../../lib/locales';
+import { ChevronDown } from 'lucide-react';
+import type { CSSProperties, ReactNode } from 'react';
 import { cx, today } from '../../../lib/utils';
 import type { SharedMember, SharedRole, SharedStatus, SharedTask, SharedTaskStatus } from '../../../lib/sharedProjects';
 
@@ -85,3 +87,15 @@ export function timeAgo(iso: string, language: string) {
 }
 
 export type RunAction = (action: () => Promise<unknown>) => Promise<boolean>;
+
+/** A compact pill that opens the native picker. The real <select> sits invisibly on top at 16px, so phones never zoom. */
+export function PillSelect<T extends string>({ value, options, onChange, disabled, ariaLabel, className, style, icon, chevron = true }: {
+  value: T; options: { value: T; label: string }[]; onChange: (value: T) => void; disabled?: boolean; ariaLabel: string;
+  className?: string; style?: CSSProperties; icon?: ReactNode; chevron?: boolean;
+}) {
+  const current = options.find((option) => option.value === value);
+  return <label className={cx('tw-pill-select', className, disabled && 'is-disabled')} style={style} onClick={(event) => event.stopPropagation()}>
+    {icon}<span className="tw-pill-text">{current?.label ?? ''}</span>{chevron && !disabled && <ChevronDown size={12} className="shrink-0" />}
+    <select value={value} disabled={disabled} aria-label={ariaLabel} onChange={(event) => onChange(event.target.value as T)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+  </label>;
+}
