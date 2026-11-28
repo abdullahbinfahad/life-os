@@ -1,7 +1,7 @@
 import { translate as tr } from '../../lib/locales';
 import { useDragSensors } from '../../lib/dnd';
 import { DndContext, closestCenter, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
-import { Activity, ArrowLeft, CalendarDays, Check, ClipboardList, FileText, FolderKanban, GripVertical, LayoutDashboard, Link2, LockKeyhole, MessageCircle, Pencil, Plus, RefreshCw, Route, Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
+import { Activity, ArrowLeft, CalendarDays, Check, ClipboardList, FileText, FolderKanban, LayoutDashboard, Link2, LockKeyhole, MessageCircle, Pencil, Plus, RefreshCw, Route, Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
@@ -45,14 +45,16 @@ function ProjectCard({ project, tasks, memberIds, members, currentUserId, role, 
   const next = tasks.filter(isOpen).sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999'))[0];
   const meta = statusMeta(project.status);
   const late = project.due_date && project.status !== 'done' && project.due_date < new Date().toISOString().slice(0, 10);
-  return <article ref={setNodeRef} style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(1deg)` } : undefined} className={cx('tw-project-card', isDragging && 'is-dragging')} aria-label={`${tr('Shared project')}: ${project.title}`}>
+  const stopInteractiveDrag = (event: React.SyntheticEvent) => {
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable="true"]')) event.stopPropagation();
+  };
+  return <article ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} aria-label={`${tr('Shared project')}: ${project.title}`} style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(1deg)` } : undefined} className={cx('tw-project-card cursor-grab active:cursor-grabbing', isDragging && 'is-dragging')}>
     <span className="tw-project-glow" style={{ background: meta.color }} aria-hidden="true" />
     <div className="flex min-w-0 items-center gap-2">
       <PillSelect className="tw-status-select" style={{ ['--tone' as string]: meta.color }} icon={<span className="tw-dot" style={{ background: meta.color }} />} value={project.status} disabled={!canChangeStatus || busy} ariaLabel={`${tr('Project status')}: ${project.title}`} onChange={(value) => onStatus(value)} options={STATUS.map((item) => ({ value: item.id, label: tr(item.label) }))} />
       <span className="tw-role-tag">{tr(ROLE_LABEL[role])}</span>
       <span className="flex-1" />
       {unread > 0 && <span className="tw-unread" title={tr('Unread messages')}><MessageCircle size={12} />{unread}</span>}
-      {canChangeStatus && <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag to change project status')} {...attributes} {...listeners} className="tw-grip"><GripVertical size={16} /></button>}
     </div>
     <button type="button" className="mt-3 flex w-full min-w-0 items-start gap-3 text-left" onClick={onOpen}>
       <span className="min-w-0 flex-1"><span className="block break-words text-[15px] font-semibold leading-snug">{project.title}</span>{project.description && <span className="mt-1 line-clamp-2 block break-words text-sm leading-5 muted">{project.description}</span>}</span>
@@ -102,7 +104,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const [descOpen, setDescOpen] = useState(false);
   const pendingCommentSends = useRef(new Map<string, { body: string; taskId: string | null; startedAt: number }>());
   const discussionRequestId = useRef(0);
-  const sensors = useDragSensors('handle');
+  const sensors = useDragSensors('row');
   const selectedIdRef = useRef<string | null>(null);
   const tabsRef = useRef<HTMLElement>(null);
   const tabRef = useRef<Tab>(tab);
