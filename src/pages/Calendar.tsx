@@ -1,6 +1,6 @@
 import { translate as tr } from '../lib/locales';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
-import { type DragEvent, type FormEvent, type KeyboardEvent, useMemo, useState } from 'react';
+import { type DragEvent, type FormEvent, type KeyboardEvent, lazy, Suspense, useMemo, useState } from 'react';
 import { HORIZON_META, Modal, PageHeader } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
 import { cx, localeForLanguage, toISODate, today } from '../lib/utils';
@@ -22,6 +22,8 @@ type Ev = {
 const displayDate = (date: string, language = 'en') => new Date(`${date}T00:00:00`).toLocaleDateString(localeForLanguage(language), {
   weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
 });
+
+const ScheduleToday = lazy(() => import('../components/ScheduleToday'));
 
 export default function Calendar() {
   const { items, goals, projects, settings, addItems, updateItem, updateGoal, updateProject, updateTask } = useStore();
@@ -133,6 +135,8 @@ export default function Calendar() {
         <div className="mobile-choice-rail max-w-full gap-1 rounded-xl border border-slate-200 p-0.5 dark:border-white/10" role="tablist" aria-label={tr("Calendar views")}>
           {(['month', 'timeline', 'horizons'] as const).map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => setTab(x)} className={cx('rounded-lg px-3 py-1.5 text-sm capitalize', tab === x && 'bg-indigo-600 text-white')}>{x}</button>)}
         </div>} />
+
+      <div className="mb-4"><Suspense fallback={<div className="h-32 animate-pulse rounded-[1.35rem] bg-slate-200/40 dark:bg-white/[.03]" />}><ScheduleToday /></Suspense></div>
 
       {tab === 'month' && (
         <div className="card p-4">
