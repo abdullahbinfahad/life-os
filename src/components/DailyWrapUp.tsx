@@ -61,7 +61,7 @@ export function DailyWrapUp({ compact = false }: DailyWrapUpProps) {
   const status = isDirty
     ? translate('Unsaved changes')
     : savedMessage
-      ? translate('Saved to your private journal')
+      ? translate('Saved to your personal diary')
       : '';
 
   return (
@@ -78,7 +78,7 @@ export function DailyWrapUp({ compact = false }: DailyWrapUpProps) {
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 text-xs muted">
           {isPublic ? <Globe2 size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
-          {translate(isPublic ? 'Public journal entry' : 'Private journal entry')}
+          {translate(isPublic ? 'Public diary entry' : 'Private diary entry')}
         </span>
       </div>
 
@@ -124,7 +124,7 @@ export function DailyWrapUp({ compact = false }: DailyWrapUpProps) {
             {status}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Link to="/journal" className="btn-outline min-h-11 px-3 text-sm">{translate('Open journal')}</Link>
+            <Link to="/journal" className="btn-outline min-h-11 px-3 text-sm">{translate('Open personal diary')}</Link>
             <button
               type="button"
               className="btn-primary min-h-11 px-3 text-sm"

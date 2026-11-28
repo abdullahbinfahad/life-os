@@ -48,7 +48,7 @@ export default function QuickAdd() {
   const page = location.pathname;
   const quickKind = page === '/goals' ? 'goal' : page === '/projects' ? 'project' : page === '/habits' ? 'habit' : page === '/journal' ? 'journal' : page === '/albums' ? 'album' : page === '/today' ? 'today' : page === '/calendar' ? 'calendar' : 'library';
   const canQuickAdd = !page.startsWith('/public') && !['/trash', '/settings', '/admin', '/insights', '/notifications', '/productivity'].includes(page);
-  const actionLabel = ({ goal: 'Add a goal', project: 'Create project', habit: 'Add habit', journal: 'New journal entry', album: 'Create album', today: 'Add to today', calendar: 'Add calendar entry', library: 'Add to your Life Library' } as const)[quickKind];
+  const actionLabel = ({ goal: 'Add a goal', project: 'Create project', habit: 'Add habit', journal: 'New diary entry', album: 'Create album', today: 'Add to today', calendar: 'Add calendar entry', library: 'Add to your Life Library' } as const)[quickKind];
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
