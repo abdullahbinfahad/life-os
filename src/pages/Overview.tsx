@@ -93,6 +93,8 @@ export default function Overview() {
         </div>
       </section>
 
+      <Suspense fallback={<div className="h-32 animate-pulse rounded-[1.35rem] bg-slate-200/40 dark:bg-white/[.03]" />}><ScheduleToday /></Suspense>
+
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label={tr('Done today')} value={todayDone} icon={<CheckCircle2 size={18} />} color="#ec4899" />
         <Stat label={tr('Habits today')} value={`${habitsToday}/${activeHabits.length}`} icon={<Repeat size={18} />} color="#10b981" />
@@ -137,7 +139,7 @@ export default function Overview() {
           <DailyWrapUp compact />
         </section>
 
-        <div className="grid min-w-0 content-start gap-6"><Suspense fallback={null}><WeatherCard /><ScheduleToday /></Suspense>
+        <div className="grid min-w-0 content-start gap-6"><Suspense fallback={null}><WeatherCard /></Suspense>
         <section className="card p-5">
           <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">{tr("Habit check-in")}</h3><p className="mt-1 text-sm muted">{tr("A quick look at today.")}</p></div><Flame size={18} className="text-amber-500" /></div>
           {activeHabits.length === 0 ? <div className="rounded-2xl bg-slate-50 p-4 dark:bg-white/[.04]"><p className="font-medium">{tr("No active habits yet")}</p><p className="mt-1 text-sm muted">{tr("Your habit check-ins will show here when you add habits.")}</p><Link to="/habits" className="mt-3 inline-block text-sm text-indigo-700 dark:text-indigo-300">{tr("Explore habits")}<ArrowRight size={14} className="inline" /></Link></div> : <><p className="text-2xl font-semibold">{habitsToday}<span className="text-base font-normal muted"> / {activeHabits.length} {tr("checked in")}</span></p><Progress className="mt-3" value={pct(habitsToday, activeHabits.length)} color="#22c55e" /><p className="mt-3 text-sm muted">{bestStreak ? `Your longest current daily streak is ${bestStreak} ${bestStreak === 1 ? 'day' : 'days'}.` : 'A small repeatable action is a good start.'}</p></>}
