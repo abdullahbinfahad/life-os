@@ -158,14 +158,14 @@ html.theme-forest .fab-secondary { background: rgba(12,25,18,.94); color: #6ee7b
 .mobile-app-header.is-scrolled { box-shadow: 0 8px 24px rgba(15,23,42,.10); }
 html.dark .mobile-app-header.is-scrolled { box-shadow: 0 8px 28px rgba(0,0,0,.35); }
 
-.mobile-bottom-nav a { position: relative; isolation: isolate; min-height: 3.5rem; justify-content: center; }
-.mobile-bottom-nav a::before {
-  content: ''; position: absolute; z-index: -1; top: .4rem; left: 50%; width: 3.25rem; height: 1.85rem; border-radius: 9999px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  transform: translateX(-50%) scaleX(.3); opacity: 0;
-  transition: transform .35s var(--ease-spring), opacity .2s ease;
+.mobile-bottom-nav a { position: relative; isolation: isolate; min-height: 3.5rem; justify-content: center; transition: transform .18s var(--ease-out), color .2s ease; }
+/* One shared pill that glides between items on tap (click-triggered sequence: ripple + press + pill glide + icon pop + page rise). */
+.mobile-bottom-nav .nav-pill {
+  position: absolute; top: .4rem; bottom: calc(.4rem + env(safe-area-inset-bottom)); left: 4px; width: calc((100% - 8px) / 5);
+  border-radius: 9999px; background: color-mix(in srgb, var(--accent) 16%, transparent);
+  pointer-events: none; transition: transform .38s var(--ease-spring), opacity .2s ease;
 }
-.mobile-bottom-nav a[aria-current="page"]::before { transform: translateX(-50%) scaleX(1); opacity: 1; }
+.mobile-bottom-nav a:active { transform: scale(.93); }
 .mobile-bottom-nav a[aria-current="page"] { color: var(--accent); }
 html.dark .mobile-bottom-nav a[aria-current="page"] { color: #c7d2fe; }
 html.theme-forest .mobile-bottom-nav a[aria-current="page"] { color: #6ee7b7; }
