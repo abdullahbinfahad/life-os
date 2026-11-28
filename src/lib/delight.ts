@@ -47,7 +47,9 @@ export function burst(x = lastPointer.x, y = lastPointer.y, count = 14) {
 function ripple(event: PointerEvent) {
   lastPointer = { x: event.clientX, y: event.clientY };
   if (reducedMotion() || event.button !== 0) return;
-  const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('.btn, .btn-primary, .btn-outline, .btn-ghost, .btn-danger, .fab, .study-primary, .study-secondary, .chip');
+  const el = event.target as HTMLElement | null;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return; // no ripple when tapping into a field
+  const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('.btn, .btn-primary, .btn-outline, .btn-ghost, .btn-danger, .fab, .study-primary, .study-secondary, .chip, .mobile-bottom-nav a, .sidebar-link, .card, .milestone-toggle, .tap-toggle, .tap-check, .tap-action, .week-day, a[href], button');
   if (!target || target.matches(':disabled')) return;
   const rect = target.getBoundingClientRect();
   const size = Math.max(rect.width, rect.height) * 2;
