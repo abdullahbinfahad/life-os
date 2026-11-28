@@ -132,15 +132,15 @@ export default function Layout({ children }: { children: ReactNode }) {
         if (error || !data?.value) return;
         const normalized = normalizeNavigationItems(data.value);
         if (normalized) {
-          const missing = (route: string) => !normalized.some((entry) => entry.to === route);
-          const builtIn = (route: string) => DEFAULT_NAVIGATION.filter((item) => item.to === route && missing(route));
           let next = upgradeLegacyDefaultNavigation(normalized);
+          // Only add a built-in page when the menu being built doesn't already have it (no duplicates).
+          const builtIn = (route: string) => next.some((entry) => entry.to === route) ? [] : DEFAULT_NAVIGATION.filter((item) => item.to === route);
           // New built-in pages appear for everyone, in a sensible spot, even when the owner has a custom menu.
           const insertAfter = (anchorRoute: string, route: string) => { const anchor = next.findIndex((entry) => entry.to === anchorRoute); next = anchor >= 0 ? [...next.slice(0, anchor + 1), ...builtIn(route), ...next.slice(anchor + 1)] : [...next, ...builtIn(route)]; };
           insertAfter('/today', '/schedule');
           insertAfter('/projects', '/contacts');
           next = [...next, ...builtIn('/productivity'), ...builtIn('/notifications')];
-          setNavItems(next);
+          setNavItems(next.filter((item, index, all) => all.findIndex((entry) => entry.to === item.to) === index));
         }
       } catch { /* Optional owner-managed navigation; keep the built-in menu. */ }
     };

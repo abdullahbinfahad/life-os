@@ -75,7 +75,7 @@ const WINDOWS_TZ: Record<string, string> = {
   'AUS Eastern Standard Time': 'Australia/Sydney', 'New Zealand Standard Time': 'Pacific/Auckland', 'Taipei Standard Time': 'Asia/Taipei', 'SE Asia Standard Time': 'Asia/Bangkok',
   'Malay Peninsula Standard Time': 'Asia/Kuala_Lumpur', 'Egypt Standard Time': 'Africa/Cairo', 'South Africa Standard Time': 'Africa/Johannesburg', 'UTC': 'UTC',
 };
-function validZone(zone: string) { try { new Intl.DateTimeFormat('en-US', { timeZone: zone }); return true; } catch { return false; } }
+function validZone(zone: string) { try { zoneFormatter(zone); return true; } catch { return false; } }
 function normalizeZone(raw?: string): string {
   if (!raw) return 'floating';
   const cleaned = raw.replace(/^"|"$/g, '').replace(/^\/[^/]+\/[^/]+\//, '').replace(/^\//, '');
@@ -84,10 +84,25 @@ function normalizeZone(raw?: string): string {
   const match = Object.keys(WINDOWS_TZ).find((name) => cleaned.includes(name));
   return match ? WINDOWS_TZ[match] : 'floating';
 }
+// Creating Intl formatters is expensive; one per zone is reused for every conversion.
+const FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+function zoneFormatter(zone: string) {
+  let formatter = FORMATTERS.get(zone);
+  if (!formatter) { formatter = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }); FORMATTERS.set(zone, formatter); }
+  return formatter;
+}
+const OFFSETS = new Map<string, number>();
 function zoneOffsetMs(utcMs: number, zone: string) {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(utcMs));
+  // Offsets only change at DST boundaries; cache per zone per hour.
+  const cacheKey = `${zone}|${Math.floor(utcMs / 3600000)}`;
+  const cached = OFFSETS.get(cacheKey);
+  if (cached !== undefined) return cached;
+  const parts = zoneFormatter(zone).formatToParts(new Date(utcMs));
   const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  return Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second')) - utcMs;
+  const offset = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second')) - utcMs;
+  if (OFFSETS.size > 5000) OFFSETS.clear();
+  OFFSETS.set(cacheKey, offset);
+  return offset;
 }
 /** Wall-clock time in a zone → real instant. */
 export function wallToDate(wall: string, zone: string): Date {
@@ -150,7 +165,7 @@ function parseRule(value: string, tz: string): ScheduleRule | undefined {
 }
 function toWallIn(date: Date, zone: string) {
   if (zone === 'floating') return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(date);
+  const parts = zoneFormatter(zone).formatToParts(date);
   const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '00';
   return `${get('year')}-${get('month')}-${get('day')}T${pad(Number(get('hour')) % 24)}:${get('minute')}:${get('second')}`;
 }
@@ -213,8 +228,23 @@ function buildEvent(props: Record<string, Array<{ value: string; params: Record<
 }
 
 /* ---------------- expansion ---------------- */
-/** All occurrences overlapping [from, to). */
+const EXPAND_CACHE = new WeakMap<ScheduleCalendar, Map<string, Occurrence[]>>();
+/** All occurrences overlapping [from, to). Results are cached per calendar version and range. */
 export function expand(calendars: ScheduleCalendar[], from: Date, to: Date): Occurrence[] {
+  const key = `${from.getTime()}|${to.getTime()}`;
+  const out: Occurrence[] = [];
+  for (const calendar of calendars) {
+    if (!calendar.visible) continue;
+    let byRange = EXPAND_CACHE.get(calendar);
+    if (!byRange) { byRange = new Map(); EXPAND_CACHE.set(calendar, byRange); }
+    let rows = byRange.get(key);
+    if (!rows) { rows = expandCalendar(calendar, from, to); if (byRange.size > 60) byRange.clear(); byRange.set(key, rows); }
+    out.push(...rows);
+  }
+  return out.sort((a, b) => a.start.getTime() - b.start.getTime() || a.calendar.name.localeCompare(b.calendar.name));
+}
+function expandCalendar(single: ScheduleCalendar, from: Date, to: Date): Occurrence[] {
+  const calendars = [single];
   const out: Occurrence[] = [];
   for (const calendar of calendars) {
     if (!calendar.visible) continue;

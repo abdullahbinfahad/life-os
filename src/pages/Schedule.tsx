@@ -188,15 +188,23 @@ export default function Schedule() {
   const rangeFrom = view === 'list' ? dayStart(day) : view === 'week' ? dayStart(weekStart) : dayStart(day);
   const rangeTo = view === 'list' ? dayStart(addDays(day, 14)) : view === 'week' ? dayStart(addDays(weekStart, 7)) : dayStart(addDays(day, 1));
   const occurrences = useMemo(() => expand(schedules, rangeFrom, rangeTo), [schedules, rangeFrom.getTime(), rangeTo.getTime()]); // eslint-disable-line react-hooks/exhaustive-deps
-  const todayOcc = useMemo(() => expand(schedules, dayStart(today()), dayStart(addDays(today(), 2))), [schedules, now.getDate()]); // eslint-disable-line react-hooks/exhaustive-deps
+  const todayKey = localDayKey(now);
+  const todayOcc = useMemo(() => expand(schedules, dayStart(todayKey), dayStart(addDays(todayKey, 2))), [schedules, todayKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const current = todayOcc.filter((occ) => !occ.event.allDay && occ.start <= now && occ.end > now);
   const next = todayOcc.find((occ) => !occ.event.allDay && occ.start > now);
   const dayOcc = occurrences.filter((occ) => localDayKey(occ.start) === day || (occ.event.allDay && occ.start <= dayStart(day) && occ.end > dayStart(day)));
   const dayPlanner = planner.filter((item) => item.date === day).sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99'));
   const primary = visibleCalendars.find((calendar) => calendar.kind === 'university' || calendar.kind === 'school' || calendar.kind === 'class') ?? visibleCalendars[0];
+  const primaryCourseCount = useMemo(() => primary ? coursesOf(primary).length : 0, [primary]);
   const week = primary ? academicWeek(primary.termStart ?? defaultTermStart(primary), day) : null;
-  const allCourses = schedules.flatMap((calendar) => coursesOf(calendar).map((course) => ({ ...course, calendar })));
-  const totalCredits = (primary ? coursesOf(primary) : []).reduce((sum, course) => sum + (course.info.credits ?? 0), 0);
+  const allCourses = useMemo(() => schedules.flatMap((calendar) => coursesOf(calendar).map((course) => ({ ...course, calendar }))), [schedules]);
+  // One expansion for the whole visible week feeds the day strip (instead of seven).
+  const stripCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const occ of expand(schedules, dayStart(weekStart), dayStart(addDays(weekStart, 7)))) { const key = localDayKey(occ.start); counts.set(key, (counts.get(key) ?? 0) + 1); }
+    return counts;
+  }, [schedules, weekStart]);
+  const totalCredits = useMemo(() => (primary ? coursesOf(primary) : []).reduce((sum, course) => sum + (course.info.credits ?? 0), 0), [primary]);
   const savePlanner = (item: Omit<PlannerItem, 'id' | 'createdAt'>) => {
     if (planning?.id) updatePlannerItem(planning.id, item); else addPlannerItem(item);
     setPlanning(null); setNotice(tr(item.notify && item.time ? 'Saved · you’ll get an alert' : 'Saved')); playFeedback('add');
@@ -281,7 +289,7 @@ export default function Schedule() {
       <div className="min-w-0 flex-1">
         <p className="ct-eyebrow"><CalendarDays size={13} />{tr('Routine')}</p>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{tr('Schedule')}</h1>
-        {primary && <p className="mt-0.5 truncate text-sm muted">{[primary.program || primary.name, `${coursesOf(primary).length} ${tr('courses')}`, totalCredits ? `${totalCredits} ${tr('credits')}` : ''].filter(Boolean).join(' · ')}</p>}
+        {primary && <p className="mt-0.5 truncate text-sm muted">{[primary.program || primary.name, `${primaryCourseCount} ${tr('courses')}`, totalCredits ? `${totalCredits} ${tr('credits')}` : ''].filter(Boolean).join(' · ')}</p>}
       </div>
       <div className="flex shrink-0 flex-wrap gap-1.5">
         <button type="button" className="btn-outline !min-h-10 !px-3" onClick={() => fileRef.current?.click()} aria-label={tr('Upload .ics')}><Upload size={16} /><span className="hidden sm:inline">.ics</span></button>
@@ -317,7 +325,7 @@ export default function Schedule() {
               <button type="button" className="tw-icon-btn" onClick={() => setDay(addDays(day, view === 'week' ? 7 : 1))} aria-label={tr('Next')}><ChevronRight size={18} /></button>
             </div>
           </div>
-          <div className="sc-strip">{weekDays.map((date) => { const count = expand(visibleCalendars, dayStart(date), dayStart(addDays(date, 1))).length + planner.filter((item) => item.date === date && !item.done).length; return <button key={date} type="button" className={cx('sc-strip-day', date === day && 'is-on', date === today() && 'is-today')} onClick={() => setDay(date)} aria-pressed={date === day}>
+          <div className="sc-strip">{weekDays.map((date) => { const count = (stripCounts.get(date) ?? 0) + planner.filter((item) => item.date === date && !item.done).length; return <button key={date} type="button" className={cx('sc-strip-day', date === day && 'is-on', date === today() && 'is-today')} onClick={() => setDay(date)} aria-pressed={date === day}>
             <span>{dayStart(date).toLocaleDateString(locale, { weekday: 'narrow' })}</span><b>{Number(date.slice(8))}</b><i>{count ? '•'.repeat(Math.min(3, count)) : ''}</i>
           </button>; })}</div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
