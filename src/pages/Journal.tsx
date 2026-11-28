@@ -146,7 +146,7 @@ export default function Journal() {
     }
     saveEntry(saved); setSel(saved.id); setDraft(null); playFeedback('submit');
     setStatusTone('success');
-    setStatusMessage(tr(saved.visibility === 'private' ? 'Journal entry saved to your Life OS workspace.' : 'Saved privately and removed from the public journal.'));
+    setStatusMessage(tr(saved.visibility === 'private' ? 'Diary entry saved to your Life OS workspace.' : 'Saved privately and removed from the public journal.'));
   };
   const savePrivately = async () => {
     if (!publishReview) return;
@@ -185,7 +185,7 @@ export default function Journal() {
     }
     deleteEntry(removing.id); setDeleteReview(null); setDraft(null); setSel(null);
     setStatusTone('success');
-    setStatusMessage(tr('Journal entry deleted.'));
+    setStatusMessage(tr('Diary entry deleted.'));
     playFeedback('submit');
   };
   const edit = (patch: Partial<JournalEntry>) => setDraft({ ...(current as JournalEntry), ...patch });
@@ -214,7 +214,7 @@ export default function Journal() {
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <span className="journal-eyebrow"><BookOpen size={13} /> {tr('Reflections and memories')}</span>
-            <h1 className="journal-title">{tr('Journal')}</h1>
+            <h1 className="journal-title">{tr('Personal Diary')}</h1>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link to="/public" className="btn journal-ghost"><Globe2 size={16} /> <span className="hidden sm:inline">{tr('Browse public journals')}</span><span className="sm:hidden">{tr('Public')}</span></Link>
@@ -253,7 +253,7 @@ export default function Journal() {
         <div className={cx('journal-layout grid gap-6 lg:grid-cols-[340px_1fr]', current && 'has-current')}>
           <div className="journal-list card min-w-0 p-3">
             <div className="mb-3 hidden rounded-xl bg-gradient-to-br from-indigo-500/[.10] via-violet-500/[.06] to-transparent p-3">
-              <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles size={15} className="text-indigo-500" />{tr('Your journal')}</div>
+              <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles size={15} className="text-indigo-500" />{tr('Your personal diary')}</div>
               <div className="mt-2 flex gap-4 text-xs muted"><span><b className="text-slate-800 dark:text-slate-100">{journal.length}</b> {tr('entries')}</span><span><b className="text-slate-800 dark:text-slate-100">{journal.filter((j) => j.visibility === 'private').length}</b> {tr('private')}</span><span><b className="text-slate-800 dark:text-slate-100">{journal.filter((j) => j.visibility === 'public').length}</b> {tr('public')}</span></div>
             </div>
             <div className="relative mb-2"><Search size={15} className="absolute left-3 top-2.5 muted" /><input aria-label={tr('Search title, text, and tags')} className="input pl-9 pr-9" placeholder={tr("Search memories…")} value={q} onChange={(e) => setQ(e.target.value)} />{q && <button type="button" aria-label={tr('Clear search')} onClick={() => setQ('')} className="absolute right-2 top-1.5 rounded p-1 muted hover:bg-slate-100 dark:hover:bg-white/10"><X size={15}/></button>}</div>
@@ -277,7 +277,7 @@ export default function Journal() {
                   {entry && !draft && <button className="btn-ghost ml-auto text-rose-500" title={tr('Delete entry?')} aria-label={tr('Delete entry?')} onClick={() => setDeleteReview(entry)}><Trash2 size={15} /></button>}
               </div>
               <input className="mb-3 w-full bg-transparent text-2xl font-bold outline-none placeholder:text-slate-400" placeholder={tr("Title…")} value={current.title} onChange={(e) => edit({ title: e.target.value })} />
-              <textarea aria-label={tr('Journal entry text')} className="min-h-[340px] w-full resize-y bg-transparent leading-relaxed outline-none placeholder:text-slate-400" placeholder={tr("Write freely…")} value={current.content} onChange={(e) => edit({ content: e.target.value })} />
+              <textarea aria-label={tr('Diary entry text')} className="min-h-[340px] w-full resize-y bg-transparent leading-relaxed outline-none placeholder:text-slate-400" placeholder={tr("Write freely…")} value={current.content} onChange={(e) => edit({ content: e.target.value })} />
               <div className="mt-1 flex items-center justify-end gap-1.5 text-xs muted"><Hash size={13}/>{wordCount} {tr('words')} <span aria-hidden="true">·</span>{(current.content ?? '').length} {tr('characters')}</div>
               <input className="input mt-3" placeholder={tr("Tags, comma separated")} value={(current.tags ?? []).join(', ')} onChange={(e) => edit({ tags: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
               <input className="input mt-3" placeholder={tr("Location or memory context (optional)")} value={current.location ?? ''} onChange={(e) => edit({ location: e.target.value || undefined })} />
@@ -299,7 +299,7 @@ export default function Journal() {
           <p className="rounded-xl border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/5 dark:text-amber-100">{tr('Anyone with the public link can read this journal entry. Review the exact content before publishing.')}</p>
           <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
             <p className="text-xs font-semibold uppercase tracking-wide muted">{tr('Public title')}</p>
-            <p className="mt-1 break-words font-semibold">{publishReview.title || tr('Journal entry')}</p>
+            <p className="mt-1 break-words font-semibold">{publishReview.title || tr('Diary entry')}</p>
             <p className="mt-3 text-xs font-semibold uppercase tracking-wide muted">{tr('Public preview excerpt')}</p>
             <p className="mt-1 break-words text-sm">{(publishReview.content ?? '').slice(0, 180)}</p>
             <p className="mt-3 text-xs font-semibold uppercase tracking-wide muted">{tr('Full public text')}</p>

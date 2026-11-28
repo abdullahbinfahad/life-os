@@ -92,7 +92,7 @@ export default function Insights() {
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-slate-50 p-4 dark:bg-white/[0.03]"><p className="text-xs muted">{tr('Completions in selected period')}</p><p className="mt-1 text-2xl font-bold">{periodCompletions.length}</p><p className="mt-1 text-xs muted">{comparisonText}</p></div>
-          <div className="rounded-xl bg-slate-50 p-4 dark:bg-white/[0.03]"><p className="text-xs muted">{tr('Journal entries in selected period')}</p><p className="mt-1 text-2xl font-bold">{moods.length}</p><p className="mt-1 text-xs muted">{moods.length ? `${tr('Average mood')}: ${avgMood}/5` : tr('No journal entries in this period.')}</p></div>
+          <div className="rounded-xl bg-slate-50 p-4 dark:bg-white/[0.03]"><p className="text-xs muted">{tr('Diary entries in selected period')}</p><p className="mt-1 text-2xl font-bold">{moods.length}</p><p className="mt-1 text-xs muted">{moods.length ? `${tr('Average mood')}: ${avgMood}/5` : tr('No diary entries in this period.')}</p></div>
         </div>
       </section>
       <div className="grid gap-6 lg:grid-cols-3">
