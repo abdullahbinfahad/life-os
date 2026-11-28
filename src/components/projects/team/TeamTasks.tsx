@@ -1,7 +1,7 @@
 import { translate as tr } from '../../../lib/locales';
 import { useDragSensors } from '../../../lib/dnd';
 import { DndContext, closestCenter, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
-import { CalendarDays, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock, GripVertical, LayoutGrid, Link2, List, LockKeyhole, Pencil, Plus, Search, Trash2, UserRound, X } from 'lucide-react';
+import { CalendarDays, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock, LayoutGrid, Link2, List, LockKeyhole, Pencil, Plus, Search, Trash2, UserRound, X } from 'lucide-react';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { addDays, cx, fmtDate, localeForLanguage, today } from '../../../lib/utils';
 import { addPrivateTaskLink, addSharedDependency, deleteSharedTask, removePrivateTaskLink, removeSharedDependency, type PrivateTaskLink, type SharedMember, type SharedTask, type SharedTaskStatus, type SharedWorkspaceSnapshot } from '../../../lib/sharedProjects';
@@ -100,11 +100,13 @@ function BoardCard({ task, ctx, onOpen }: { task: SharedTask; ctx: TaskContext; 
   const { members, canWork, language, updateTask } = ctx;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `shared-task:${task.id}`, data: { type: 'shared-task', taskId: task.id }, disabled: !canWork });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(1.5deg)` } : undefined;
-  return <article ref={setNodeRef} style={style} className={cx('tw-board-card', isDragging && 'is-dragging', task.status === 'done' && 'is-done')}>
+  const stopInteractiveDrag = (event: React.SyntheticEvent) => {
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable="true"]')) event.stopPropagation();
+  };
+  return <article ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} aria-label={`${tr('Drag to change task status')}: ${task.title}`} style={style} className={cx('tw-board-card cursor-grab active:cursor-grabbing', isDragging && 'is-dragging', task.status === 'done' && 'is-done')}>
     <div className="flex min-w-0 items-start gap-1">
       <TaskCheck task={task} canWork={canWork} size={18} onToggle={() => void updateTask(task.id, { status: task.status === 'done' ? 'todo' : 'done' })} />
       <button type="button" className="min-w-0 flex-1 pt-1.5 text-left" onClick={onOpen}><span className="tw-task-title">{task.title}</span></button>
-      {canWork && <button type="button" aria-label={`${tr('Drag to change task status')}: ${task.title}`} {...attributes} {...listeners} className="tw-grip"><GripVertical size={15} /></button>}
     </div>
     <div className="mt-1.5 flex min-w-0 items-center gap-1.5 ps-1">
       <DueChip task={task} language={language} />
@@ -134,7 +136,7 @@ export default function TeamTasks({ tasks, ctx, busy, onAdd }: { tasks: SharedTa
   const [showDone, setShowDone] = useState(false);
   const [month, setMonth] = useState(today().slice(0, 7));
   const [day, setDay] = useState(today());
-  const sensors = useDragSensors('handle');
+  const sensors = useDragSensors('row');
 
   const counts = useMemo(() => ({
     all: tasks.length,
@@ -219,7 +221,7 @@ export default function TeamTasks({ tasks, ctx, busy, onAdd }: { tasks: SharedTa
       </div>
       : view === 'board' ? <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <div className="tw-board">{TASK_STATUS.filter((status) => status.id !== 'cancelled' || visible.some((task) => task.status === 'cancelled')).map((status) => { const items = visible.filter((task) => task.status === status.id); return <BoardColumn key={status.id} status={status.id} count={items.length}>{items.map((task) => <BoardCard key={task.id} task={task} ctx={ctx} onOpen={() => { setView('list'); setFilter('all'); setOpenId(task.id); }} />)}</BoardColumn>; })}</div>
-        {canWork && <p className="text-center text-xs muted">{tr('Drag a card by its handle to move it between columns.')}</p>}
+        {canWork && <p className="text-center text-xs muted">{tr('Drag a card to move it between columns.')}</p>}
       </DndContext>
       : <div className="tw-cal card">
         <div className="tw-cal-head"><button type="button" className="tap-action !opacity-100" onClick={() => shiftMonth(-1)} aria-label={tr('Previous month')}><ChevronLeft size={17} /></button><h4>{new Date(`${firstDay}T12:00:00`).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}</h4><button type="button" className="tap-action !opacity-100" onClick={() => shiftMonth(1)} aria-label={tr('Next month')}><ChevronRight size={17} /></button></div>
