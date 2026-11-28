@@ -28,6 +28,12 @@
   html.dark input[type="date"] { color-scheme: dark; }
   input[type="date"]::-webkit-date-and-time-value { min-width: 0; text-align: left; }
   input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; cursor: pointer; opacity: .75; }
+  /* Empty date inputs show no placeholder text on iOS/touch browsers, so the
+     field looks like a blank box. .due-date-hint overlays a label (shown only
+     on coarse-pointer devices, only while the field is empty); taps pass
+     through it to the input. Desktop already shows mm/dd/yyyy, so it stays hidden there. */
+  .due-date-hint { display: none; }
+  @media (pointer: coarse) { .due-date-hint { display: inline-flex; } }
 }
 
 @layer components {
