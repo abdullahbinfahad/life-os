@@ -17,6 +17,8 @@ export const routeImporters = {
   '/trash': () => import('../pages/Trash'),
   '/admin': () => import('../pages/AdminConsole'),
   '/study': () => import('../pages/StudyStudio'),
+  '/contacts': () => import('../pages/Contacts'),
+  '/schedule': () => import('../pages/Schedule'),
   '/public': () => import('../pages/PublicJournalIndex'),
 } as const;
 

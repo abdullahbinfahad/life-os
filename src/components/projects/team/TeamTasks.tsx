@@ -1,5 +1,6 @@
 import { translate as tr } from '../../../lib/locales';
-import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { useDragSensors } from '../../../lib/dnd';
+import { DndContext, closestCenter, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { CalendarDays, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock, GripVertical, LayoutGrid, Link2, List, LockKeyhole, Pencil, Plus, Search, Trash2, UserRound, X } from 'lucide-react';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { addDays, cx, fmtDate, localeForLanguage, today } from '../../../lib/utils';
@@ -133,7 +134,7 @@ export default function TeamTasks({ tasks, ctx, busy, onAdd }: { tasks: SharedTa
   const [showDone, setShowDone] = useState(false);
   const [month, setMonth] = useState(today().slice(0, 7));
   const [day, setDay] = useState(today());
-  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }), useSensor(KeyboardSensor));
+  const sensors = useDragSensors('handle');
 
   const counts = useMemo(() => ({
     all: tasks.length,

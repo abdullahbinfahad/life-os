@@ -1,6 +1,7 @@
 import { translate as tr } from '../lib/locales';
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useDragSensors } from '../lib/dnd';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Archive, CheckCircle2, Circle, Flame, Pencil, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
 import { useState } from 'react';
@@ -44,7 +45,7 @@ const SUGGESTIONS: Omit<Habit, 'id' | 'log' | 'createdAt' | 'archived'>[] = [
 
 export default function Habits() {
   const { habits, categories, settings, addHabit, toggleHabit, updateHabit, deleteHabit } = useStore();
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useDragSensors('row');
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const catMap = useCategoryMap();
   const [formOpen, setFormOpen] = useState(false);

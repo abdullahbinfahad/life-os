@@ -22,6 +22,7 @@ import { StudyFocusWidget } from './study/StudyFocusWidget';
 const PlanningAssistant = lazy(() => import('./PlanningAssistant'));
 const CommandPalette = lazy(() => import('./CommandPalette'));
 const SharedMessageAlerts = lazy(() => import('./SharedMessageAlerts'));
+const NotificationEngine = lazy(() => import('./NotificationEngine'));
 
 function AccountBox() {
   const { user, sync, syncError, guest, setGuest } = useAuth();
@@ -131,8 +132,15 @@ export default function Layout({ children }: { children: ReactNode }) {
         if (error || !data?.value) return;
         const normalized = normalizeNavigationItems(data.value);
         if (normalized) {
-          const alwaysAvailable = DEFAULT_NAVIGATION.filter((item) => ['/productivity', '/notifications'].includes(item.to) && !normalized.some((entry) => entry.to === item.to));
-          setNavItems([...upgradeLegacyDefaultNavigation(normalized), ...alwaysAvailable]);
+          const missing = (route: string) => !normalized.some((entry) => entry.to === route);
+          const builtIn = (route: string) => DEFAULT_NAVIGATION.filter((item) => item.to === route && missing(route));
+          let next = upgradeLegacyDefaultNavigation(normalized);
+          // New built-in pages appear for everyone, in a sensible spot, even when the owner has a custom menu.
+          const insertAfter = (anchorRoute: string, route: string) => { const anchor = next.findIndex((entry) => entry.to === anchorRoute); next = anchor >= 0 ? [...next.slice(0, anchor + 1), ...builtIn(route), ...next.slice(anchor + 1)] : [...next, ...builtIn(route)]; };
+          insertAfter('/today', '/schedule');
+          insertAfter('/projects', '/contacts');
+          next = [...next, ...builtIn('/productivity'), ...builtIn('/notifications')];
+          setNavItems(next);
         }
       } catch { /* Optional owner-managed navigation; keep the built-in menu. */ }
     };
@@ -250,6 +258,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <Suspense fallback={null}>{paletteLoaded && <CommandPalette open={palette} onClose={() => setPalette(false)} navigation={navItems} />}</Suspense>
       <Toaster />
       <Suspense fallback={null}><SharedMessageAlerts /></Suspense>
+      <Suspense fallback={null}><NotificationEngine /></Suspense>
     </div>
   );
 }

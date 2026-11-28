@@ -129,6 +129,17 @@ export interface Settings {
   sounds?: boolean;
   /** Optional browser notifications while the app is open; never enabled without permission. */
   browserNotifications?: boolean;
+  /** Weather location & units for the Home card, Schedule and weather alerts. */
+  weather?: { name?: string; lat?: number; lon?: number; units?: 'metric' | 'imperial'; useDevice?: boolean };
+  /** Notification preferences (times are local HH:MM). */
+  notify?: {
+    digest?: boolean; digestTime?: string;
+    habits?: boolean; habitTime?: string;
+    due?: boolean; contacts?: boolean; team?: boolean; schedule?: boolean; scheduleLead?: number;
+    quietStart?: string; quietEnd?: string;
+    badge?: boolean; vibrate?: boolean;
+    weather?: boolean; hotAt?: number; coldAt?: number;
+  };
   name: string;
   weekStartsMonday: boolean;
   birthday?: string;
@@ -140,7 +151,7 @@ export interface Settings {
   avatarUrl?: string;
 }
 
-export type TrashEntityType = 'item' | 'goal' | 'project' | 'task' | 'habit' | 'journal' | 'album' | 'memory' | 'category';
+export type TrashEntityType = 'item' | 'goal' | 'project' | 'task' | 'habit' | 'journal' | 'album' | 'memory' | 'category' | 'contact' | 'schedule';
 
 export interface TrashRecord {
   id: string;
@@ -171,4 +182,47 @@ export interface RewardEvent {
   kind: 'focus' | 'task' | 'project' | 'goal' | 'habit';
   points: number;
   createdAt: string;
+}
+
+/* ---------------- Network / contacts ---------------- */
+export type ContactGroup = 'friend' | 'family' | 'work' | 'client' | 'mentor' | 'business' | 'school' | 'service' | 'other';
+export type SocialPlatform = 'linkedin' | 'x' | 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'github' | 'telegram' | 'whatsapp' | 'wechat' | 'snapchat' | 'discord' | 'website' | 'other';
+export interface ContactField { id: string; label: string; value: string }
+export interface ContactSocial { id: string; platform: SocialPlatform; value: string }
+export interface ContactInteraction { id: string; date: string; kind: 'call' | 'message' | 'meeting' | 'email' | 'note'; note: string }
+export interface Contact {
+  id: string;
+  name: string;
+  nickname?: string;
+  photo?: string;            // small JPEG data URL (≈160px) so it syncs cheaply
+  jobTitle?: string;
+  company?: string;
+  department?: string;
+  industry?: string;
+  phones: ContactField[];
+  emails: ContactField[];
+  socials: ContactSocial[];
+  address?: string;
+  city?: string;
+  country?: string;
+  timezone?: string;
+  birthday?: string;         // YYYY-MM-DD, or --MM-DD when the year is unknown
+  group: ContactGroup;
+  tags: string[];
+  favorite: boolean;
+  closeness?: 1 | 2 | 3 | 4 | 5;
+  howWeMet?: string;
+  metOn?: string;
+  introducedBy?: string;
+  languages?: string;
+  interests?: string;
+  canHelpWith?: string;      // what they can help with / their expertise
+  notes: string;
+  keepInTouchDays?: number;  // remind me if I haven't talked for this long
+  followUpDate?: string;
+  followUpNote?: string;
+  lastContacted?: string;
+  interactions: ContactInteraction[];
+  createdAt: string;
+  updatedAt: string;
 }

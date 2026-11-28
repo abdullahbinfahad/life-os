@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Album, AlbumMemory, Category, FocusSession, Goal, Habit, JournalEntry, LifeItem, Project, RewardEvent, Settings, Task, TrashRecord } from './types';
+import type { Album, AlbumMemory, Category, Contact, FocusSession, Goal, Habit, JournalEntry, LifeItem, Project, RewardEvent, Settings, Task, TrashRecord } from './types';
 import { DEFAULT_CATEGORIES } from './library';
 import { addDays, today, uid } from './utils';
 import { isThemeUnlocked } from './themes';
 import { createEmptyStudyData, type StudyData } from './study/types';
 import { normalizeStudyData } from './study/normalize';
+import type { PlannerItem, ScheduleCalendar } from './schedule';
 
 type NewItem = Partial<LifeItem> & { title: string };
 
@@ -22,6 +23,19 @@ interface State {
   focusSessions: FocusSession[];
   rewardEvents: RewardEvent[];
   study: StudyData;
+  contacts: Contact[];
+  schedules: ScheduleCalendar[];
+  planner: PlannerItem[];
+  addPlannerItem: (item: Omit<PlannerItem, 'id' | 'createdAt'>) => void;
+  updatePlannerItem: (id: string, patch: Partial<PlannerItem>) => void;
+  deletePlannerItem: (id: string) => void;
+  addSchedule: (calendar: ScheduleCalendar) => void;
+  updateSchedule: (id: string, patch: Partial<ScheduleCalendar>) => void;
+  deleteSchedule: (id: string) => void;
+  addContact: (contact: Partial<Contact> & { name: string }) => string;
+  updateContact: (id: string, patch: Partial<Contact>) => void;
+  deleteContact: (id: string) => void;
+  importContacts: (rows: Array<Partial<Contact> & { name: string }>) => number;
   updateStudy: (recipe: (current: StudyData) => StudyData) => void;
 
   // items
@@ -109,6 +123,9 @@ const initial = {
   focusSessions: [] as FocusSession[],
   rewardEvents: [] as RewardEvent[],
   study: createEmptyStudyData(),
+  contacts: [] as Contact[],
+  schedules: [] as ScheduleCalendar[],
+  planner: [] as PlannerItem[],
   settings: { theme: 'dark', name: '', weekStartsMonday: true } as Settings,
 };
 
@@ -117,6 +134,32 @@ export const useStore = create<State>()(
     (set, get) => ({
       ...initial,
       updateStudy: (recipe) => set((s) => ({ study: normalizeStudyData(recipe(s.study)) })),
+      addContact: (contact) => {
+        const id = uid();
+        const stamp = now();
+        set((s) => ({ contacts: [{ id, phones: [], emails: [], socials: [], group: 'other', tags: [], favorite: false, notes: '', interactions: [], createdAt: stamp, ...contact, name: contact.name.trim(), updatedAt: stamp }, ...s.contacts] }));
+        return id;
+      },
+      addPlannerItem: (item) => set((s) => ({ planner: [...s.planner, { ...item, id: uid(), createdAt: now() }] })),
+      updatePlannerItem: (id, patch) => set((s) => ({ planner: s.planner.map((item) => item.id === id ? { ...item, ...patch } : item) })),
+      deletePlannerItem: (id) => set((s) => ({ planner: s.planner.filter((item) => item.id !== id) })),
+      addSchedule: (calendar) => set((s) => ({ schedules: [...s.schedules, calendar] })),
+      updateSchedule: (id, patch) => set((s) => ({ schedules: s.schedules.map((calendar) => calendar.id === id ? { ...calendar, ...patch } : calendar) })),
+      deleteSchedule: (id) => set((s) => {
+        const calendar = s.schedules.find((row) => row.id === id);
+        return calendar ? { schedules: s.schedules.filter((row) => row.id !== id), trash: [...s.trash, trashEntry('schedule', calendar.name, calendar)] } : s;
+      }),
+      updateContact: (id, patch) => set((s) => ({ contacts: s.contacts.map((contact) => contact.id === id ? { ...contact, ...patch, updatedAt: now() } : contact) })),
+      deleteContact: (id) => set((s) => {
+        const contact = s.contacts.find((row) => row.id === id);
+        return contact ? { contacts: s.contacts.filter((row) => row.id !== id), trash: [...s.trash, trashEntry('contact', contact.name, contact)] } : s;
+      }),
+      importContacts: (rows) => {
+        const stamp = now();
+        const fresh = rows.filter((row) => row.name?.trim()).map((row) => ({ phones: [], emails: [], socials: [], group: 'other' as const, tags: [], favorite: false, notes: '', interactions: [], createdAt: stamp, ...row, id: uid(), name: row.name.trim(), updatedAt: stamp }));
+        set((s) => ({ contacts: [...fresh, ...s.contacts] }));
+        return fresh.length;
+      },
 
       addItems: (items) => set((s) => ({ items: [...items.map(makeItem), ...s.items] })),
       updateItem: (id, patch) => set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: now() } : i)) })),
@@ -405,6 +448,8 @@ export const useStore = create<State>()(
               return { projects: s.projects.map((row) => row.id === project.id ? { ...row, tasks: prependUnique(row.tasks, task) } : row), trash };
             }
             case 'habit': restored = true; return { habits: prependUnique(s.habits, record.data as Habit), trash };
+            case 'contact': restored = true; return { contacts: prependUnique(s.contacts, record.data as Contact), trash };
+            case 'schedule': restored = true; return { schedules: [...s.schedules.filter((row) => row.id !== (record.data as ScheduleCalendar).id), record.data as ScheduleCalendar], trash };
             case 'journal': restored = true; return { journal: prependUnique(s.journal, record.data as JournalEntry), trash };
             case 'album': restored = true; return { albums: prependUnique(s.albums, record.data as Album), trash };
             case 'memory': {
@@ -462,8 +507,12 @@ export const useStore = create<State>()(
           rewardEvents: data.rewardEvents ?? [],
           settings: { ...initial.settings, ...(data.settings ?? {}) },
           study: normalizeStudyData(data.study),
+          // An older app version sends no contacts field: keep the ones on this device instead of wiping them.
+          contacts: Array.isArray(data.contacts) ? data.contacts : get().contacts,
+          schedules: Array.isArray(data.schedules) ? data.schedules : get().schedules,
+          planner: Array.isArray(data.planner) ? data.planner : get().planner,
         })),
-      resetAll: () => set(() => ({ ...initial, study: createEmptyStudyData() })),
+      resetAll: () => set(() => ({ ...initial, study: createEmptyStudyData(), contacts: [], schedules: [], planner: [] })),
       loadDemo: () => {
         const t = today();
         const s = get();
@@ -514,8 +563,8 @@ export const useStore = create<State>()(
     }),
     {
       name: 'life-os-v1',
-      version: 4,
-      // v2 adds the idea categories; v3 introduces Trash; v4 adds private Study Studio data.
+      version: 6,
+      // v2 adds the idea categories; v3 introduces Trash; v4 adds private Study Studio data; v5 adds contacts; v6 adds schedules.
       migrate: (persisted: any, version) => {
         if (persisted && version < 2) {
           const have = new Set((persisted.categories ?? []).map((c: Category) => c.id));
@@ -523,6 +572,9 @@ export const useStore = create<State>()(
         }
         if (persisted && version < 3) persisted.trash = [];
         if (persisted && version < 4) persisted.study = createEmptyStudyData();
+        if (persisted && !Array.isArray(persisted.contacts)) persisted.contacts = [];
+        if (persisted && !Array.isArray(persisted.schedules)) persisted.schedules = [];
+        if (persisted && !Array.isArray(persisted.planner)) persisted.planner = [];
         return persisted;
       },
     },

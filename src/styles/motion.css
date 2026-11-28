@@ -424,3 +424,23 @@ html.theme-sapphire .timer-dial.tone-focus { --dial-a: #60a5fa; --dial-b: #818cf
 .tap-action { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: .55rem; color: rgb(148 163 184); opacity: .45; transition: background-color .15s ease, color .15s ease, opacity .15s ease; }
 .tap-action:hover, .tap-action:active { opacity: 1; color: var(--accent); background: rgba(148,163,184,.10); }
 @media (hover: hover) and (pointer: fine) { .tap-action { opacity: 0; } .tap-row:hover .tap-action, .tap-action:focus-visible { opacity: 1; } }
+
+/* Goals: grip handles, inline edit, cross-goal drop target */
+.milestone-grip { display: grid; flex: none; place-items: center; width: 1.6rem; height: 2.5rem; margin-left: -.3rem; border-radius: .45rem; color: rgb(148 163 184); opacity: .45; touch-action: none; cursor: grab; -webkit-tap-highlight-color: transparent; }
+.milestone-grip:hover, .milestone-grip:focus-visible { opacity: 1; background: rgba(148,163,184,.1); }
+.milestone-grip:active { cursor: grabbing; }
+@media (hover: hover) and (pointer: fine) { .milestone-grip { opacity: 0; } .milestone-row:hover .milestone-grip, .milestone-grip:focus-visible { opacity: .7; } }
+.milestone-row.is-dragging { border-radius: .6rem; background: var(--tw-surface, #1b1f2b); box-shadow: 0 14px 30px rgba(2,6,23,.3); }
+html:not(.dark) .milestone-row.is-dragging { background: #fff; }
+.goal-grip { position: absolute; top: .2rem; left: 50%; transform: translateX(-50%); display: grid; place-items: center; width: 3rem; height: 1.4rem; border-radius: 999px; color: rgb(148 163 184); opacity: .5; touch-action: none; cursor: grab; }
+.goal-grip:hover, .goal-grip:focus-visible { opacity: 1; background: rgba(148,163,184,.12); }
+.goal-drop-target { outline: 2px dashed var(--accent); outline-offset: 3px; background-image: linear-gradient(color-mix(in srgb, var(--accent) 7%, transparent), color-mix(in srgb, var(--accent) 7%, transparent)); transition: outline-color .15s ease; }
+.goal-drop-hint { margin-top: .4rem; border: 1.5px dashed var(--accent); border-radius: .7rem; padding: .6rem; text-align: center; font-size: .78rem; color: var(--accent); }
+.milestone-edit { flex: 1; min-width: 0; padding: .35rem 0 .45rem; animation: tw-in .16s ease both; }
+.goal-move-note { position: fixed; left: 50%; top: calc(4.9rem + env(safe-area-inset-top)); z-index: 90; transform: translateX(-50%); display: flex; align-items: center; gap: .45rem; max-width: calc(100vw - 2rem); border-radius: 999px; background: #10b981; padding: .5rem 1rem; font-size: .85rem; font-weight: 600; color: #fff; box-shadow: 0 12px 30px rgba(2,6,23,.3); }
+@media (min-width: 1024px) { .goal-move-note { top: 1.25rem; } }
+@keyframes tw-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.milestone-toggle { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+/* Long-press-to-drag rows: no iOS callout / text selection while holding. */
+[aria-roledescription="sortable"] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+[aria-roledescription="sortable"] input, [aria-roledescription="sortable"] textarea { -webkit-user-select: text; user-select: text; }

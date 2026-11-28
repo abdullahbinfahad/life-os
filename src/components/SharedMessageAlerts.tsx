@@ -11,6 +11,7 @@ import {
   type SharedNotification,
 } from '../lib/sharedProjects';
 import { playFeedback } from '../lib/sounds';
+import { notifyPrefs, showAppNotification } from '../lib/notify';
 import './SharedMessageAlerts.css';
 
 const messageKind = (kind: string) => kind.startsWith('comment.');
@@ -80,18 +81,14 @@ export default function SharedMessageAlerts() {
     if (isNew) {
       showToast(notification);
       playFeedback('notification');
-      if (browserNotifications && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-        try {
-          const browserNotification = new Notification(tr('New shared message'), {
-            body: previewFor(notification),
-            tag: `lifeos-shared:${notification.id}`,
-            icon: `${import.meta.env.BASE_URL}lifeos-mark.svg`,
-          });
-          browserNotification.onclick = () => {
-            window.focus();
-            void openNotification(notification);
-          };
-        } catch { /* The in-app toast remains available when system alerts are unavailable. */ }
+      const teamOn = notifyPrefs(useStore.getState().settings).team;
+      if (browserNotifications && teamOn && (document.visibilityState !== 'visible' || !document.hasFocus())) {
+        void showAppNotification({
+          title: tr('New shared message'),
+          body: previewFor(notification),
+          tag: `lifeos-shared:${notification.id}`,
+          url: `/projects?sharedProject=${encodeURIComponent(notification.project_id)}&section=discussion`,
+        });
       }
     } else if (activeToast.current?.notification.id === notification.id) {
       // A refreshed preview for the visible message gets a fresh display interval.

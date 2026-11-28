@@ -1,0 +1,17 @@
+.ns-card { margin-bottom: 1.25rem; border: 1px solid rgba(148, 163, 184, .2); border-radius: 1.1rem; background: rgba(255, 255, 255, .75); padding: .9rem 1rem; }
+html.dark .ns-card { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .08); }
+.ns-big-icon { display: grid; flex: none; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: .9rem; background: rgba(148, 163, 184, .15); color: rgb(100 116 139); }
+.ns-big-icon.is-on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.ns-tip { display: flex; gap: .55rem; margin-top: .75rem; border-radius: .8rem; background: color-mix(in srgb, var(--accent) 10%, transparent); padding: .6rem .75rem; font-size: .78rem; line-height: 1.4; }
+.ns-tip svg { flex: none; margin-top: .1rem; color: var(--accent); }
+.ns-more { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .8rem; border-top: 1px solid rgba(148, 163, 184, .18); padding-top: .7rem; font-size: .82rem; font-weight: 600; color: var(--accent); }
+.ns-list { display: grid; margin-top: .4rem; }
+.ns-row { display: flex; min-width: 0; align-items: flex-start; gap: .7rem; padding: .7rem 0; }
+.ns-row + .ns-row { border-top: 1px solid rgba(148, 163, 184, .14); }
+.ns-row.is-off .ns-icon { opacity: .5; }
+.ns-icon { display: grid; flex: none; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: .7rem; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.ns-time { position: relative; display: inline-flex; align-items: center; gap: .35rem; min-height: 2.25rem; border: 1px solid rgba(148, 163, 184, .3); border-radius: 999px; padding: 0 .7rem; font-size: .78rem; font-weight: 600; }
+.ns-time span { opacity: .7; }
+.ns-time input, .ns-time select { background: transparent; font-size: .82rem !important; color: inherit; outline: none; min-height: 0 !important; width: auto !important; display: inline !important; }
+html.dark .ns-time input, html.dark .ns-time select { color-scheme: dark; }
+.ns-time select option { color: #0f172a; }

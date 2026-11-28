@@ -1,0 +1,38 @@
+.wx-card { position: relative; overflow: hidden; min-width: 0; border: 1px solid rgba(148, 163, 184, .2); border-radius: 1.15rem; background: linear-gradient(160deg, color-mix(in srgb, #38bdf8 14%, transparent), transparent 55%), rgba(255, 255, 255, .8); padding: .85rem .95rem; }
+html.dark .wx-card { background: linear-gradient(160deg, rgba(56, 189, 248, .12), transparent 55%), rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .08); }
+.wx-head { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .35rem; }
+.wx-icon-btn { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .6rem; opacity: .7; }
+.wx-icon-btn:hover { opacity: 1; background: rgba(148, 163, 184, .15); }
+.wx-main { display: flex; min-width: 0; align-items: center; gap: .75rem; }
+.wx-emoji { font-size: 2.6rem; line-height: 1; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .18)); }
+.wx-temp { font-size: 2.1rem; font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+.wx-temp small { font-size: .9rem; font-weight: 600; opacity: .6; margin-left: .1rem; }
+.wx-facts { display: grid; grid-template-columns: repeat(2, auto); gap: .25rem .75rem; font-size: .72rem; opacity: .8; }
+.wx-facts span { display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap; }
+@media (max-width: 380px) { .wx-facts { display: none; } }
+.wx-alerts { display: grid; gap: .35rem; margin-top: .7rem; }
+.wx-alert { display: grid; gap: .1rem; border-radius: .75rem; border-left: 3px solid var(--wa, #0ea5e9); background: color-mix(in srgb, var(--wa, #0ea5e9) 11%, transparent); padding: .45rem .6rem; font-size: .76rem; line-height: 1.35; }
+.wx-alert b { font-size: .8rem; }
+.wx-alert.is-rain { --wa: #0ea5e9; } .wx-alert.is-storm { --wa: #8b5cf6; } .wx-alert.is-snow { --wa: #38bdf8; } .wx-alert.is-hot { --wa: #f97316; } .wx-alert.is-cold { --wa: #3b82f6; } .wx-alert.is-wind { --wa: #64748b; } .wx-alert.is-fog { --wa: #94a3b8; }
+.wx-tip { margin-top: .6rem; border-radius: .7rem; background: rgba(148, 163, 184, .1); padding: .4rem .6rem; font-size: .76rem; }
+.wx-hours { display: flex; gap: .25rem; margin-top: .65rem; overflow-x: auto; scrollbar-width: none; }
+.wx-hours::-webkit-scrollbar { display: none; }
+.wx-hour { display: grid; flex: 1 0 3.2rem; justify-items: center; gap: .2rem; border-radius: .7rem; padding: .35rem .2rem; font-size: .72rem; }
+.wx-hour:first-child { background: rgba(148, 163, 184, .12); }
+.wx-pop { font-size: .65rem; font-weight: 600; color: #0ea5e9; }
+.wx-days { display: grid; gap: .15rem; margin-top: .6rem; border-top: 1px solid rgba(148, 163, 184, .18); padding-top: .5rem; }
+.wx-day { display: flex; align-items: center; gap: .45rem; min-height: 1.9rem; }
+.wx-bar { position: relative; flex: 1; height: .35rem; border-radius: 999px; background: rgba(148, 163, 184, .2); }
+.wx-bar i { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(90deg, #38bdf8, #f59e0b); }
+.wx-error { display: flex; align-items: center; gap: .4rem; border-radius: .7rem; background: rgba(244, 63, 94, .1); padding: .5rem .65rem; font-size: .78rem; color: #e11d48; }
+html.dark .wx-error { color: #fda4af; }
+.wx-skel { height: 5.5rem; border-radius: .8rem; background: linear-gradient(90deg, rgba(148, 163, 184, .1) 25%, rgba(148, 163, 184, .2) 50%, rgba(148, 163, 184, .1) 75%); background-size: 200% 100%; animation: tw-shimmer 1.3s linear infinite; }
+@keyframes tw-shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+.wx-picker { display: grid; }
+.wx-result { display: flex; width: 100%; align-items: center; gap: .4rem; border-radius: .6rem; padding: .45rem .5rem; font-size: .85rem; text-align: left; }
+.wx-result:hover { background: rgba(148, 163, 184, .12); }
+.wx-result .muted { margin-left: auto; font-size: .72rem; }
+.wx-unit { border-radius: 999px; border: 1px solid rgba(148, 163, 184, .35); padding: .1rem .55rem; font-weight: 600; }
+.wx-unit.is-on { background: var(--accent); border-color: transparent; color: #fff; }
+.wx-card.is-compact .wx-emoji { font-size: 2.1rem; }
+.wx-card.is-compact .wx-temp { font-size: 1.7rem; }

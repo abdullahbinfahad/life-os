@@ -1,8 +1,9 @@
 import { translate as tr } from '../lib/locales';
 import { BookImage, Camera, ChevronLeft, ChevronRight, GripVertical, ImagePlus, Images, Plus, Search, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
+import { useDragSensors } from '../lib/dnd';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '../lib/auth';
 import { compressImage, deletePrivateImage, formatBytes, getPrivateImageUrl, uploadPrivateImage } from '../lib/media';
@@ -147,7 +148,7 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
   const preview = previewIndex === undefined ? undefined : gallery[previewIndex];
   const step = useCallback((delta: number) => setPreviewIndex((index) => (index === undefined || !gallery.length ? index : (index + delta + gallery.length) % gallery.length)), [gallery.length]);
   const touchStart = useRef<number>();
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useDragSensors('handle');
   const reorder = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
     useStore.setState((state) => ({ albums: state.albums.map((current) => {

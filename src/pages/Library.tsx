@@ -2,8 +2,9 @@ import { translate as tr } from '../lib/locales';
 import { Copy, Download, Hash, CheckCircle2, Circle, Grid3x3, LayoutList, Library as LibIcon, Plus, Search, Sparkles, Star, Sunrise, Trash2, X, GripVertical } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, rectSortingStrategy } from '@dnd-kit/sortable';
+import { useDragSensors } from '../lib/dnd';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ItemEditor from '../components/ItemEditor';
 import TemplatePicker from '../components/TemplatePicker';
@@ -45,7 +46,7 @@ export default function Library() {
   const [picker, setPicker] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const [inline, setInline] = useState('');
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useDragSensors('handle');
 
   useEffect(() => setQ(params.get('q') ?? ''), [params]);
   useEffect(() => setLimit(PAGE), [q, cat, status, prio, horizon, starredOnly, tag]);

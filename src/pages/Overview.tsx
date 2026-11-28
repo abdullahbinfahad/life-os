@@ -1,5 +1,5 @@
 import { translate as tr } from '../lib/locales';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { ArrowRight, CheckCircle2, Circle, Flame, Plus, Repeat, Sparkles, Sunrise, Target } from 'lucide-react';
 import './Overview.css';
 import { Link } from 'react-router-dom';
@@ -10,6 +10,9 @@ import { useAuth } from '../lib/auth';
 import { cloudEnabled } from '../lib/supabase';
 import { fetchMyAssignedSharedTasks, type AssignedSharedTask } from '../lib/sharedProjects';
 import DailyWrapUp from '../components/DailyWrapUp';
+
+const WeatherCard = lazy(() => import('../components/WeatherCard'));
+const ScheduleToday = lazy(() => import('../components/ScheduleToday'));
 
 export default function Overview() {
   const { items, goals, habits, settings, toggleItemDone } = useStore();
@@ -134,10 +137,11 @@ export default function Overview() {
           <DailyWrapUp compact />
         </section>
 
+        <div className="grid min-w-0 content-start gap-6"><Suspense fallback={null}><WeatherCard /><ScheduleToday /></Suspense>
         <section className="card p-5">
           <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">{tr("Habit check-in")}</h3><p className="mt-1 text-sm muted">{tr("A quick look at today.")}</p></div><Flame size={18} className="text-amber-500" /></div>
           {activeHabits.length === 0 ? <div className="rounded-2xl bg-slate-50 p-4 dark:bg-white/[.04]"><p className="font-medium">{tr("No active habits yet")}</p><p className="mt-1 text-sm muted">{tr("Your habit check-ins will show here when you add habits.")}</p><Link to="/habits" className="mt-3 inline-block text-sm text-indigo-700 dark:text-indigo-300">{tr("Explore habits")}<ArrowRight size={14} className="inline" /></Link></div> : <><p className="text-2xl font-semibold">{habitsToday}<span className="text-base font-normal muted"> / {activeHabits.length} {tr("checked in")}</span></p><Progress className="mt-3" value={pct(habitsToday, activeHabits.length)} color="#22c55e" /><p className="mt-3 text-sm muted">{bestStreak ? `Your longest current daily streak is ${bestStreak} ${bestStreak === 1 ? 'day' : 'days'}.` : 'A small repeatable action is a good start.'}</p></>}
-        </section>
+        </section></div>
       </div>
 
       {user && cloudEnabled && <section className="card min-w-0 p-5">

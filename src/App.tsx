@@ -30,6 +30,8 @@ const Settings = lazy(routeImporters['/settings']);
 const Trash = lazy(routeImporters['/trash']);
 const Today = lazy(routeImporters['/today']);
 const StudyStudio = lazy(routeImporters['/study']);
+const Contacts = lazy(routeImporters['/contacts']);
+const Schedule = lazy(routeImporters['/schedule']);
 
 function LoadingStage({ message, fullscreen = false }: { message: string; fullscreen?: boolean }) {
   return <div className={`loading-stage ${fullscreen ? 'loading-stage-full' : 'loading-stage-route'}`} role="status" aria-live="polite">
@@ -73,6 +75,8 @@ function PrivateRoutes() {
     <Route path="/trash" element={<Trash />} />
     <Route path="/admin" element={<AdminConsole />} />
     <Route path="/study/*" element={<StudyStudio />} />
+    <Route path="/contacts" element={<Contacts />} />
+    <Route path="/schedule" element={<Schedule />} />
     <Route path="*" element={<Overview />} />
   </Routes></Layout></Suspense>;
 }

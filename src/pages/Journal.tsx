@@ -1,8 +1,9 @@
 import { translate as tr } from '../lib/locales';
 import { ArrowLeft, BookOpen, CalendarDays, Flame, Globe2, GripVertical, Hash, Lock, PenLine, Plus, Search, Smile, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useDragSensors } from '../lib/dnd';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
 import { CountUp, Empty, Modal } from '../components/ui';
@@ -58,7 +59,7 @@ export default function Journal() {
   const list = journal.filter((j) => (visibilityFilter === 'all' || j.visibility === visibilityFilter) && (!moodFilter || j.mood === moodFilter) && (dateFilter === 'all' || j.date >= cutoff.toISOString().slice(0, 10)) && (!q || (j.title + j.content + j.tags.join(' ')).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => a.sortOrder != null && b.sortOrder != null ? a.sortOrder - b.sortOrder : a.sortOrder == null && b.sortOrder != null ? -1 : a.sortOrder != null && b.sortOrder == null ? 1 : b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   const hasFilters = Boolean(q || moodFilter || dateFilter !== 'all' || visibilityFilter !== 'all');
   const wordCount = (current?.content ?? '').trim().split(/\s+/).filter(Boolean).length;
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 7 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useDragSensors('handle');
   const onDragEnd = (event: DragEndEvent) => {
     if (hasFilters || !event.over || event.active.id === event.over.id) return;
     const oldIndex = list.findIndex((item) => item.id === event.active.id); const newIndex = list.findIndex((item) => item.id === event.over?.id);

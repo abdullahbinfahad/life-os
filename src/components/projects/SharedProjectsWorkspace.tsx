@@ -1,5 +1,6 @@
 import { translate as tr } from '../../lib/locales';
-import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { useDragSensors } from '../../lib/dnd';
+import { DndContext, closestCenter, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { Activity, ArrowLeft, CalendarDays, Check, ClipboardList, FileText, FolderKanban, GripVertical, LayoutDashboard, Link2, LockKeyhole, MessageCircle, Pencil, Plus, RefreshCw, Route, Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -101,7 +102,7 @@ export default function SharedProjectsWorkspace({ onSelectedChange, onSwitchToPr
   const [descOpen, setDescOpen] = useState(false);
   const pendingCommentSends = useRef(new Map<string, { body: string; taskId: string | null; startedAt: number }>());
   const discussionRequestId = useRef(0);
-  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }), useSensor(KeyboardSensor));
+  const sensors = useDragSensors('handle');
   const selectedIdRef = useRef<string | null>(null);
   const tabsRef = useRef<HTMLElement>(null);
   const tabRef = useRef<Tab>(tab);

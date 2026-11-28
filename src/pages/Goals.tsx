@@ -1,27 +1,52 @@
 import { translate as tr } from '../lib/locales';
-import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, rectSortingStrategy } from '@dnd-kit/sortable';
+import { useDragSensors } from '../lib/dnd';
+import { DndContext, closestCenter, pointerWithin, type CollisionDetection, type DragEndEvent, type DragOverEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CheckCircle2, Circle, Plus, Target, Trash2 } from 'lucide-react';
+import { Check, CheckCircle2, Circle, GripHorizontal, GripVertical, Pencil, Plus, Target, Trash2, X } from 'lucide-react';
+import { useLongPress } from '../lib/useLongPress';
+import { dragHaptic } from '../lib/dnd';
+import type { Milestone } from '../lib/types';
 import { useState } from 'react';
 import { CatBadge, Empty, Modal, PageHeader, Progress, Ring } from '../components/ui';
 import { useCategoryMap, useStore } from '../lib/store';
 import type { Goal } from '../lib/types';
 import { cx, daysBetween, fmtDate, pct, today, uid } from '../lib/utils';
 
-function SortableRow({ id, children, card = false, goalId }: { id: string; children: React.ReactNode; card?: boolean; goalId?: string }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, data: { goalId } });
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement;
-    if (target.closest('input, textarea, select, button, [contenteditable="true"]')) {
-      event.stopPropagation();
-      return;
-    }
-    listeners?.onKeyDown?.(event);
-  };
-  return <div ref={setNodeRef} {...attributes} {...listeners} onKeyDown={handleKeyDown} role="group" tabIndex={0} aria-label={tr(card ? 'Reorder goal' : 'Reorder milestone')} aria-roledescription={tr('Draggable card; press and hold to move')} style={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'pan-y' }} className={cx(card ? 'card relative p-5' : 'milestone-row group flex items-center gap-1 text-sm', 'cursor-grab active:cursor-grabbing', isDragging && 'z-10 bg-indigo-500/10 ring-2 ring-indigo-400')}>
+function SortableRow({ id, children, card = false, goalId, dropTarget = false }: { id: string; children: React.ReactNode; card?: boolean; goalId?: string; dropTarget?: boolean }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id, data: { goalId } });
+  const handle = <button ref={setActivatorNodeRef} type="button" {...attributes} {...listeners} aria-label={tr(card ? 'Drag to reorder goal' : 'Drag to move milestone (to another goal too)')} aria-roledescription={tr('Draggable')} className={card ? 'goal-grip' : 'milestone-grip'}>{card ? <GripHorizontal size={18} /> : <GripVertical size={15} />}</button>;
+  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, position: 'relative', zIndex: isDragging ? 40 : undefined }} className={cx(card ? 'card relative p-5 pt-6' : 'milestone-row group flex items-center gap-0.5 text-sm', isDragging && (card ? 'opacity-80 shadow-2xl' : 'is-dragging'), dropTarget && 'goal-drop-target')}>
+    {card ? handle : null}
+    {!card && handle}
     {children}
   </div>;
+}
+
+function MilestoneRow({ goal, milestone, goals, onToggle, onSave, onDelete, onMove }: { goal: Goal; milestone: Milestone; goals: Goal[]; onToggle: () => void; onSave: (patch: Partial<Milestone>) => void; onDelete: () => void; onMove: (goalId: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(milestone.title);
+  const [due, setDue] = useState(milestone.dueDate ?? '');
+  const press = useLongPress(() => { setTitle(milestone.title); setDue(milestone.dueDate ?? ''); setEditing(true); }, onToggle);
+  const save = () => { const value = title.trim(); if (value) onSave({ title: value, dueDate: due || undefined }); setEditing(false); };
+  if (editing) return <div className="milestone-edit">
+    <input autoFocus className="input min-w-0 !py-2 text-sm" value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') save(); if (event.key === 'Escape') setEditing(false); }} aria-label={tr('Milestone')} />
+    <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+      <input type="date" className="input !w-auto !py-1.5 text-xs" value={due} onChange={(event) => setDue(event.target.value)} aria-label={tr('Due date')} />
+      {goals.length > 1 && <select className="input !w-auto min-w-0 max-w-[12rem] !py-1.5 text-xs" value={goal.id} onChange={(event) => { if (event.target.value !== goal.id) { onMove(event.target.value); setEditing(false); } }} aria-label={tr('Move to goal')}>{goals.map((item) => <option key={item.id} value={item.id}>{item.id === goal.id ? `📍 ${item.title}` : `→ ${item.title}`}</option>)}</select>}
+      <span className="flex-1" />
+      <button type="button" className="tap-action !opacity-100 text-rose-500" aria-label={tr('Delete milestone')} onClick={() => { if (confirm(tr('Delete this milestone?'))) onDelete(); }}><Trash2 size={15} /></button>
+      <button type="button" className="tap-action !opacity-100" aria-label={tr('Cancel')} onClick={() => setEditing(false)}><X size={16} /></button>
+      <button type="button" className="btn-primary !min-h-9 !px-3" onClick={save}><Check size={15} />{tr('Save')}</button>
+    </div>
+  </div>;
+  return <>
+    <button type="button" role="checkbox" aria-checked={milestone.done} title={tr('Tap to tick · long-press or double-click to edit')} className={cx('milestone-toggle', milestone.done && 'is-done')} {...press}>
+      <span className="milestone-check" aria-hidden="true">{milestone.done ? <CheckCircle2 size={19} /> : <Circle size={19} />}</span>
+      <span className="min-w-0 flex-1 text-left"><span className={cx('break-words', milestone.done && 'line-through muted')}>{milestone.title}</span>{milestone.dueDate && <span className="mt-0.5 block text-xs muted">{tr('Due date')}: {fmtDate(milestone.dueDate)}</span>}</span>
+    </button>
+    <button type="button" className="milestone-delete" aria-label={`${tr('Edit milestone')}: ${milestone.title}`} title={tr('Edit')} onClick={() => { setTitle(milestone.title); setDue(milestone.dueDate ?? ''); setEditing(true); }}><Pencil size={14} /></button>
+  </>;
 }
 
 export default function Goals() {
@@ -32,7 +57,9 @@ export default function Goals() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', categoryId: categories[0]?.id ?? '', targetDate: '' });
   const [ms, setMs] = useState<Record<string, string>>({});
-  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 10 } }), useSensor(TouchSensor, { activationConstraint: { delay: 280, tolerance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useDragSensors('handle');
+  const [overGoal, setOverGoal] = useState<string | null>(null);
+  const [moveNote, setMoveNote] = useState('');
 
   const list = goals.filter((g) => filter === 'all' || g.status === filter);
   const progress = (g: Goal) => {
@@ -55,8 +82,37 @@ export default function Goals() {
     setMs({ ...ms, [g.id]: '' });
   };
 
+  const goalOf = (id: string | undefined) => !id ? undefined : id.startsWith('goal:') ? id.slice(5) : goals.find((goal) => goal.milestones.some((m) => `milestone:${m.id}` === id))?.id;
+  // Milestones look for other milestones first, then for a goal card to drop into; goals only see goals.
+  const collision: CollisionDetection = (args) => {
+    const activeId = String(args.active.id);
+    if (activeId.startsWith('goal:')) return closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((entry) => String(entry.id).startsWith('goal:')) });
+    const milestones = args.droppableContainers.filter((entry) => String(entry.id).startsWith('milestone:'));
+    const onMilestone = pointerWithin({ ...args, droppableContainers: milestones });
+    if (onMilestone.length) return onMilestone;
+    const onGoal = pointerWithin({ ...args, droppableContainers: args.droppableContainers.filter((entry) => String(entry.id).startsWith('goal:')) });
+    if (onGoal.length) return onGoal;
+    return closestCenter({ ...args, droppableContainers: milestones });
+  };
+  const moveMilestone = (milestoneId: string, fromGoalId: string, toGoalId: string, beforeId?: string) => {
+    const from = goals.find((goal) => goal.id === fromGoalId); const to = goals.find((goal) => goal.id === toGoalId);
+    const milestone = from?.milestones.find((m) => m.id === milestoneId);
+    if (!from || !to || !milestone || from.id === to.id) return;
+    const index = beforeId ? to.milestones.findIndex((m) => m.id === beforeId) : -1;
+    const nextTo = [...to.milestones]; nextTo.splice(index >= 0 ? index : nextTo.length, 0, milestone);
+    useStore.setState((state) => ({ goals: state.goals.map((goal) => goal.id === from.id ? { ...goal, milestones: goal.milestones.filter((m) => m.id !== milestoneId) } : goal.id === to.id ? { ...goal, milestones: nextTo } : goal) }));
+    setMoveNote(`${tr('Moved')} “${milestone.title}” ${tr('to')} ${to.title}`);
+    window.setTimeout(() => setMoveNote(''), 2600);
+  };
+  const onDragOver = ({ active, over }: DragOverEvent) => {
+    if (!String(active.id).startsWith('milestone:')) return;
+    const target = goalOf(over ? String(over.id) : undefined);
+    setOverGoal(target && target !== active.data.current?.goalId ? target : null);
+  };
   const reorder = ({ active, over }: DragEndEvent) => {
+    setOverGoal(null);
     if (!over || active.id === over.id) return;
+    dragHaptic();
     const a = String(active.id), b = String(over.id);
     if (a.startsWith('goal:') && b.startsWith('goal:')) {
       const visibleIds = list.map((g) => g.id);
@@ -66,13 +122,15 @@ export default function Goals() {
         const byId = new Map(state.goals.map((g) => [g.id, g]));
         return { goals: state.goals.map((g) => visible.has(g.id) ? byId.get(moved[i++])! : g) };
       });
-    } else if (a.startsWith('milestone:') && b.startsWith('milestone:')) {
-      const goalId = active.data.current?.goalId as string | undefined;
-      if (!goalId || over.data.current?.goalId !== goalId) return;
-      const goal = goals.find((g) => g.id === goalId); if (!goal) return;
+    } else if (a.startsWith('milestone:')) {
+      const fromGoalId = active.data.current?.goalId as string | undefined;
+      const toGoalId = goalOf(b);
+      if (!fromGoalId || !toGoalId) return;
+      if (toGoalId !== fromGoalId) { moveMilestone(a.slice(10), fromGoalId, toGoalId, b.startsWith('milestone:') ? b.slice(10) : undefined); return; }
+      const goal = goals.find((g) => g.id === fromGoalId); if (!goal || !b.startsWith('milestone:')) return;
       const from = goal.milestones.findIndex((m) => `milestone:${m.id}` === a);
       const to = goal.milestones.findIndex((m) => `milestone:${m.id}` === b);
-      if (from >= 0 && to >= 0) updateGoal(goalId, { milestones: arrayMove(goal.milestones, from, to) });
+      if (from >= 0 && to >= 0) updateGoal(fromGoalId, { milestones: arrayMove(goal.milestones, from, to) });
     }
   };
 
@@ -84,10 +142,11 @@ export default function Goals() {
           <button key={f} onClick={() => setFilter(f)} className={cx('btn capitalize', filter === f ? 'bg-indigo-600 text-white' : 'btn-ghost')}>{f} <span className="text-xs opacity-60">{goals.filter((g) => f === 'all' || g.status === f).length}</span></button>
         ))}
       </div>
+      {moveNote && <div className="goal-move-note" role="status"><Check size={15} />{moveNote}</div>}
       {list.length === 0 ? (
         <Empty icon={<Target size={28} />} title={tr("No goals here")} text="Goals are meaningful outcomes. Break them into milestones and link library items and projects to track progress." action={<button className="btn-primary" onClick={() => setCreating(true)}>{tr("Create a goal")}</button>} />
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorder} accessibility={{ announcements: {
+        <DndContext sensors={sensors} collisionDetection={collision} onDragStart={() => dragHaptic()} onDragOver={onDragOver} onDragCancel={() => setOverGoal(null)} onDragEnd={reorder} accessibility={{ announcements: {
           onDragStart: ({ active }) => `${String(active.id).startsWith('goal:') ? tr('Goal') : tr('Milestone')} ${tr('picked up')}`,
           onDragOver: ({ over }) => over ? `${tr('Over')} ${String(over.id).startsWith('goal:') ? tr('goal') : tr('milestone')}` : tr('Not over a drop target'),
           onDragEnd: ({ active, over }) => over ? `${String(active.id).startsWith('goal:') ? tr('Goal') : tr('Milestone')} ${tr('reordered')}` : tr('Drag cancelled'),
@@ -102,7 +161,7 @@ export default function Goals() {
             const linkedProjects = projects.filter((x) => x.goalId === g.id);
             const linkedItems = items.filter((i) => i.goalId === g.id);
             return (
-              <SortableRow key={g.id} id={`goal:${g.id}`} card>
+              <SortableRow key={g.id} id={`goal:${g.id}`} card dropTarget={overGoal === g.id}>
                 <div className="flex items-start gap-4">
                   <Ring value={p} size={72} color={c?.color} />
                   <div className="min-w-0 flex-1">
@@ -120,17 +179,18 @@ export default function Goals() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <div className="label mb-1">{tr("Milestones")}</div>
+                  <div className="label mb-1 flex items-center justify-between"><span>{tr("Milestones")}</span>{g.milestones.length > 0 && <span className="text-[10px] font-normal normal-case tracking-normal opacity-70">{tr('Long-press to edit')}</span>}</div>
                   <SortableContext items={g.milestones.map((m) => `milestone:${m.id}`)} strategy={verticalListSortingStrategy}>
                   {g.milestones.map((m) => (
                     <SortableRow key={m.id} id={`milestone:${m.id}`} goalId={g.id}>
-                      <button type="button" role="checkbox" aria-checked={m.done} className={cx('milestone-toggle', m.done && 'is-done')} onClick={() => updateGoal(g.id, { milestones: g.milestones.map((x) => (x.id === m.id ? { ...x, done: !x.done } : x)) })}>
-                        <span className="milestone-check" aria-hidden="true">{m.done ? <CheckCircle2 size={19} /> : <Circle size={19} />}</span>
-                        <span className="min-w-0 flex-1 text-left"><span className={cx('break-words', m.done && 'line-through muted')}>{m.title}</span>{m.dueDate && <span className="mt-0.5 block text-xs muted">{tr('Due date')}: {fmtDate(m.dueDate)}</span>}</span>
-                      </button>
-                      <button type="button" className="milestone-delete" aria-label={`${tr('Delete milestone')}: ${m.title}`} title={tr('Delete milestone')} onClick={() => confirm(tr('Delete this milestone?')) && updateGoal(g.id, { milestones: g.milestones.filter((x) => x.id !== m.id) })}><Trash2 size={14} /></button>
+                      <MilestoneRow goal={g} milestone={m} goals={goals.filter((goal) => goal.status !== 'done' || goal.id === g.id)}
+                        onToggle={() => updateGoal(g.id, { milestones: g.milestones.map((x) => (x.id === m.id ? { ...x, done: !x.done } : x)) })}
+                        onSave={(patch) => updateGoal(g.id, { milestones: g.milestones.map((x) => (x.id === m.id ? { ...x, ...patch } : x)) })}
+                        onDelete={() => updateGoal(g.id, { milestones: g.milestones.filter((x) => x.id !== m.id) })}
+                        onMove={(toGoalId) => moveMilestone(m.id, g.id, toGoalId)} />
                     </SortableRow>
                   ))}
+                  {g.milestones.length === 0 && overGoal === g.id && <p className="goal-drop-hint">{tr('Drop here to move the milestone')}</p>}
                   </SortableContext>
                   <input className="input mt-2 min-h-10 !py-2" enterKeyHint="done" placeholder={tr("+ Add milestone, press Enter")} value={ms[g.id] ?? ''} onChange={(e) => setMs({ ...ms, [g.id]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && addMilestone(g)} />
                 </div>

@@ -1,4 +1,4 @@
-const CACHE = 'life-circle-static-v5';
+const CACHE = 'life-circle-static-v6';
 const SHELL = new URL('./', self.location.href).href;
 
 self.addEventListener('install', (event) => {
@@ -71,4 +71,45 @@ self.addEventListener('fetch', (event) => {
       }
     })());
   }
+});
+
+/* ---------------- Notifications ---------------- */
+// Tapping a notification (or one of its buttons) focuses Life OS and routes to the right page.
+self.addEventListener('notificationclick', (event) => {
+  const note = event.notification;
+  const data = note.data || {};
+  const action = event.action || 'open';
+  note.close();
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const client = all.find((entry) => entry.url.startsWith(SHELL)) || all[0];
+    if (action === 'done' && data.reminderId) {
+      if (client) { client.postMessage({ type: 'lifeos-notification', action: 'done', reminderId: data.reminderId }); return; }
+      await self.clients.openWindow(`${SHELL}#${data.url || '/'}${(data.url || '').includes('?') ? '&' : '?'}lifeos-done=${encodeURIComponent(data.reminderId)}`);
+      return;
+    }
+    if (client) {
+      try { await client.focus(); } catch { /* some browsers refuse focus; still route */ }
+      client.postMessage({ type: 'lifeos-notification', action: 'open', url: data.url || '/' });
+      return;
+    }
+    await self.clients.openWindow(`${SHELL}#${data.url || '/'}`);
+  })());
+});
+
+// Server push (Web Push) — shows whatever the Life OS server sends, even when the app is closed.
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch { payload = { body: event.data ? event.data.text() : '' }; }
+  const title = payload.title || 'Life OS';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: payload.body || '',
+    tag: payload.tag || 'lifeos-push',
+    icon: `${SHELL}icon-192.png`,
+    badge: `${SHELL}notification-badge.png`,
+    data: { url: payload.url || '/notifications', reminderId: payload.reminderId },
+    vibrate: [120, 60, 120],
+    renotify: true,
+    actions: payload.reminderId ? [{ action: 'done', title: '✓ Mark done' }, { action: 'open', title: 'Open' }] : [{ action: 'open', title: 'Open' }],
+  }));
 });

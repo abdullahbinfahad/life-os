@@ -2,8 +2,9 @@ import { translate as tr } from '../lib/locales';
 import { Check, Download, GripVertical, ImagePlus, Lock, Plus, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
+import { useDragSensors } from '../lib/dnd';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { PageHeader } from '../components/ui';
 import { useStore } from '../lib/store';
@@ -36,7 +37,7 @@ export default function Settings() {
   const { user, sync, syncError, lastSynced } = useAuth();
   const ownerAdmin = useOwnerAdmin();
   const rewardPoints = s.rewardEvents.reduce((sum, event) => sum + event.points, 0);
-  const categorySensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const categorySensors = useDragSensors('handle');
   const reorderCategory = (event: DragEndEvent) => {
     const from = s.categories.findIndex((category) => category.id === event.active.id);
     const to = s.categories.findIndex((category) => category.id === event.over?.id);
@@ -127,7 +128,7 @@ export default function Settings() {
       const snapshot = {
         categories: current.categories, items: current.items, goals: current.goals, projects: current.projects,
         habits: current.habits, journal: current.journal, albums: current.albums, settings: current.settings,
-        trash: current.trash, focusSessions: current.focusSessions, rewardEvents: current.rewardEvents, study: current.study,
+        trash: current.trash, focusSessions: current.focusSessions, rewardEvents: current.rewardEvents, study: current.study, contacts: current.contacts, schedules: current.schedules, planner: current.planner,
       };
       useStore.getState().resetAll();
       if (eraseCloudAccount) {
@@ -148,8 +149,8 @@ export default function Settings() {
   };
 
   const exportJSON = () => {
-    const { categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents, study } = useStore.getState();
-    download(`life-circle-backup-${today()}.json`, JSON.stringify({ version: 6, categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents, study }, null, 2));
+    const { categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents, study, contacts, schedules, planner } = useStore.getState();
+    download(`life-circle-backup-${today()}.json`, JSON.stringify({ version: 8, categories, items, goals, projects, habits, journal, albums, settings, trash, focusSessions, rewardEvents, study, contacts, schedules, planner }, null, 2));
   };
   const beginBackup = (action: NonNullable<typeof backupAction>) => {
     if (!user) { setMsg('Sign in before importing or exporting private account data.'); return; }

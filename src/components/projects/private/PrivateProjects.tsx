@@ -1,6 +1,7 @@
 import { translate as tr } from '../../../lib/locales';
-import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useDragSensors } from '../../../lib/dnd';
+import { DndContext, closestCenter, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, Circle, CircleDashed, ClipboardList, GripVertical, LayoutGrid, Link2, List, Lock, Pencil, Plus, Search, Share2, Target, Trash2, Users, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -96,7 +97,7 @@ export function PrivateProjectList({ projects, categories, goals, language, shar
   const [query, setQuery] = useState('');
   const [notice, setNotice] = useState('');
   useEffect(() => { try { localStorage.setItem('lifeos:pp-filter', filter); localStorage.setItem('lifeos:pp-layout', layout); } catch { /* storage blocked */ } }, [filter, layout]);
-  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }), useSensor(KeyboardSensor));
+  const sensors = useDragSensors('handle');
   const catMap = useMemo(() => Object.fromEntries(categories.map((category) => [category.id, category])), [categories]);
   const goalMap = useMemo(() => Object.fromEntries(goals.map((goal) => [goal.id, goal])), [goals]);
   const counts = PROJECT_STATUS.reduce((acc, item) => ({ ...acc, [item.id]: projects.filter((project) => project.status === item.id).length }), { all: projects.length } as Record<Filter, number>);
@@ -173,7 +174,7 @@ export function PrivateProjectDetail({ project, categories, goals, language, can
   const [descOpen, setDescOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const desc = useRef<HTMLTextAreaElement>(null);
-  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useDragSensors('handle');
   useEffect(() => { setTitleDraft(project.title); setEditTitle(false); setOpenTask(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }, [project.id]);
   useEffect(() => { const el = desc.current; if (el && descOpen) { el.style.height = 'auto'; el.style.height = `${Math.max(96, el.scrollHeight)}px`; } }, [descOpen, project.description]);
 

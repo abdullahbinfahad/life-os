@@ -1,6 +1,7 @@
 import { translate as tr } from '../../lib/locales';
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useDragSensors } from '../../lib/dnd';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -39,11 +40,7 @@ function SortableNavigationRow({ item, index, total, update, move, remove }: Row
 
 export default function NavigationEditor({ items, onChange, saving, error, onSave, loading }: Props) {
   const [routeToAdd, setRouteToAdd] = useState(SAFE_NAVIGATION_ROUTES[0]);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const sensors = useDragSensors('handle');
   const update = (index: number, patch: Partial<NavigationItem>) => onChange(items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
   const move = (index: number, direction: -1 | 1) => {
     const nextIndex = index + direction;

@@ -1,7 +1,8 @@
-import type { Goal, Habit, LifeItem, Project, Task } from './types';
+import type { Contact, Goal, Habit, LifeItem, Project, Task } from './types';
+import { nextBirthday } from './contacts';
 import { addDays, daysBetween, today } from './utils';
 
-export type ReminderKind = 'library-item' | 'project-task' | 'shared-task' | 'project-date' | 'goal-date' | 'habit-checkin';
+export type ReminderKind = 'library-item' | 'project-task' | 'shared-task' | 'project-date' | 'goal-date' | 'habit-checkin' | 'contact-follow-up' | 'contact-birthday' | 'contact-keep-in-touch';
 export interface Reminder {
   id: string;
   kind: ReminderKind;
@@ -15,13 +16,14 @@ export interface Reminder {
   itemId?: string;
   goalId?: string;
   habitId?: string;
+  contactId?: string;
   detail?: string;
 }
 
 const overdue = (date?: string, now = today()) => Boolean(date && date < now);
 const inWindow = (date?: string, end = addDays(today(), 7)) => Boolean(date && date <= end);
 
-export function collectReminders(data: { items: LifeItem[]; goals: Goal[]; projects: Project[]; habits: Habit[] }, now = today()): Reminder[] {
+export function collectReminders(data: { items: LifeItem[]; goals: Goal[]; projects: Project[]; habits: Habit[]; contacts?: Contact[] }, now = today()): Reminder[] {
   const end = addDays(now, 7);
   const reminders: Reminder[] = [];
   for (const item of data.items) {
@@ -49,6 +51,21 @@ export function collectReminders(data: { items: LifeItem[]; goals: Goal[]; proje
     const needsCheckin = habit.frequency === 'daily' ? !completed : weeklyCount < habit.targetPerWeek;
     if (!needsCheckin) continue;
     reminders.push({ id: `habit:${habit.id}:${now}`, kind: 'habit-checkin', title: habit.title, route: '/habits', overdue: false, habitId: habit.id, detail: habit.frequency === 'daily' ? 'Daily check-in' : `${weeklyCount}/${habit.targetPerWeek} this week` });
+  }
+  for (const contact of data.contacts ?? []) {
+    const route = `/contacts?c=${encodeURIComponent(contact.id)}`;
+    if (contact.followUpDate && inWindow(contact.followUpDate, end)) {
+      reminders.push({ id: `contact-follow:${contact.id}:${contact.followUpDate}`, kind: 'contact-follow-up', title: `${contact.name}`, dueDate: contact.followUpDate, route, overdue: overdue(contact.followUpDate, now), contactId: contact.id, detail: contact.followUpNote ? `Follow up · ${contact.followUpNote}` : 'Follow up' });
+    }
+    const birthday = nextBirthday(contact.birthday);
+    if (birthday && birthday.days <= 7) {
+      reminders.push({ id: `contact-bday:${contact.id}:${birthday.date}`, kind: 'contact-birthday', title: `${contact.name}`, dueDate: birthday.date, route, overdue: false, contactId: contact.id, detail: birthday.turns ? `Birthday · turns ${birthday.turns}` : 'Birthday' });
+    }
+    if (contact.keepInTouchDays) {
+      const last = (contact.lastContacted ?? contact.createdAt).slice(0, 10);
+      const due = addDays(last, contact.keepInTouchDays);
+      if (due <= now) reminders.push({ id: `contact-touch:${contact.id}:${due}`, kind: 'contact-keep-in-touch', title: `${contact.name}`, dueDate: due, route, overdue: due < now, contactId: contact.id, detail: 'Time to reconnect' });
+    }
   }
   return reminders.sort((a, b) => Number(b.overdue) - Number(a.overdue) || (a.dueDate ?? '9999-12-31').localeCompare(b.dueDate ?? '9999-12-31') || a.title.localeCompare(b.title));
 }

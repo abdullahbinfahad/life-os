@@ -1,5 +1,5 @@
 import { translate as tr } from '../lib/locales';
-import { Bell, CalendarDays, Check, CheckCircle2, Circle, Clock3, ExternalLink, Flame, ShieldCheck } from 'lucide-react';
+import { CalendarDays, Check, CheckCircle2, Circle, Clock3, ExternalLink, Flame } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Empty, PageHeader } from '../components/ui';
@@ -9,7 +9,9 @@ import { cloudEnabled } from '../lib/supabase';
 import { fetchMyAssignedSharedTasks, sharedServiceError, subscribeToSharedWorkspace, updateSharedTask, type AssignedSharedTask } from '../lib/sharedProjects';
 import { collectReminders, reminderTiming, type Reminder } from '../lib/reminders';
 import { fmtDate, today } from '../lib/utils';
-import { playFeedback } from '../lib/sounds';
+import { completeReminder } from '../lib/reminderActions';
+import { isIOS, isStandalone, requestPermission, showAppNotification } from '../lib/notify';
+import NotificationSettings from '../components/NotificationSettings';
 
 const sectionCopy = {
   overdue: { title: 'Overdue', color: 'text-rose-700 dark:text-rose-300', surface: 'border-rose-200 bg-rose-50/70 dark:border-rose-500/20 dark:bg-rose-500/[.06]' },
@@ -23,14 +25,12 @@ export default function Notifications() {
   const { user } = useAuth();
   const [sharedTasks, setSharedTasks] = useState<AssignedSharedTask[]>([]);
   const reminders = useMemo<Reminder[]>(() => [
-    ...collectReminders({ items: state.items, goals: state.goals, projects: state.projects, habits: state.habits }),
+    ...collectReminders({ items: state.items, goals: state.goals, projects: state.projects, habits: state.habits, contacts: state.contacts }),
     ...sharedTasks.map((task) => ({ id: `shared-task:${task.id}`, kind: 'shared-task' as const, title: task.title, dueDate: task.due_date ?? undefined, route: '/projects', overdue: Boolean(task.due_date && task.due_date < today()), sharedTaskId: task.id, detail: `${task.project_title} · ${tr('Shared project')}` })),
-  ], [state.items, state.goals, state.projects, state.habits, sharedTasks]);
+  ], [state.items, state.goals, state.projects, state.habits, state.contacts, sharedTasks]);
   const [permissionMessage, setPermissionMessage] = useState('');
-  const [notificationSupported, setNotificationSupported] = useState(false);
   const todayKey = today();
 
-  useEffect(() => { setNotificationSupported(typeof window !== 'undefined' && 'Notification' in window); }, []);
   useEffect(() => {
     if (!cloudEnabled || !user?.id) { setSharedTasks([]); return; }
     let active = true;
@@ -40,45 +40,24 @@ export default function Notifications() {
     const unsubscribe = subscribeToSharedWorkspace(user.id, () => { if (refreshTimer) clearTimeout(refreshTimer); refreshTimer = setTimeout(refreshShared, 250); });
     return () => { active = false; if (refreshTimer) clearTimeout(refreshTimer); unsubscribe(); };
   }, [user?.id]);
-  useEffect(() => {
-    if (!state.settings.browserNotifications || !('Notification' in window) || Notification.permission !== 'granted') return;
-    const urgent = reminders.filter((reminder) => {
-      const timing = reminderTiming(reminder, todayKey);
-      return timing === 'overdue' || timing === 'today';
-    });
-    if (!urgent.length) return;
-    const storageKey = `lifeos-browser-reminders:${todayKey}`;
-    let already: string[] = [];
-    try { already = JSON.parse(localStorage.getItem(storageKey) ?? '[]'); } catch { /* Ignore corrupt local notification history. */ }
-    const fresh = urgent.filter((reminder) => !already.includes(reminder.id));
-    if (!fresh.length) return;
-    try {
-      const body = fresh.length === 1 ? fresh[0].title : `${fresh.length} items need attention today.`;
-      new Notification('Life OS reminders', { body, tag: `lifeos:${todayKey}`, icon: `${import.meta.env.BASE_URL}lifeos-mark.svg` });
-      localStorage.setItem(storageKey, JSON.stringify([...already, ...fresh.map((reminder) => reminder.id)]));
-      playFeedback('notification');
-    } catch { /* Browser notifications are an enhancement; the in-app inbox remains available. */ }
-  }, [state.settings.browserNotifications, reminders, todayKey]);
-
   const enableNotifications = async (enabled: boolean) => {
-    if (!enabled) { state.updateSettings({ browserNotifications: false }); setPermissionMessage(tr('Browser alerts are off. In-app reminders remain available.')); return; }
-    if (!('Notification' in window)) { setPermissionMessage(tr('This browser does not support notifications. In-app reminders are available here.')); return; }
-    try {
-      const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
-      if (permission === 'granted') { state.updateSettings({ browserNotifications: true }); setPermissionMessage(tr('Browser alerts are enabled; this Reminders page checks them while open. Delivery is best-effort and may be delayed if the browser suspends it.')); }
-      else { state.updateSettings({ browserNotifications: false }); setPermissionMessage(tr('Notifications were not allowed. You can still use this in-app reminder list.')); }
-    } catch { setPermissionMessage(tr('Could not enable browser notifications. In-app reminders remain available.')); }
+    if (!enabled) { state.updateSettings({ browserNotifications: false }); setPermissionMessage(tr('Device notifications are off. In-app reminders remain available.')); return; }
+    const result = await requestPermission();
+    if (result === 'granted') {
+      state.updateSettings({ browserNotifications: true });
+      const shown = await showAppNotification({ title: `✅ ${tr('Notifications are on')}`, body: tr('Life OS will remind you about due work, classes, habits and people.'), tag: 'lifeos-test', url: '/notifications' });
+      setPermissionMessage(tr(shown ? 'Notifications are on for this device.' : 'Permission granted, but this device did not show a test alert. Check system notification settings.'));
+    } else if (result === 'unsupported') setPermissionMessage(tr(isIOS() && !isStandalone() ? 'On iPhone/iPad: tap Share → “Add to Home Screen”, open Life OS from the Home Screen, then turn notifications on.' : 'This browser does not support notifications. In-app reminders are available here.'));
+    else { state.updateSettings({ browserNotifications: false }); setPermissionMessage(tr('Notifications are blocked. Allow them for this site in your browser or system settings, then try again.')); }
   };
 
   const complete = async (reminder: Reminder) => {
-    if (reminder.itemId) state.updateItem(reminder.itemId, { status: 'done' });
-    if (reminder.projectId && reminder.taskId) state.updateTask(reminder.projectId, reminder.taskId, { done: true });
-    if (reminder.habitId) state.toggleHabit(reminder.habitId, todayKey);
-    if (reminder.goalId) state.updateGoal(reminder.goalId, { status: 'done' });
     if (reminder.sharedTaskId && user?.id) {
       try { await updateSharedTask(reminder.sharedTaskId, { status: 'done' }); state.awardReward(`shared-task:${user.id}:${reminder.sharedTaskId}`, reminder.title, 'task', 20); }
       catch (error) { setPermissionMessage(sharedServiceError(error)); }
+      return;
     }
+    completeReminder(reminder);
   };
 
   const buckets = (['overdue', 'today', 'upcoming', 'check-in'] as const).map((key) => [key, reminders.filter((reminder) => reminderTiming(reminder, todayKey) === key)] as const).filter(([, rows]) => rows.length);
@@ -86,8 +65,8 @@ export default function Notifications() {
 
   return (
     <div className="min-w-0">
-      <PageHeader title={tr('Reminders')} subtitle={urgentCount ? `${urgentCount} ${tr('due or overdue items need attention')}` : tr('Due dates and unfinished work, in one quiet place')} actions={<label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-white/[.04]"><Bell size={16} className="shrink-0 text-indigo-600 dark:text-indigo-300" /><span>{tr('Browser alerts')}</span><input type="checkbox" className="h-4 w-4 shrink-0 accent-indigo-600" checked={Boolean(state.settings.browserNotifications && notificationSupported)} disabled={!notificationSupported} onChange={(event) => void enableNotifications(event.target.checked)} aria-label={tr('Enable browser notifications')} /></label>} />
-      <div className="mb-5 flex items-start gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-xs leading-5 muted dark:border-white/10 dark:bg-white/[.03]"><ShieldCheck size={15} className="mt-0.5 shrink-0" /><p>{tr('Browser alerts are optional. They are checked when this Reminders page is open and may be delayed if the browser is suspended. They are not scheduled in the background. Your due dates and habit logs remain in your private account.')}</p></div>
+      <PageHeader title={tr('Reminders')} subtitle={urgentCount ? `${urgentCount} ${tr('due or overdue items need attention')}` : tr('Due dates and unfinished work, in one quiet place')} />
+      <NotificationSettings onEnable={(enabled) => void enableNotifications(enabled)} />
       {permissionMessage && <p role="status" className="mb-4 rounded-lg bg-indigo-500/10 px-3 py-2 text-sm text-indigo-800 dark:text-indigo-200">{permissionMessage}</p>}
       {reminders.length === 0 ? <Empty icon={<CheckCircle2 size={28} />} title={tr('All clear for now')} text={tr('You have no due or unfinished items in the next week. New reminders will appear here automatically.')} action={<Link className="btn-outline" to="/projects">{tr('Open projects')} <ExternalLink size={14} /></Link>} /> : (
         <div className="space-y-5">
