@@ -35,7 +35,7 @@ html.theme-monochrome .dash-hero { background: linear-gradient(135deg, #1c1c1c, 
 .dash-actions .btn { min-height: 2.75rem; }
 .dash-ghost { color: #f1f5f9; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); }
 .dash-ghost:hover { background: rgba(255,255,255,.15); }
-@media (max-width: 520px) { .dash-actions { display: grid; grid-template-columns: 1fr 1fr; } .dash-actions .btn-primary { grid-column: 1 / -1; } }
+
 
 .dash-rings { display: flex; align-items: center; gap: 1.25rem; justify-self: center; }
 .dash-rings svg { width: clamp(9rem, 32vw, 12.5rem); height: auto; transform: rotate(-90deg); filter: drop-shadow(0 10px 30px rgba(0,0,0,.35)); }
@@ -46,4 +46,25 @@ html.theme-monochrome .dash-hero { background: linear-gradient(135deg, #1c1c1c, 
 .dash-legend li { display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
 .dash-legend i { width: .65rem; height: .65rem; border-radius: 99px; box-shadow: 0 0 10px currentColor; }
 .dash-legend b { margin-left: auto; padding-left: .75rem; color: #fff; font-variant-numeric: tabular-nums; }
-@media (max-width: 420px) { .dash-rings { flex-direction: column; } }
+
+
+/* Phone: a compact hero — text and small rings side by side, one row of actions. */
+@media (max-width: 639px) {
+  .dash-hero { grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; padding: .95rem 1rem 1rem; border-radius: 1.35rem; align-items: start; }
+  .dash-hero-art span:nth-child(1) { width: 20rem; height: 20rem; right: -9rem; top: -10rem; }
+  .dash-hero-art span:nth-child(2) { width: 13rem; height: 13rem; right: -5rem; top: -6rem; }
+  .dash-chip { padding: .2rem .55rem; font-size: .66rem; }
+  .dash-title { margin-top: .45rem; font-size: 1.45rem; }
+  .dash-sub { margin-top: .3rem; font-size: .8rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .dash-actions { margin-top: .75rem; display: flex; flex-wrap: nowrap; gap: .45rem; }
+  .dash-actions .btn { min-height: 2.5rem; }
+  .dash-actions .btn-primary { flex: 1; min-width: 0; justify-content: center; white-space: nowrap; }
+  .dash-actions .dash-ghost { flex: none; width: 2.5rem; padding: 0; justify-content: center; }
+  .dash-act-label { display: none; }
+  .dash-rings { flex-direction: column; gap: .45rem; align-self: start; margin-top: .15rem; }
+  .dash-rings svg { width: 5.4rem; filter: drop-shadow(0 6px 16px rgba(0,0,0,.3)); }
+  .dash-legend { gap: .15rem; font-size: .62rem; }
+  .dash-legend li { gap: .3rem; }
+  .dash-legend i { width: .45rem; height: .45rem; }
+  .dash-legend b { padding-left: .35rem; }
+}

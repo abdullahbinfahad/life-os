@@ -66,8 +66,8 @@ export default function Overview() {
           <p className="dash-sub">{todayItems.length ? `${todayItems.length} ${tr('things left today')} · ${habitsToday}/${activeHabits.length} ${tr('habits checked in')}` : tr('A clear place for the goals you care about and the next small step you can take.')}</p>
           <div className="dash-actions">
             <button type="button" onClick={() => window.dispatchEvent(new Event('lifeos:quickadd'))} className="btn-primary"><Plus size={16} /> {tr('Add a task')}</button>
-            <Link to="/today" className="btn dash-ghost"><Sunrise size={16} /> {tr('View today')}</Link>
-            <Link to="/goals" className="btn dash-ghost"><Target size={16} /> {tr('Add a goal')}</Link>
+            <Link to="/today" className="btn dash-ghost" aria-label={tr('View today')}><Sunrise size={16} /><span className="dash-act-label">{tr('View today')}</span></Link>
+            <Link to="/goals" className="btn dash-ghost" aria-label={tr('Add a goal')}><Target size={16} /><span className="dash-act-label">{tr('Add a goal')}</span></Link>
           </div>
         </div>
         <div className="dash-rings" role="img" aria-label={`${tr('Tasks')} ${taskPct}%, ${tr('Habits')} ${habitPct}%, ${tr('Goals')} ${goalPct}%`}>
