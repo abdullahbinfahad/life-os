@@ -170,7 +170,7 @@ html.dark .mobile-app-header.is-scrolled { box-shadow: 0 8px 28px rgba(0,0,0,.35
   backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255,255,255,.12);
   box-shadow: 0 4px 18px rgba(76,63,230,.30), inset 0 -1px 0 rgba(255,255,255,.06);
-  pointer-events: none; transition: transform .38s var(--ease-spring), opacity .2s ease;
+  pointer-events: none; transition: none;
 }
 .mobile-bottom-nav a:active { transform: scale(.93); }
 .mobile-bottom-nav a[aria-current="page"] { color: var(--accent); }
@@ -190,7 +190,7 @@ html.theme-forest .mobile-bottom-nav a[aria-current="page"] { color: #6ee7b7; }
   backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255,255,255,.12);
   box-shadow: 0 10px 24px rgba(76,63,230,.30), inset 0 -1px 0 rgba(255,255,255,.06);
-  pointer-events: none; transition: transform .38s var(--ease-spring), opacity .2s ease;
+  pointer-events: none; transition: none;
 }
 html.theme-forest .app-sidebar .sidebar-pill, html.theme-forest .mobile-drawer-panel .sidebar-pill { background-image: linear-gradient(100deg, rgba(16,185,129,.22), rgba(16,185,129,.09)); }
 html.theme-monochrome .app-sidebar .sidebar-pill, html.theme-monochrome .mobile-drawer-panel .sidebar-pill { background-image: none; background-color: rgba(0,0,0,.07); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
