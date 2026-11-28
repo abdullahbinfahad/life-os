@@ -488,11 +488,11 @@ html:not(.dark) .card {
   box-shadow: inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(255,255,255,.2), 0 10px 36px rgba(15,23,42,.10);
 }
 html.dark .card {
-  background: linear-gradient(135deg, rgba(148,163,255,.12), rgba(255,255,255,.05));
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255,255,255,.18);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), inset 0 -1px 0 rgba(255,255,255,.04), 0 14px 44px rgba(0,0,0,.38);
+  background: linear-gradient(135deg, rgba(255,255,255,.16), rgba(148,163,255,.08) 45%, rgba(255,255,255,.04));
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid rgba(255,255,255,.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -1px 0 rgba(255,255,255,.04), 0 14px 44px rgba(0,0,0,.38);
 }
 /* Named themes keep their hue, as a translucent tint instead of a solid fill. */
 html.theme-paper .card {
@@ -526,45 +526,48 @@ html.theme-monochrome .card {
 
 /* Chrome: sidebar, drawer, bottom nav, header. */
 .app-sidebar, .mobile-drawer-panel {
-  background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.4));
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
+  background: linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.32));
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  backdrop-filter: blur(32px) saturate(200%);
   border-right: 1px solid rgba(255,255,255,.55);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 40px rgba(15,23,42,.06);
 }
 html.dark .app-sidebar, html.dark .mobile-drawer-panel {
   background:
-    linear-gradient(180deg, rgba(99,102,241,.16), rgba(99,102,241,.05)),
-    linear-gradient(180deg, rgba(13,16,23,.5), rgba(11,13,18,.34));
-  border-right: 1px solid rgba(255,255,255,.14);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 0 40px rgba(0,0,0,.3);
+    linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.02) 32%, transparent 55%),
+    linear-gradient(180deg, rgba(99,102,241,.24), rgba(99,102,241,.06)),
+    linear-gradient(180deg, rgba(13,16,23,.30), rgba(11,13,18,.16));
+  border-right: 1px solid rgba(255,255,255,.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 0 40px rgba(0,0,0,.3);
 }
 .mobile-bottom-nav {
-  background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.42));
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
+  background: linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.34));
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  backdrop-filter: blur(32px) saturate(200%);
   border-top: 1px solid rgba(255,255,255,.6);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 -8px 32px rgba(15,23,42,.08);
 }
 html.dark .mobile-bottom-nav {
   background:
-    linear-gradient(180deg, rgba(99,102,241,.16), rgba(99,102,241,.05)),
-    linear-gradient(180deg, rgba(13,16,23,.5), rgba(11,13,18,.34));
-  border-top: 1px solid rgba(255,255,255,.14);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 -8px 32px rgba(0,0,0,.35);
+    linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.02) 32%, transparent 55%),
+    linear-gradient(180deg, rgba(99,102,241,.24), rgba(99,102,241,.06)),
+    linear-gradient(180deg, rgba(13,16,23,.30), rgba(11,13,18,.16));
+  border-top: 1px solid rgba(255,255,255,.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 -8px 32px rgba(0,0,0,.35);
 }
 .mobile-app-header {
-  background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.42));
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
+  background: linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.34));
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  backdrop-filter: blur(32px) saturate(200%);
   border-bottom: 1px solid rgba(255,255,255,.55);
   box-shadow: inset 0 -1px 0 rgba(255,255,255,.35);
 }
 html.dark .mobile-app-header {
   background:
-    linear-gradient(180deg, rgba(99,102,241,.16), rgba(99,102,241,.05)),
-    linear-gradient(180deg, rgba(13,16,23,.5), rgba(11,13,18,.34));
-  border-bottom: 1px solid rgba(255,255,255,.14);
+    linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.02) 32%, transparent 55%),
+    linear-gradient(180deg, rgba(99,102,241,.24), rgba(99,102,241,.06)),
+    linear-gradient(180deg, rgba(13,16,23,.30), rgba(11,13,18,.16));
+  border-bottom: 1px solid rgba(255,255,255,.22);
   box-shadow: inset 0 -1px 0 rgba(255,255,255,.08);
 }
 
