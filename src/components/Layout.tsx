@@ -35,7 +35,7 @@ function AccountBox() {
     setAvatarFailed(false);
     if (!user || !avatarPath) { setPrivateAvatar(undefined); return () => { active = false; }; }
     getPrivateImageUrl(user.id, avatarPath).then((url) => { if (active) setPrivateAvatar(url); }).catch(() => { if (active) setPrivateAvatar(undefined); });
-    return () => { active = false; };
+  return () => { active = false; };
   }, [user?.id, avatarPath, savedAvatarUrl]);
   if (!cloudEnabled) return null;
   if (!user)
@@ -68,7 +68,8 @@ function AccountBox() {
 }
 
 export const NAV = DEFAULT_NAVIGATION;
-const PRIMARY_ROUTES = ['/', '/projects', '/library', '/goals', '/habits'];
+/* Bottom bar order: Home, Habits, Schedule, Goals, Projects. Life Library stays in the sidebar/drawer. */
+const PRIMARY_ROUTES = ['/', '/habits', '/schedule', '/goals', '/projects'];
 
 export default function Layout({ children }: { children: ReactNode }) {
   const ownerAdmin = useOwnerAdmin();
@@ -225,6 +226,10 @@ export default function Layout({ children }: { children: ReactNode }) {
     </div>
   );
 
+  /* Bottom bar items in PRIMARY_ROUTES order (not stored-menu order), so Schedule sits where Life Library was. */
+  const bottomNavItems = PRIMARY_ROUTES.map((to) => navItems.find((item) => item.to === to)).filter((item): item is NavigationItem => !!item && item.visible);
+  const bottomNavActive = bottomNavItems.findIndex((item) => (item.to === '/' ? loc.pathname === '/' : loc.pathname === item.to || loc.pathname.startsWith(`${item.to}/`)));
+
   return (
     <div className={cx('min-h-screen', ownerAdmin && 'owner-premium')}>
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -250,7 +255,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="app-main mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10"><div key={pageKey} className="page-enter"><Suspense fallback={<RouteSkeleton />}>{children}</Suspense></div></div>
       </div>
       <nav className="mobile-bottom-nav lg:hidden" aria-label={tr("Primary navigation")}>
-        {navItems.filter((item) => item.visible && PRIMARY_ROUTES.includes(item.to)).map(({ to, label, icon }) => { const Icon = NAVIGATION_ICONS[icon]; const defaultLabel = DEFAULT_NAVIGATION.find((item) => item.to === to)?.label; const display = label === defaultLabel ? tr(label) : label; return <NavLink key={to} to={to} end={to === '/'} aria-label={display} onTouchStart={() => prefetchRoute(to)} onPointerEnter={() => prefetchRoute(to)} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{to === '/' ? tr('Home') : display}</span></NavLink>; })}
+        <span className="nav-pill" aria-hidden="true" style={{ transform: `translateX(${Math.max(bottomNavActive, 0) * 100}%)`, opacity: bottomNavActive < 0 ? 0 : 1 }} />
+        {bottomNavItems.map(({ to, label, icon }) => { const Icon = NAVIGATION_ICONS[icon]; const defaultLabel = DEFAULT_NAVIGATION.find((item) => item.to === to)?.label; const display = label === defaultLabel ? tr(label) : label; return <NavLink key={to} to={to} end={to === '/'} aria-label={display} onTouchStart={() => prefetchRoute(to)} onPointerEnter={() => prefetchRoute(to)} className={({ isActive }) => cx('group flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[9px] font-medium', isActive ? 'text-indigo-700 dark:text-indigo-300' : 'muted')}><Icon className="nav-icon" size={18} /><span className="max-w-full truncate">{to === '/' ? tr('Home') : display}</span></NavLink>; })}
       </nav>
       <Suspense fallback={null}>{canShowPlanner && <PlanningAssistant onAddItems={addPlannedItems} />}</Suspense>
       <QuickAdd />
