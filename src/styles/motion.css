@@ -165,17 +165,17 @@ html.dark .mobile-app-header.is-scrolled { box-shadow: 0 8px 28px rgba(0,0,0,.35
   border-radius: 9999px;
   background:
     linear-gradient(180deg, rgba(165,180,252,.20), transparent 55%),
-    linear-gradient(135deg, rgba(79,70,229,.55), rgba(109,40,217,.48));
+    var(--accent-grad);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255,255,255,.12);
-  box-shadow: 0 4px 18px rgba(76,63,230,.30), inset 0 -1px 0 rgba(255,255,255,.06);
+  box-shadow: 0 4px 18px rgba(168,85,247,.35), inset 0 -1px 0 rgba(255,255,255,.06);
   pointer-events: none; transition: none;
 }
 .mobile-bottom-nav a:active { transform: scale(.93); }
-.mobile-bottom-nav a[aria-current="page"] { color: var(--accent); }
-html.dark .mobile-bottom-nav a[aria-current="page"] { color: #c7d2fe; }
-html.theme-forest .mobile-bottom-nav a[aria-current="page"] { color: #6ee7b7; }
+.mobile-bottom-nav a[aria-current="page"] { color: #fff; }
+html.dark .mobile-bottom-nav a[aria-current="page"] { color: #fff; }
+html.theme-forest .mobile-bottom-nav a[aria-current="page"] { color: #fff; }
 .mobile-bottom-nav a[aria-current="page"] .nav-icon { transform: translateY(-1px); }
 .mobile-bottom-nav span { font-size: 10px; }
 
@@ -185,15 +185,14 @@ html.theme-forest .mobile-bottom-nav a[aria-current="page"] { color: #6ee7b7; }
   border-radius: .75rem;
   background:
     linear-gradient(180deg, rgba(165,180,252,.20), transparent 55%),
-    linear-gradient(135deg, rgba(79,70,229,.55), rgba(109,40,217,.48));
+    var(--accent-grad);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255,255,255,.12);
-  box-shadow: 0 10px 24px rgba(76,63,230,.30), inset 0 -1px 0 rgba(255,255,255,.06);
+  box-shadow: 0 10px 24px rgba(168,85,247,.35), inset 0 -1px 0 rgba(255,255,255,.06);
   pointer-events: none; transition: none;
 }
-html.theme-forest .app-sidebar .sidebar-pill, html.theme-forest .mobile-drawer-panel .sidebar-pill { background-image: linear-gradient(100deg, rgba(16,185,129,.22), rgba(16,185,129,.09)); }
-html.theme-monochrome .app-sidebar .sidebar-pill, html.theme-monochrome .mobile-drawer-panel .sidebar-pill { background-image: none; background-color: rgba(0,0,0,.07); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+/* The menu pill is the same purple-pink gradient in every theme, like the buttons. */
 /* The pill owns the background now, so the active link itself stays transparent and lets it show through. */
 .app-sidebar .sidebar-link[aria-current="page"], .mobile-drawer-panel .sidebar-link[aria-current="page"] {
   background-image: none; background-color: transparent; box-shadow: none;
@@ -583,8 +582,7 @@ html.dark .mobile-app-header {
 html.dark .sidebar-link:not([aria-current="page"]):hover { background-color: rgba(255,255,255,.07); }
 /* Forest and monochrome paint their own active-link background; clear it so the sliding pill shows. */
 html.theme-forest .app-sidebar .sidebar-link[aria-current="page"], html.theme-forest .mobile-drawer-panel .sidebar-link[aria-current="page"] { background: transparent; background-image: none; box-shadow: none; }
-html.theme-monochrome .app-sidebar .sidebar-link[aria-current="page"], html.theme-monochrome .mobile-drawer-panel .sidebar-link[aria-current="page"] { background: transparent; background-image: none; box-shadow: none; color: #111; }
-html.theme-monochrome .app-sidebar .sidebar-pill, html.theme-monochrome .mobile-drawer-panel .sidebar-pill { background-image: none; background-color: #f2f2f2; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+html.theme-monochrome .app-sidebar .sidebar-link[aria-current="page"], html.theme-monochrome .mobile-drawer-panel .sidebar-link[aria-current="page"] { background: transparent; background-image: none; box-shadow: none; color: #fff; }
 
 /* Buttons and inputs: frosted, bright edge. */
 .btn-primary {
