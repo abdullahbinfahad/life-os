@@ -1,5 +1,5 @@
 import { translate as tr } from '../lib/locales';
-import { Check, Download, GripVertical, ImagePlus, Lock, Plus, Trash2, Upload } from 'lucide-react';
+import { Check, Download, ImagePlus, Lock, Plus, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDragSensors } from '../lib/dnd';
@@ -21,8 +21,10 @@ import { createClient } from '@supabase/supabase-js';
 
 function SortableCategoryRow({ category, count, onUpdate, onDelete }: { category: { id: string; icon: string; color: string; name: string }; count: number; onUpdate: (patch: { icon?: string; color?: string; name?: string }) => void; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
-  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.65 : 1 }} className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 p-2 dark:border-white/[.06]">
-    <button type="button" className="btn-ghost !p-1.5 touch-none" aria-label={`${tr('Reorder')} ${category.name}`} title={tr('Drag to reorder')} {...attributes} {...listeners}><GripVertical size={15} /></button>
+  const stopInteractiveDrag = (event: React.SyntheticEvent) => {
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable="true"]')) event.stopPropagation();
+  };
+  return <div ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} aria-label={`${tr('Reorder')} ${category.name}`} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.65 : 1, touchAction: 'pan-y' }} className="flex min-w-0 cursor-grab items-center gap-2 rounded-xl border border-slate-200 p-2 active:cursor-grabbing dark:border-white/[.06]">
     <input aria-label={tr('Category icon')} className="w-10 rounded-lg bg-transparent text-center text-lg outline-none" value={category.icon} onChange={(e) => onUpdate({ icon: e.target.value })} />
     <input aria-label={tr('Category color')} type="color" className="h-7 w-7 cursor-pointer rounded border-0 bg-transparent" value={category.color} onChange={(e) => onUpdate({ color: e.target.value })} />
     <input aria-label={tr('Category name')} className="min-w-0 flex-1 bg-transparent text-sm outline-none" value={category.name} onChange={(e) => onUpdate({ name: e.target.value })} />
@@ -37,7 +39,7 @@ export default function Settings() {
   const { user, sync, syncError, lastSynced } = useAuth();
   const ownerAdmin = useOwnerAdmin();
   const rewardPoints = s.rewardEvents.reduce((sum, event) => sum + event.points, 0);
-  const categorySensors = useDragSensors('handle');
+  const categorySensors = useDragSensors('row');
   const reorderCategory = (event: DragEndEvent) => {
     const from = s.categories.findIndex((category) => category.id === event.active.id);
     const to = s.categories.findIndex((category) => category.id === event.over?.id);

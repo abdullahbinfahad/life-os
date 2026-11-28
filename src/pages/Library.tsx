@@ -1,5 +1,5 @@
 import { translate as tr } from '../lib/locales';
-import { Copy, Download, Hash, CheckCircle2, Circle, Grid3x3, LayoutList, Library as LibIcon, Plus, Search, Sparkles, Star, Sunrise, Trash2, X, GripVertical } from 'lucide-react';
+import { Copy, Download, Hash, CheckCircle2, Circle, Grid3x3, LayoutList, Library as LibIcon, Plus, Search, Sparkles, Star, Sunrise, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDragSensors } from '../lib/dnd';
@@ -20,8 +20,10 @@ type SortBy = 'created' | 'priority' | 'due' | 'title' | 'manual';
 
 function SortableItem({ id, label, children, className }: { id: string; label: string; children: React.ReactNode; className?: string }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  return <div ref={setNodeRef} className={className} style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 2 : undefined, position: 'relative', opacity: isDragging ? 0.65 : undefined }}>
-    <button type="button" {...attributes} {...listeners} aria-label={`Reorder ${label}`} title="Drag or use arrow keys to reorder" className="touch-none rounded p-1 text-slate-400 hover:text-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"><GripVertical size={17} aria-hidden="true" /></button>
+  const stopInteractiveDrag = (event: React.SyntheticEvent) => {
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable="true"]')) event.stopPropagation();
+  };
+  return <div ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} aria-label={`Reorder ${label}`} className={cx(className, 'cursor-grab active:cursor-grabbing')} style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 2 : undefined, position: 'relative', opacity: isDragging ? 0.65 : undefined, touchAction: 'pan-y' }}>
     {children}
   </div>;
 }
@@ -46,7 +48,7 @@ export default function Library() {
   const [picker, setPicker] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const [inline, setInline] = useState('');
-  const sensors = useDragSensors('handle');
+  const sensors = useDragSensors('row');
 
   useEffect(() => setQ(params.get('q') ?? ''), [params]);
   useEffect(() => setLimit(PAGE), [q, cat, status, prio, horizon, starredOnly, tag]);

@@ -1,5 +1,5 @@
 import { translate as tr } from '../lib/locales';
-import { ArrowLeft, BookOpen, CalendarDays, Flame, Globe2, GripVertical, Hash, Lock, PenLine, Plus, Search, Smile, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, Flame, Globe2, Hash, Lock, PenLine, Plus, Search, Smile, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useDragSensors } from '../lib/dnd';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
@@ -20,9 +20,8 @@ const MOOD_COLORS = ['#f43f5e', '#f97316', '#eab308', '#22c55e', '#06b6d4'];
 const PROMPTS = ['What am I grateful for today?', 'What did I learn?', 'What would make tomorrow great?', 'What drained my energy?', 'A memory I want to keep…', 'Who made a difference today?'];
 
 function SortableJournalCard({ entry, selected, language, onSelect, disabled }: { entry: JournalEntry; selected: boolean; language: string; onSelect: () => void; disabled: boolean }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: entry.id, disabled });
-  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={cx('flex min-w-0 items-stretch gap-1 rounded-xl', isDragging && 'opacity-70')}>
-    <button ref={setActivatorNodeRef} type="button" aria-label="Drag to reorder journal entry" className="grid w-8 shrink-0 touch-none place-items-center rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 dark:hover:bg-white/[.05]" disabled={disabled} {...attributes} {...listeners}><GripVertical size={16} /></button>
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry.id, disabled });
+  return <div ref={setNodeRef} {...attributes} {...listeners} aria-label="Drag to reorder journal entry" style={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'pan-y' }} className={cx('flex min-w-0 cursor-grab items-stretch gap-1 rounded-xl active:cursor-grabbing', isDragging && 'opacity-70')}>
     <button type="button" onClick={onSelect} className={cx('journal-entry-card', selected && 'is-selected')} style={{ ['--mood' as string]: MOOD_COLORS[entry.mood - 1] }}>
       <span className="journal-entry-date"><b>{new Date(entry.date + 'T00:00:00').getDate()}</b><small>{new Date(entry.date + 'T00:00:00').toLocaleDateString(language, { month: 'short' })}</small></span>
       <span className="min-w-0 flex-1">
@@ -59,7 +58,7 @@ export default function Journal() {
   const list = journal.filter((j) => (visibilityFilter === 'all' || j.visibility === visibilityFilter) && (!moodFilter || j.mood === moodFilter) && (dateFilter === 'all' || j.date >= cutoff.toISOString().slice(0, 10)) && (!q || (j.title + j.content + j.tags.join(' ')).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => a.sortOrder != null && b.sortOrder != null ? a.sortOrder - b.sortOrder : a.sortOrder == null && b.sortOrder != null ? -1 : a.sortOrder != null && b.sortOrder == null ? 1 : b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   const hasFilters = Boolean(q || moodFilter || dateFilter !== 'all' || visibilityFilter !== 'all');
   const wordCount = (current?.content ?? '').trim().split(/\s+/).filter(Boolean).length;
-  const sensors = useDragSensors('handle');
+  const sensors = useDragSensors('row');
   const onDragEnd = (event: DragEndEvent) => {
     if (hasFilters || !event.over || event.active.id === event.over.id) return;
     const oldIndex = list.findIndex((item) => item.id === event.active.id); const newIndex = list.findIndex((item) => item.id === event.over?.id);

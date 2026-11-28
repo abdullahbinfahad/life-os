@@ -1,5 +1,5 @@
 import { translate as tr } from '../lib/locales';
-import { BookImage, Camera, ChevronLeft, ChevronRight, GripVertical, ImagePlus, Images, Plus, Search, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { BookImage, Camera, ChevronLeft, ChevronRight, ImagePlus, Images, Plus, Search, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useDragSensors } from '../lib/dnd';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
@@ -148,7 +148,7 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
   const preview = previewIndex === undefined ? undefined : gallery[previewIndex];
   const step = useCallback((delta: number) => setPreviewIndex((index) => (index === undefined || !gallery.length ? index : (index + delta + gallery.length) % gallery.length)), [gallery.length]);
   const touchStart = useRef<number>();
-  const sensors = useDragSensors('handle');
+  const sensors = useDragSensors('row');
   const reorder = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
     useStore.setState((state) => ({ albums: state.albums.map((current) => {
@@ -347,14 +347,18 @@ function AlbumEditor({ album, userId, updateAlbum, deleteAlbum, addMemory, updat
 }
 
 function MemoryCard({ memory, index, userId, busy, onUrl, onReplace, onRemovePhoto, onDelete, onPreview }: { memory: AlbumMemory; index: number; userId?: string; busy: boolean; onUrl: (id: string, url?: string) => void; onReplace: (file?: File) => void; onRemovePhoto: () => void; onDelete: () => void; onPreview: () => void }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: memory.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: memory.id });
   const fileInput = useRef<HTMLInputElement>(null);
   const { url: imageUrl, error: imageError } = useMemoryPhoto(memory, userId);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => { onUrl(memory.id, imageUrl); }, [memory.id, imageUrl, onUrl]);
   const hasPhoto = Boolean(memory.imagePath || memory.imageUrl);
   const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition, animationDelay: `${Math.min(index, 12) * 40}ms` };
-  return <article ref={setNodeRef} style={style} className={`memory-card ${hasPhoto ? 'has-photo' : 'is-text'} ${isDragging ? 'is-dragging' : ''}`}>
+  // Only the action buttons (replace/remove/delete photo) opt out of dragging; the photo itself stays draggable.
+  const stopInteractiveDrag = (event: React.SyntheticEvent) => {
+    if ((event.target as HTMLElement).closest('.memory-action')) event.stopPropagation();
+  };
+  return <article ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} aria-label={`${tr('Drag to reorder')}: ${memory.title}`} style={style} className={`memory-card cursor-grab active:cursor-grabbing ${hasPhoto ? 'has-photo' : 'is-text'} ${isDragging ? 'is-dragging' : ''}`}>
     {hasPhoto ? <div className="memory-photo">
       {imageUrl ? <button type="button" className="group block h-full w-full" onClick={onPreview} aria-label={`${tr('Preview photo')}: ${memory.title}`}>
         <img src={imageUrl} alt={memory.title} loading="lazy" onLoad={() => setLoaded(true)} className={loaded ? 'is-loaded' : ''} referrerPolicy="no-referrer" />
@@ -362,7 +366,6 @@ function MemoryCard({ memory, index, userId, busy, onUrl, onReplace, onRemovePho
       </button> : <div className="grid h-full place-items-center px-4 text-center text-xs muted">{imageError || <span className="skeleton-block absolute inset-0 rounded-none" />}</div>}
     </div> : <div className="memory-quote" style={coverStyle(memory.id)}><span aria-hidden="true">“</span><p>{memory.title}</p></div>}
     <div className="memory-body">
-      <button ref={setActivatorNodeRef} type="button" aria-label={`${tr('Drag to reorder')}: ${memory.title}`} className="memory-grip" {...attributes} {...listeners}><GripVertical size={16} /></button>
       <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={memory.title}>{memory.title}</h3>
       <input ref={fileInput} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => { onReplace(e.target.files?.[0]); e.currentTarget.value = ''; }} />
       <button className="memory-action" disabled={busy} onClick={() => fileInput.current?.click()} title={hasPhoto ? tr('Replace photo') : tr('Add photo')} aria-label={`${hasPhoto ? tr('Replace photo') : tr('Add photo')}: ${memory.title}`}><ImagePlus size={15} /></button>

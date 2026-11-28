@@ -3,7 +3,7 @@ import { useDragSensors } from '../lib/dnd';
 import { DndContext, closestCenter, pointerWithin, type CollisionDetection, type DragEndEvent, type DragOverEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CalendarDays, Check, CheckCircle2, Circle, GripHorizontal, GripVertical, Pencil, Plus, Target, Trash2, X } from 'lucide-react';
+import { CalendarDays, Check, CheckCircle2, Circle, Pencil, Plus, Target, Trash2, X } from 'lucide-react';
 import { useLongPress } from '../lib/useLongPress';
 import { dragHaptic } from '../lib/dnd';
 import type { Milestone } from '../lib/types';
@@ -14,11 +14,14 @@ import type { Goal } from '../lib/types';
 import { cx, daysBetween, fmtDate, pct, today, uid } from '../lib/utils';
 
 function SortableRow({ id, children, card = false, goalId, dropTarget = false }: { id: string; children: React.ReactNode; card?: boolean; goalId?: string; dropTarget?: boolean }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id, data: { goalId } });
-  const handle = <button ref={setActivatorNodeRef} type="button" {...attributes} {...listeners} aria-label={tr(card ? 'Drag to reorder goal' : 'Drag to move milestone (to another goal too)')} aria-roledescription={tr('Draggable')} className={card ? 'goal-grip' : 'milestone-grip'}>{card ? <GripHorizontal size={18} /> : <GripVertical size={15} />}</button>;
-  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, position: 'relative', zIndex: isDragging ? 40 : undefined }} className={cx(card ? 'card relative p-5 pt-6' : 'milestone-row group flex items-center gap-0.5 text-sm', isDragging && (card ? 'opacity-80 shadow-2xl' : 'is-dragging'), dropTarget && 'goal-drop-target')}>
-    {card ? handle : null}
-    {!card && handle}
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, data: { goalId } });
+  const stopInteractiveDrag = (event: React.SyntheticEvent) => {
+    const target = event.target as HTMLElement;
+    // A milestone row inside a goal card handles its own drag: let the event through so the inner row wins.
+    if (card && target.closest('.milestone-row')) return;
+    if (target.closest('button, a, input, textarea, select, [contenteditable="true"]')) event.stopPropagation();
+  };
+  return <div ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} aria-label={tr(card ? 'Drag to reorder goal' : 'Drag to move milestone (to another goal too)')} style={{ transform: CSS.Transform.toString(transform), transition, position: 'relative', zIndex: isDragging ? 40 : undefined, touchAction: card ? 'pan-y' : undefined }} className={cx(card ? 'card relative cursor-grab p-5 pt-6 active:cursor-grabbing' : 'milestone-row group flex cursor-grab items-center gap-0.5 text-sm active:cursor-grabbing', isDragging && (card ? 'opacity-80 shadow-2xl' : 'is-dragging'), dropTarget && 'goal-drop-target')}>
     {children}
   </div>;
 }
@@ -60,7 +63,7 @@ export default function Goals() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', categoryId: categories[0]?.id ?? '', targetDate: '' });
   const [ms, setMs] = useState<Record<string, string>>({});
-  const sensors = useDragSensors('handle');
+  const sensors = useDragSensors('row');
   const [overGoal, setOverGoal] = useState<string | null>(null);
   const [moveNote, setMoveNote] = useState('');
 
