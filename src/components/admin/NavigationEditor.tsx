@@ -3,7 +3,7 @@ import { useDragSensors } from '../../lib/dnd';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { DEFAULT_NAVIGATION, NAVIGATION_ICON_NAMES, NAVIGATION_ICONS, SAFE_NAVIGATION_ROUTES, defaultNavigationItemFor, type NavigationItem } from '../../lib/navigation';
 
@@ -20,9 +20,11 @@ type RowProps = {
 function SortableNavigationRow({ item, index, total, update, move, remove }: RowProps) {
   const Icon = NAVIGATION_ICONS[item.icon];
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
-  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`rounded-xl border border-slate-200 p-3 dark:border-white/10 ${isDragging ? 'z-10 opacity-70 shadow-xl' : ''}`}>
+  const stopInteractiveDrag = (event: React.SyntheticEvent) => {
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable="true"]')) event.stopPropagation();
+  };
+  return <div ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} aria-label={`${tr('Reorder')}: ${item.label}`} style={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'pan-y' }} className={`cursor-grab rounded-xl border border-slate-200 p-3 active:cursor-grabbing dark:border-white/10 ${isDragging ? 'z-10 opacity-70 shadow-xl' : ''}`}>
     <div className="flex min-w-0 flex-wrap items-center gap-2">
-      <button type="button" {...attributes} {...listeners} className="grid h-9 w-9 shrink-0 touch-none place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10" aria-label={`${tr('Reorder')}: ${item.label}`} title={tr('Drag to reorder')}><GripVertical size={16} /></button>
       <Icon size={17} className="shrink-0 text-indigo-500" />
       <span className="min-w-0 flex-1 break-words text-sm font-medium">{DEFAULT_NAVIGATION.find((entry) => entry.to === item.to)?.desc || item.to}</span>
       <button type="button" className="btn-ghost !p-1.5" title={tr('Move earlier')} aria-label={`${tr('Move')} ${item.label} ${tr('earlier')}`} onClick={() => move(index, -1)} disabled={index === 0}><ArrowUp size={15} /></button>
@@ -40,7 +42,7 @@ function SortableNavigationRow({ item, index, total, update, move, remove }: Row
 
 export default function NavigationEditor({ items, onChange, saving, error, onSave, loading }: Props) {
   const [routeToAdd, setRouteToAdd] = useState(SAFE_NAVIGATION_ROUTES[0]);
-  const sensors = useDragSensors('handle');
+  const sensors = useDragSensors('row');
   const update = (index: number, patch: Partial<NavigationItem>) => onChange(items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
   const move = (index: number, direction: -1 | 1) => {
     const nextIndex = index + direction;
