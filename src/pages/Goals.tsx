@@ -4,7 +4,6 @@ import { DndContext, closestCenter, pointerWithin, type CollisionDetection, type
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { CalendarDays, Check, CheckCircle2, Circle, Pencil, Plus, Target, Trash2, X } from 'lucide-react';
-import { useLongPress } from '../lib/useLongPress';
 import { dragHaptic } from '../lib/dnd';
 import type { Milestone } from '../lib/types';
 import { useState } from 'react';
@@ -30,13 +29,12 @@ function MilestoneRow({ goal, milestone, goals, onToggle, onSave, onDelete, onMo
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(milestone.title);
   const [due, setDue] = useState(milestone.dueDate ?? '');
-  const press = useLongPress(() => { setTitle(milestone.title); setDue(milestone.dueDate ?? ''); setEditing(true); }, onToggle);
   const save = () => { const value = title.trim(); if (value) onSave({ title: value, dueDate: due || undefined }); setEditing(false); };
   if (editing) return <div className="milestone-edit">
-    <input autoFocus className="input min-w-0 !py-2 text-sm" value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') save(); if (event.key === 'Escape') setEditing(false); }} aria-label={tr('Milestone')} />
-    <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+    <input autoFocus className="input min-w-0 !py-1.5 text-sm" value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') save(); if (event.key === 'Escape') setEditing(false); }} aria-label={tr('Milestone')} />
+    <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
       <div className="relative min-w-0">
-        <input type="date" className="input !w-auto !py-1.5 text-xs" value={due} onChange={(event) => setDue(event.target.value)} aria-label={tr('Due date')} />
+        <input type="date" className="input !min-h-9 !w-auto !py-1.5 text-xs" value={due} onChange={(event) => setDue(event.target.value)} aria-label={tr('Due date')} />
         {!due && <span className="due-date-hint pointer-events-none absolute inset-y-0 left-3 items-center gap-1 text-xs muted" aria-hidden="true"><CalendarDays size={13} />{tr('Due date')}</span>}
       </div>
       {goals.length > 1 && <select className="input !w-auto min-w-0 max-w-[12rem] !py-1.5 text-xs" value={goal.id} onChange={(event) => { if (event.target.value !== goal.id) { onMove(event.target.value); setEditing(false); } }} aria-label={tr('Move to goal')}>{goals.map((item) => <option key={item.id} value={item.id}>{item.id === goal.id ? `📍 ${item.title}` : `→ ${item.title}`}</option>)}</select>}
@@ -47,7 +45,7 @@ function MilestoneRow({ goal, milestone, goals, onToggle, onSave, onDelete, onMo
     </div>
   </div>;
   return <>
-    <button type="button" role="checkbox" aria-checked={milestone.done} title={tr('Tap to tick · long-press or double-click to edit')} className={cx('milestone-toggle', milestone.done && 'is-done')} {...press}>
+    <button type="button" role="checkbox" aria-checked={milestone.done} title={tr('Tap to tick · tap the pencil to edit')} className={cx('milestone-toggle', milestone.done && 'is-done')} onClick={onToggle}>
       <span className="milestone-check" aria-hidden="true">{milestone.done ? <CheckCircle2 size={19} /> : <Circle size={19} />}</span>
       <span className="min-w-0 flex-1 text-left"><span className={cx('break-words', milestone.done && 'line-through muted')}>{milestone.title}</span>{milestone.dueDate && <span className="mt-0.5 block text-xs muted">{tr('Due date')}: {fmtDate(milestone.dueDate)}</span>}</span>
     </button>
@@ -185,7 +183,7 @@ export default function Goals() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <div className="label mb-1 flex items-center justify-between"><span>{tr("Milestones")}</span>{g.milestones.length > 0 && <span className="text-[10px] font-normal normal-case tracking-normal opacity-70">{tr('Long-press to edit')}</span>}</div>
+                  <div className="label mb-1"><span>{tr("Milestones")}</span></div>
                   <SortableContext items={g.milestones.map((m) => `milestone:${m.id}`)} strategy={verticalListSortingStrategy}>
                   {g.milestones.map((m) => (
                     <SortableRow key={m.id} id={`milestone:${m.id}`} goalId={g.id}>
