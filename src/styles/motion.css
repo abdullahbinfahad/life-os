@@ -454,3 +454,153 @@ html:not(.dark) .milestone-row.is-dragging { background: #fff; }
 /* Long-press-to-drag rows: no iOS callout / text selection while holding. */
 [aria-roledescription="sortable"] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 [aria-roledescription="sortable"] input, [aria-roledescription="sortable"] textarea { -webkit-user-select: text; user-select: text; }
+
+/* ---------- Liquid Glass: frosted translucent surfaces ---------- */
+/* The page behind the glass carries soft color, so the blur has something to refract. */
+html:not(.dark) body {
+  background-color: #edf0f6;
+  background-image:
+    radial-gradient(1200px 600px at 8% -10%, rgba(99,102,241,.16), transparent 60%),
+    radial-gradient(1000px 500px at 95% 0%, rgba(34,211,238,.12), transparent 55%),
+    radial-gradient(900px 500px at 50% 110%, rgba(244,114,182,.10), transparent 60%);
+}
+html.dark body {
+  background-color: #07080d;
+  background-image:
+    radial-gradient(1000px 500px at 10% -10%, rgba(99,102,241,.22), transparent 60%),
+    radial-gradient(900px 500px at 95% 0%, rgba(34,211,238,.13), transparent 55%),
+    radial-gradient(800px 500px at 50% 110%, rgba(168,85,247,.13), transparent 60%);
+}
+
+/* Cards: translucent, blurred, bright top edge, soft shadow. */
+.card {
+  background: linear-gradient(135deg, rgba(255,255,255,.68), rgba(255,255,255,.42));
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255,255,255,.65);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(255,255,255,.2), 0 10px 36px rgba(15,23,42,.10);
+}
+html:not(.dark) .card {
+  background: linear-gradient(135deg, rgba(255,255,255,.68), rgba(255,255,255,.42));
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255,255,255,.65);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(255,255,255,.2), 0 10px 36px rgba(15,23,42,.10);
+}
+html.dark .card {
+  background: linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,.045));
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255,255,255,.13);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.03), 0 14px 44px rgba(0,0,0,.38);
+}
+/* Named themes keep their hue, as a translucent tint instead of a solid fill. */
+html.theme-paper .card {
+  background: linear-gradient(135deg, rgba(255,253,248,.72), rgba(250,247,239,.48));
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255,255,255,.65);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 10px 34px rgba(55,45,30,.10);
+}
+html.theme-forest .card {
+  background: linear-gradient(135deg, rgba(20,38,29,.62), rgba(12,24,18,.5));
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(166,208,180,.2);
+  box-shadow: inset 0 1px 0 rgba(210,255,224,.09), 0 14px 44px rgba(0,0,0,.3);
+}
+html.theme-sapphire .card {
+  background: linear-gradient(135deg, rgba(18,31,54,.62), rgba(9,17,31,.5));
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(147,197,253,.2);
+  box-shadow: inset 0 1px 0 rgba(219,234,254,.09), 0 14px 44px rgba(0,0,0,.3);
+}
+html.theme-monochrome .card {
+  background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 14px 44px rgba(0,0,0,.35);
+}
+
+/* Chrome: sidebar, drawer, bottom nav, header. */
+.app-sidebar, .mobile-drawer-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.4));
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border-right: 1px solid rgba(255,255,255,.55);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 40px rgba(15,23,42,.06);
+}
+html.dark .app-sidebar, html.dark .mobile-drawer-panel {
+  background: linear-gradient(180deg, rgba(13,16,23,.62), rgba(11,13,18,.46));
+  border-right: 1px solid rgba(255,255,255,.09);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 40px rgba(0,0,0,.3);
+}
+.mobile-bottom-nav {
+  background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.42));
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border-top: 1px solid rgba(255,255,255,.6);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 -8px 32px rgba(15,23,42,.08);
+}
+html.dark .mobile-bottom-nav {
+  background: linear-gradient(180deg, rgba(13,16,23,.62), rgba(11,13,18,.46));
+  border-top: 1px solid rgba(255,255,255,.1);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 -8px 32px rgba(0,0,0,.35);
+}
+.mobile-app-header {
+  background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.42));
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border-bottom: 1px solid rgba(255,255,255,.55);
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.35);
+}
+html.dark .mobile-app-header {
+  background: linear-gradient(180deg, rgba(13,16,23,.62), rgba(11,13,18,.46));
+  border-bottom: 1px solid rgba(255,255,255,.09);
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.06);
+}
+
+/* Sidebar hover stays frosted instead of a solid chip. */
+.sidebar-link:not([aria-current="page"]):hover { background-color: rgba(255,255,255,.4); }
+html.dark .sidebar-link:not([aria-current="page"]):hover { background-color: rgba(255,255,255,.07); }
+/* Forest and monochrome paint their own active-link background; clear it so the sliding pill shows. */
+html.theme-forest .app-sidebar .sidebar-link[aria-current="page"], html.theme-forest .mobile-drawer-panel .sidebar-link[aria-current="page"] { background: transparent; background-image: none; box-shadow: none; }
+html.theme-monochrome .app-sidebar .sidebar-link[aria-current="page"], html.theme-monochrome .mobile-drawer-panel .sidebar-link[aria-current="page"] { background: transparent; background-image: none; box-shadow: none; color: #111; }
+html.theme-monochrome .app-sidebar .sidebar-pill, html.theme-monochrome .mobile-drawer-panel .sidebar-pill { background-image: none; background-color: #f2f2f2; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+
+/* Buttons and inputs: frosted, bright edge. */
+.btn-primary {
+  border: 1px solid rgba(255,255,255,.35);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent), inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(255,255,255,.1);
+}
+.btn-ghost, .btn-outline {
+  background: rgba(255,255,255,.45);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.55);
+}
+html.dark .btn-ghost, html.dark .btn-outline { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
+.input {
+  background: rgba(255,255,255,.55);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.6);
+}
+html:not(.dark) .input { background: rgba(255,255,255,.55); border-color: rgba(255,255,255,.6); }
+html.dark .input { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
+
+/* Modal panels use !important white fills; the glass needs the same weight to win. */
+.modal-panel.card {
+  background: linear-gradient(135deg, rgba(255,255,255,.8), rgba(255,255,255,.58)) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid rgba(255,255,255,.65) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 24px 70px rgba(15,23,42,.2) !important;
+}
+html.dark .modal-panel.card {
+  background: linear-gradient(135deg, rgba(24,28,40,.84), rgba(18,21,28,.72)) !important;
+  border: 1px solid rgba(255,255,255,.13) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 24px 70px rgba(0,0,0,.5) !important;
+}
