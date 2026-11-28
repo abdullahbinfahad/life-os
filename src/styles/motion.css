@@ -11,14 +11,14 @@
   --accent: #635bff;
   --accent-2: #8b5cf6;
   --accent-3: #22d3ee;
-  --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 45%, #c026d3 78%, #ec4899 100%);
+  --accent-grad: linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%);
   --fab-bottom: calc(5.4rem + env(safe-area-inset-bottom));
 }
 html.dark { --accent: #6d66ff; }
-html.theme-forest { --accent: #10b981; --accent-2: #059669; --accent-3: #6ee7b7; --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 45%, #c026d3 78%, #ec4899 100%); }
-html.theme-paper { --accent: #6d5c42; --accent-2: #8a7556; --accent-3: #c9ae7c; --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 45%, #c026d3 78%, #ec4899 100%); }
-html.theme-monochrome { --accent: #f4f4f4; --accent-2: #cfcfcf; --accent-3: #ffffff; --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 45%, #c026d3 78%, #ec4899 100%); }
-html.theme-sapphire { --accent: #3b82f6; --accent-2: #6366f1; --accent-3: #38bdf8; --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 45%, #c026d3 78%, #ec4899 100%); }
+html.theme-forest { --accent: #10b981; --accent-2: #059669; --accent-3: #6ee7b7; --accent-grad: linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%); }
+html.theme-paper { --accent: #6d5c42; --accent-2: #8a7556; --accent-3: #c9ae7c; --accent-grad: linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%); }
+html.theme-monochrome { --accent: #f4f4f4; --accent-2: #cfcfcf; --accent-3: #ffffff; --accent-grad: linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%); }
+html.theme-sapphire { --accent: #3b82f6; --accent-2: #6366f1; --accent-3: #38bdf8; --accent-grad: linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%); }
 
 /* ---------- Page transitions ---------- */
 .page-enter { min-width: 0; }
@@ -127,13 +127,13 @@ html.theme-monochrome .fab-primary { color: #fff; }
 html.theme-forest .fab-primary { color: #fff; }
 .fab-secondary {
   z-index: 40; bottom: calc(var(--fab-bottom) + 4.25rem); right: calc(max(1rem, env(safe-area-inset-right)) + .375rem);
-  width: 2.75rem; height: 2.75rem; color: #8b5cf6;
-  border: 1px solid rgba(139,92,246,.35);
-  background: linear-gradient(135deg, rgba(99,102,241,.16), rgba(236,72,153,.12)); box-shadow: 0 8px 22px rgba(15,23,42,.14);
+  width: 2.75rem; height: 2.75rem; color: #6366f1;
+  border: 1px solid rgba(79,70,229,.35);
+  background: linear-gradient(135deg, rgba(79,70,229,.16), rgba(109,40,217,.12)); box-shadow: 0 8px 22px rgba(15,23,42,.14);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
 }
-html.dark .fab-secondary { background: linear-gradient(135deg, rgba(129,140,248,.20), rgba(236,72,153,.14)); color: #c7d2fe; }
-html.theme-forest .fab-secondary { background: linear-gradient(135deg, rgba(129,140,248,.20), rgba(236,72,153,.14)); color: #c7d2fe; }
+html.dark .fab-secondary { background: linear-gradient(135deg, rgba(99,102,241,.20), rgba(109,40,217,.14)); color: #c7d2fe; }
+html.theme-forest .fab-secondary { background: linear-gradient(135deg, rgba(99,102,241,.20), rgba(109,40,217,.14)); color: #c7d2fe; }
 .fab-secondary.is-open { transform: rotate(90deg); }
 .fab:active { transform: scale(.9); }
 @media (hover: hover) and (pointer: fine) { .fab:hover { transform: translateY(-2px) scale(1.06); } .fab-secondary.is-open:hover { transform: rotate(90deg) scale(1.06); } }
@@ -165,17 +165,17 @@ html.dark .mobile-app-header.is-scrolled { box-shadow: 0 8px 28px rgba(0,0,0,.35
   border-radius: 9999px;
   background:
     linear-gradient(180deg, rgba(165,180,252,.20), transparent 55%),
-    var(--accent-grad);
+    linear-gradient(135deg, rgba(79,70,229,.55), rgba(109,40,217,.48));
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255,255,255,.12);
-  box-shadow: 0 4px 18px rgba(168,85,247,.35), inset 0 -1px 0 rgba(255,255,255,.06);
+  box-shadow: 0 4px 18px rgba(76,63,230,.30), inset 0 -1px 0 rgba(255,255,255,.06);
   pointer-events: none; transition: none;
 }
 .mobile-bottom-nav a:active { transform: scale(.93); }
-.mobile-bottom-nav a[aria-current="page"] { color: #fff; }
-html.dark .mobile-bottom-nav a[aria-current="page"] { color: #fff; }
-html.theme-forest .mobile-bottom-nav a[aria-current="page"] { color: #fff; }
+.mobile-bottom-nav a[aria-current="page"] { color: var(--accent); }
+html.dark .mobile-bottom-nav a[aria-current="page"] { color: #c7d2fe; }
+html.theme-forest .mobile-bottom-nav a[aria-current="page"] { color: #6ee7b7; }
 .mobile-bottom-nav a[aria-current="page"] .nav-icon { transform: translateY(-1px); }
 .mobile-bottom-nav span { font-size: 10px; }
 
@@ -185,14 +185,15 @@ html.theme-forest .mobile-bottom-nav a[aria-current="page"] { color: #fff; }
   border-radius: .75rem;
   background:
     linear-gradient(180deg, rgba(165,180,252,.20), transparent 55%),
-    var(--accent-grad);
+    linear-gradient(135deg, rgba(79,70,229,.55), rgba(109,40,217,.48));
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255,255,255,.12);
-  box-shadow: 0 10px 24px rgba(168,85,247,.35), inset 0 -1px 0 rgba(255,255,255,.06);
+  box-shadow: 0 10px 24px rgba(76,63,230,.30), inset 0 -1px 0 rgba(255,255,255,.06);
   pointer-events: none; transition: none;
 }
-/* The menu pill is the same purple-pink gradient in every theme, like the buttons. */
+html.theme-forest .app-sidebar .sidebar-pill, html.theme-forest .mobile-drawer-panel .sidebar-pill { background-image: linear-gradient(100deg, rgba(16,185,129,.22), rgba(16,185,129,.09)); }
+html.theme-monochrome .app-sidebar .sidebar-pill, html.theme-monochrome .mobile-drawer-panel .sidebar-pill { background-image: none; background-color: rgba(0,0,0,.07); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
 /* The pill owns the background now, so the active link itself stays transparent and lets it show through. */
 .app-sidebar .sidebar-link[aria-current="page"], .mobile-drawer-panel .sidebar-link[aria-current="page"] {
   background-image: none; background-color: transparent; box-shadow: none;
@@ -582,28 +583,29 @@ html.dark .mobile-app-header {
 html.dark .sidebar-link:not([aria-current="page"]):hover { background-color: rgba(255,255,255,.07); }
 /* Forest and monochrome paint their own active-link background; clear it so the sliding pill shows. */
 html.theme-forest .app-sidebar .sidebar-link[aria-current="page"], html.theme-forest .mobile-drawer-panel .sidebar-link[aria-current="page"] { background: transparent; background-image: none; box-shadow: none; }
-html.theme-monochrome .app-sidebar .sidebar-link[aria-current="page"], html.theme-monochrome .mobile-drawer-panel .sidebar-link[aria-current="page"] { background: transparent; background-image: none; box-shadow: none; color: #fff; }
+html.theme-monochrome .app-sidebar .sidebar-link[aria-current="page"], html.theme-monochrome .mobile-drawer-panel .sidebar-link[aria-current="page"] { background: transparent; background-image: none; box-shadow: none; color: #111; }
+html.theme-monochrome .app-sidebar .sidebar-pill, html.theme-monochrome .mobile-drawer-panel .sidebar-pill { background-image: none; background-color: #f2f2f2; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
 
 /* Buttons and inputs: frosted, bright edge. */
 .btn-primary {
   border: 1px solid rgba(255,255,255,.35);
-  box-shadow: 0 8px 24px rgba(168,85,247,.35), inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(255,255,255,.1);
+  box-shadow: 0 8px 24px rgba(76,63,230,.30), inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(255,255,255,.1);
 }
-/* Forest's green primary is set in index.css; the purple-pink gradient wins here. */
+/* Forest's green primary is set in index.css; the menu-pill indigo-violet wins here. */
 html.theme-forest .btn-primary {
   background-image: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.22) 50%, transparent 65%), var(--accent-grad);
-  background-color: #7c5cf0;
+  background-color: #4f46e5;
   color: #fff;
 }
 .btn-ghost, .btn-outline {
-  background: linear-gradient(135deg, rgba(99,102,241,.14), rgba(236,72,153,.10));
+  background: linear-gradient(135deg, rgba(79,70,229,.14), rgba(109,40,217,.10));
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(139,92,246,.32);
+  border: 1px solid rgba(79,70,229,.32);
 }
-html.dark .btn-ghost, html.dark .btn-outline { background: linear-gradient(135deg, rgba(129,140,248,.16), rgba(236,72,153,.12)); border-color: rgba(167,139,250,.35); }
-html.theme-forest .btn-ghost, html.theme-forest .btn-outline { border-color: rgba(139,92,246,.32); }
-html.theme-forest .btn-outline:hover, html.theme-forest .btn-ghost:hover { background: linear-gradient(135deg, rgba(99,102,241,.20), rgba(236,72,153,.14)); }
+html.dark .btn-ghost, html.dark .btn-outline { background: linear-gradient(135deg, rgba(99,102,241,.16), rgba(109,40,217,.12)); border-color: rgba(129,140,248,.35); }
+html.theme-forest .btn-ghost, html.theme-forest .btn-outline { border-color: rgba(79,70,229,.32); }
+html.theme-forest .btn-outline:hover, html.theme-forest .btn-ghost:hover { background: linear-gradient(135deg, rgba(79,70,229,.20), rgba(109,40,217,.14)); }
 .input {
   background: rgba(255,255,255,.55);
   -webkit-backdrop-filter: blur(12px);
