@@ -3,7 +3,7 @@ import { useDragSensors } from '../lib/dnd';
 import { DndContext, closestCenter, pointerWithin, type CollisionDetection, type DragEndEvent, type DragOverEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Check, CheckCircle2, Circle, GripHorizontal, GripVertical, Pencil, Plus, Target, Trash2, X } from 'lucide-react';
+import { CalendarDays, Check, CheckCircle2, Circle, GripHorizontal, GripVertical, Pencil, Plus, Target, Trash2, X } from 'lucide-react';
 import { useLongPress } from '../lib/useLongPress';
 import { dragHaptic } from '../lib/dnd';
 import type { Milestone } from '../lib/types';
@@ -32,7 +32,10 @@ function MilestoneRow({ goal, milestone, goals, onToggle, onSave, onDelete, onMo
   if (editing) return <div className="milestone-edit">
     <input autoFocus className="input min-w-0 !py-2 text-sm" value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') save(); if (event.key === 'Escape') setEditing(false); }} aria-label={tr('Milestone')} />
     <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
-      <input type="date" className="input !w-auto !py-1.5 text-xs" value={due} onChange={(event) => setDue(event.target.value)} aria-label={tr('Due date')} />
+      <div className="relative min-w-0">
+        <input type="date" className="input !w-auto !py-1.5 text-xs" value={due} onChange={(event) => setDue(event.target.value)} aria-label={tr('Due date')} />
+        {!due && <span className="due-date-hint pointer-events-none absolute inset-y-0 left-3 items-center gap-1 text-xs muted" aria-hidden="true"><CalendarDays size={13} />{tr('Due date')}</span>}
+      </div>
       {goals.length > 1 && <select className="input !w-auto min-w-0 max-w-[12rem] !py-1.5 text-xs" value={goal.id} onChange={(event) => { if (event.target.value !== goal.id) { onMove(event.target.value); setEditing(false); } }} aria-label={tr('Move to goal')}>{goals.map((item) => <option key={item.id} value={item.id}>{item.id === goal.id ? `📍 ${item.title}` : `→ ${item.title}`}</option>)}</select>}
       <span className="flex-1" />
       <button type="button" className="tap-action !opacity-100 text-rose-500" aria-label={tr('Delete milestone')} onClick={() => { if (confirm(tr('Delete this milestone?'))) onDelete(); }}><Trash2 size={15} /></button>
