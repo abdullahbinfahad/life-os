@@ -162,7 +162,9 @@ html.dark .mobile-app-header.is-scrolled { box-shadow: 0 8px 28px rgba(0,0,0,.35
 /* One shared pill that glides between items on tap (click-triggered sequence: ripple + press + pill glide + icon pop + page rise). */
 .mobile-bottom-nav .nav-pill {
   position: absolute; top: .4rem; bottom: calc(.4rem + env(safe-area-inset-bottom)); left: 4px; width: calc((100% - 8px) / 5);
-  border-radius: 9999px; background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 9999px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 42%, transparent), color-mix(in srgb, var(--accent-2) 30%, transparent));
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 35%, transparent), inset 0 1px 0 rgba(255,255,255,.22);
   pointer-events: none; transition: transform .38s var(--ease-spring), opacity .2s ease;
 }
 .mobile-bottom-nav a:active { transform: scale(.93); }
