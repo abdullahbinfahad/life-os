@@ -59,13 +59,25 @@ html.theme-forest .ambient-grid, html.theme-paper .ambient-grid { display: none;
 
 /* ---------- Buttons ---------- */
 .btn { position: relative; isolation: isolate; transition: transform .18s var(--ease-out), background-color .2s ease, box-shadow .25s ease, border-color .2s ease, color .2s ease, opacity .2s ease; }
-.btn-primary { background-image: var(--accent-grad); background-color: var(--accent); overflow: hidden; }
-html:not(.dark) .btn-primary { background-image: var(--accent-grad); }
-/* Hover sheen drawn inside the button's own background (no pseudo-element, so it can never
-   leak outside the button — the old ::after version painted a pale band on some cards). */
+/* Primary buttons wear the menu pill's frosted indigo-violet, not a flat bright blue. */
+.btn-primary {
+  background-image:
+    linear-gradient(180deg, rgba(165,180,252,.20), transparent 55%),
+    linear-gradient(135deg, rgba(79,70,229,.55), rgba(109,40,217,.48));
+  background-color: transparent;
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+html:not(.dark) .btn-primary {
+  background-image:
+    linear-gradient(180deg, rgba(165,180,252,.20), transparent 55%),
+    linear-gradient(135deg, rgba(79,70,229,.55), rgba(109,40,217,.48));
+}
+/* The white hover sheen is gone: on some themes it sat as a pale band mid-button. */
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .btn-primary { background-image: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.22) 50%, transparent 65%), var(--accent-grad); background-size: 250% 100%, 100% 100%; background-position: 130% 0, 0 0; background-repeat: no-repeat; transition: background-position .8s var(--ease-out), transform .18s var(--ease-out), box-shadow .25s ease; }
-  .btn-primary:hover { background-position: -30% 0, 0 0; transform: translateY(-1px); box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 34%, transparent); }
+  .btn-primary { transition: transform .18s var(--ease-out), box-shadow .25s ease; }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(76,63,230,.30); }
   .btn-outline:hover, .btn-ghost:hover { transform: translateY(-1px); }
 }
 .btn:active { transform: scale(.965); transition-duration: .08s; }
@@ -120,8 +132,12 @@ html:not(.dark) .btn-primary { background-image: var(--accent-grad); }
 }
 .fab-primary {
   z-index: 30; bottom: var(--fab-bottom); width: 3.5rem; height: 3.5rem; color: #fff;
-  background: var(--accent-grad);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 42%, transparent), inset 0 1px 0 rgba(255,255,255,.25);
+  background:
+    linear-gradient(180deg, rgba(165,180,252,.20), transparent 55%),
+    linear-gradient(135deg, rgba(79,70,229,.55), rgba(109,40,217,.48));
+  box-shadow: 0 12px 28px rgba(76,63,230,.30), inset 0 1px 0 rgba(255,255,255,.25);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
 }
 html.theme-monochrome .fab-primary { color: #fff; }
 html.theme-forest .fab-primary { color: #fff; }
@@ -593,8 +609,10 @@ html.theme-monochrome .app-sidebar .sidebar-pill, html.theme-monochrome .mobile-
 }
 /* Forest's green primary is set in index.css; the menu-pill indigo-violet wins here. */
 html.theme-forest .btn-primary {
-  background-image: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.22) 50%, transparent 65%), var(--accent-grad);
-  background-color: #4f46e5;
+  background-image:
+    linear-gradient(180deg, rgba(165,180,252,.20), transparent 55%),
+    linear-gradient(135deg, rgba(79,70,229,.55), rgba(109,40,217,.48));
+  background-color: transparent;
   color: #fff;
 }
 .btn-ghost, .btn-outline {
