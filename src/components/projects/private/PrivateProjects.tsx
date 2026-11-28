@@ -3,7 +3,7 @@ import { useDragSensors } from '../../../lib/dnd';
 import { DndContext, closestCenter, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, Circle, CircleDashed, ClipboardList, GripVertical, LayoutGrid, Link2, List, Lock, Pencil, Plus, Search, Share2, Target, Trash2, Users, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, Circle, CircleDashed, ClipboardList, LayoutGrid, Link2, List, Lock, Pencil, Plus, Search, Share2, Target, Trash2, Users, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Category, Goal, Project, Task } from '../../../lib/types';
 import { addDays, cx, localeForLanguage, pct, today } from '../../../lib/utils';
@@ -46,9 +46,11 @@ function ProjectCard({ project, category, goal, language, layout, onOpen, onStat
   const status = meta(project.status);
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(1deg)` } : undefined;
   const statusSelect = <PillSelect className="tw-status-select" style={{ ['--tone' as string]: status.color }} icon={<span className="tw-dot" style={{ background: status.color }} />} value={project.status} ariaLabel={`${tr('Project status')}: ${project.title}`} onChange={onStatus} options={STATUS_OPTIONS()} />;
-  const grip = <button type="button" aria-label={`${tr('Move project')}: ${project.title}`} title={tr('Drag onto a status to move it')} {...attributes} {...listeners} className="tw-grip"><GripVertical size={16} /></button>;
+  const stopInteractiveDrag = (event: React.SyntheticEvent) => {
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable="true"]')) event.stopPropagation();
+  };
 
-  if (layout === 'list') return <article ref={setNodeRef} style={style} className={cx('pp-row', isDragging && 'is-dragging')}>
+  if (layout === 'list') return <article ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} aria-label={`${tr('Move project')}: ${project.title}`} style={style} className={cx('pp-row cursor-grab active:cursor-grabbing', isDragging && 'is-dragging')}>
     <ProgressRing value={progress} size={40} stroke={4} />
     <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
       <span className="block truncate text-sm font-semibold">{project.title}</span>
@@ -60,16 +62,14 @@ function ProjectCard({ project, category, goal, language, layout, onOpen, onStat
       </span>
     </button>
     <span className="hidden sm:inline-flex">{statusSelect}</span>
-    {grip}
   </article>;
 
-  return <article ref={setNodeRef} style={style} className={cx('tw-project-card', isDragging && 'is-dragging')} aria-label={`${tr('Private project')}: ${project.title}`}>
+  return <article ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} style={style} className={cx('tw-project-card cursor-grab active:cursor-grabbing', isDragging && 'is-dragging')} aria-label={`${tr('Private project')}: ${project.title}`}>
     <span className="tw-project-glow" style={{ background: category?.color ?? status.color }} aria-hidden="true" />
     <div className="flex min-w-0 items-center gap-2">
       {statusSelect}
       {category && <span className="pp-cat" style={{ ['--cat' as string]: category.color }}>{category.icon} {category.name}</span>}
       <span className="flex-1" />
-      {grip}
     </div>
     <button type="button" className="mt-3 flex w-full min-w-0 items-start gap-3 text-left" onClick={onOpen}>
       <span className="min-w-0 flex-1"><span className="block break-words text-[15px] font-semibold leading-snug">{project.title}</span>{project.description && <span className="mt-1 line-clamp-2 block break-words text-sm leading-5 muted">{project.description}</span>}</span>
@@ -97,7 +97,7 @@ export function PrivateProjectList({ projects, categories, goals, language, shar
   const [query, setQuery] = useState('');
   const [notice, setNotice] = useState('');
   useEffect(() => { try { localStorage.setItem('lifeos:pp-filter', filter); localStorage.setItem('lifeos:pp-layout', layout); } catch { /* storage blocked */ } }, [filter, layout]);
-  const sensors = useDragSensors('handle');
+  const sensors = useDragSensors('row');
   const catMap = useMemo(() => Object.fromEntries(categories.map((category) => [category.id, category])), [categories]);
   const goalMap = useMemo(() => Object.fromEntries(goals.map((goal) => [goal.id, goal])), [goals]);
   const counts = PROJECT_STATUS.reduce((acc, item) => ({ ...acc, [item.id]: projects.filter((project) => project.status === item.id).length }), { all: projects.length } as Record<Filter, number>);
@@ -147,17 +147,19 @@ export function PrivateProjectList({ projects, categories, goals, language, shar
           <button type="button" className="pp-add-card" onClick={onCreate}><Plus size={20} /><span>{tr('New project')}</span></button>
         </div>
         : <div className="tw-list">{shown.map((project) => <ProjectCard key={project.id} project={project} category={catMap[project.categoryId]} language={language} layout="list" onOpen={() => onOpen(project.id)} onStatus={(status) => onStatus(project.id, status)} />)}</div>}
-      {!empty && <p className="text-center text-xs muted">{tr('Tip: drag a project by its handle onto a status to move it.')}</p>}
+      {!empty && <p className="text-center text-xs muted">{tr('Tip: drag a project onto a status to move it.')}</p>}
     </DndContext>
   </div>;
 }
 
 /* ============================== DETAIL ============================== */
 
-function SortableTask({ id, children }: { id: string; children: (handle: ReactNode) => ReactNode }) {
+function SortableTask({ id, children }: { id: string; children: ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const handle = <button type="button" className="tw-grip !m-0" aria-label={tr('Reorder task')} {...attributes} {...listeners}><GripVertical size={15} /></button>;
-  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={cx('tw-task-row', isDragging && 'pp-dragging')}>{children(handle)}</div>;
+  const stopInteractiveDrag = (event: React.SyntheticEvent) => {
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable="true"]')) event.stopPropagation();
+  };
+  return <div ref={setNodeRef} {...attributes} {...listeners} onPointerDownCapture={stopInteractiveDrag} onTouchStartCapture={stopInteractiveDrag} aria-label={tr('Reorder task')} style={{ transform: CSS.Transform.toString(transform), transition }} className={cx('tw-task-row cursor-grab active:cursor-grabbing', isDragging && 'pp-dragging')}>{children}</div>;
 }
 
 export function PrivateProjectDetail({ project, categories, goals, language, canShare, onBack, onUpdate, onDelete, onShare, onAddTask, onUpdateTask, onDeleteTask, onOpenGoal }: {
@@ -174,7 +176,7 @@ export function PrivateProjectDetail({ project, categories, goals, language, can
   const [descOpen, setDescOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const desc = useRef<HTMLTextAreaElement>(null);
-  const sensors = useDragSensors('handle');
+  const sensors = useDragSensors('row');
   useEffect(() => { setTitleDraft(project.title); setEditTitle(false); setOpenTask(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }, [project.id]);
   useEffect(() => { const el = desc.current; if (el && descOpen) { el.style.height = 'auto'; el.style.height = `${Math.max(96, el.scrollHeight)}px`; } }, [descOpen, project.description]);
 
@@ -205,7 +207,7 @@ export function PrivateProjectDetail({ project, categories, goals, language, can
   const scheduled = project.tasks.filter((task) => task.dueDate).sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''));
   const locale = localeForLanguage(language);
 
-  const taskRow = (task: Task, handle?: ReactNode) => {
+  const taskRow = (task: Task) => {
     const blockedNow = isBlocked(project, task);
     const after = task.dependsOn.map((id) => project.tasks.find((other) => other.id === id)).filter(Boolean) as Task[];
     const expanded = openTask === task.id;
@@ -221,7 +223,6 @@ export function PrivateProjectDetail({ project, categories, goals, language, can
             {after.length > 0 && <span className={cx('tw-meta', blockedNow && 'is-soon')}><Link2 size={12} />{tr('After')} {after.map((item) => item.title).join(', ')}</span>}
           </span>
         </button>
-        {handle}
         <button type="button" className="tap-action tw-chevron" aria-label={tr(expanded ? 'Hide details' : 'Details')} onClick={() => setOpenTask(expanded ? null : task.id)}><ChevronDown size={16} className={cx('transition-transform', expanded && 'rotate-180')} /></button>
       </div>
       {expanded && <div className="tw-task-details">
@@ -295,7 +296,7 @@ export function PrivateProjectDetail({ project, categories, goals, language, can
           : <>
             {active.length > 0 && <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
               <SortableContext items={active.map((task) => task.id)} strategy={verticalListSortingStrategy}>
-                <div className="tw-list">{active.map((task) => <SortableTask key={task.id} id={task.id}>{(handle) => taskRow(task, handle)}</SortableTask>)}</div>
+                <div className="tw-list">{active.map((task) => <SortableTask key={task.id} id={task.id}>{taskRow(task)}</SortableTask>)}</div>
               </SortableContext>
             </DndContext>}
             {completed.length > 0 && <div className="tw-group">
