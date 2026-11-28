@@ -87,7 +87,7 @@ export const DEFAULT_NAVIGATION: DefaultNavigationItem[] = [
   { to: '/notifications', label: 'Reminders', desc: 'Due and unfinished personal work', icon: 'bell', visible: true },
   { to: '/calendar', label: 'Calendar & Timeline', desc: 'Deadlines and life horizons', icon: 'calendar-days', visible: true },
   { to: '/insights', label: 'Insights', desc: 'Progress and patterns over time', icon: 'bar-chart-3', visible: true },
-  { to: '/journal', label: 'Journal', desc: 'Reflections and memories', icon: 'book-open', visible: true },
+  { to: '/journal', label: 'Personal Diary', desc: 'Reflections and memories', icon: 'book-open', visible: true },
   { to: '/albums', label: 'Albums', desc: 'Memory tree and life moments', icon: 'images', visible: true },
   { to: '/public', label: 'Public Journal', desc: 'Read published reflections', icon: 'globe-2', visible: true },
   { to: '/settings', label: 'Settings', desc: 'Templates, imports, exports, privacy', icon: 'settings', visible: true },
@@ -107,9 +107,13 @@ const PROMOTED_DEFAULT_ORDER = [
 /** Upgrade only known seeded menus; never overwrite custom menu choices. */
 export function upgradeLegacyDefaultNavigation(items: NavigationItem[]): NavigationItem[] {
   const defaultOrders = [LEGACY_DEFAULT_ORDER, PROMOTED_DEFAULT_ORDER];
+  // The journal was renamed to Personal Diary; a stored menu carrying the old
+  // label is still a known seeded menu and must upgrade to the new defaults.
+  const legacyLabels: Record<string, string[]> = { '/journal': ['Journal'] };
   const isKnownDefault = defaultOrders.some((order) => items.length === order.length && items.every((item, index) => {
     const expected = DEFAULT_NAVIGATION.find((entry) => entry.to === order[index]);
-    return item.to === order[index] && item.label === expected?.label && item.icon === expected?.icon && item.visible === expected?.visible;
+    const labelMatches = item.label === expected?.label || (legacyLabels[item.to] ?? []).includes(item.label);
+    return item.to === order[index] && labelMatches && item.icon === expected?.icon && item.visible === expected?.visible;
   }));
   return isKnownDefault
     ? DEFAULT_NAVIGATION.map(({ to, label, icon, visible }) => ({ to, label, icon, visible }))

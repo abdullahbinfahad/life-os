@@ -380,7 +380,7 @@ export const useStore = create<State>()(
       }),
       deleteEntry: (id) => set((s) => {
         const entry = s.journal.find((j) => j.id === id);
-        return entry ? { journal: s.journal.filter((j) => j.id !== id), trash: [...s.trash, trashEntry('journal', entry.title || 'Journal entry', entry)] } : s;
+        return entry ? { journal: s.journal.filter((j) => j.id !== id), trash: [...s.trash, trashEntry('journal', entry.title || 'Diary entry', entry)] } : s;
       }),
 
       addAlbum: (a) => {
