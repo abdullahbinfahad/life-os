@@ -193,6 +193,9 @@ export default function Layout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', h);
   }, [nav]);
 
+  const sidebarItems = navItems.filter((item) => item.visible);
+  const sidebarActive = sidebarItems.findIndex((item) => (item.to === '/' ? loc.pathname === '/' : loc.pathname === item.to || loc.pathname.startsWith(`${item.to}/`)));
+
   const sidebar = (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-w-0 items-center gap-3 px-2 pb-4 pt-1">
@@ -207,19 +210,22 @@ export default function Layout({ children }: { children: ReactNode }) {
       </button>
       <nav aria-label={tr("Main menu")} className="min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto overscroll-contain py-1 pr-1">
         <div className="mb-2 px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[.16em] muted">{tr("Main menu")}</div>
-        {navItems.filter((item) => item.visible).map(({ to, label, icon }) => {
+        <div className="relative space-y-1">
+          <span aria-hidden="true" className="sidebar-pill" style={{ transform: `translateY(${sidebarActive * 48}px)`, opacity: sidebarActive < 0 ? 0 : 1 }} />
+          {sidebarItems.map(({ to, label, icon }) => {
           const Icon = NAVIGATION_ICONS[icon];
           return (
           <NavLink key={to} to={to} end={to === '/'}
             onPointerEnter={() => prefetchRoute(to)} onFocus={() => prefetchRoute(to)} onTouchStart={() => prefetchRoute(to)}
             className={({ isActive }) => cx(
-              'sidebar-link group flex min-h-10 items-center gap-2.5 rounded-xl px-2 py-1.5 text-[13px] font-medium leading-tight transition duration-200',
-              isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:translate-x-0.5 hover:bg-slate-100/90 dark:text-slate-300 dark:hover:bg-white/[.055]',
+              'sidebar-link group relative flex h-11 items-center gap-2.5 rounded-xl px-2 py-1.5 text-[13px] font-medium leading-tight transition duration-200',
+              isActive ? 'text-white' : 'text-slate-600 hover:translate-x-0.5 hover:bg-slate-100/90 dark:text-slate-300 dark:hover:bg-white/[.055]',
             )}>
             <span className="sidebar-icon grid h-8 w-8 shrink-0 place-items-center rounded-lg transition duration-200"><Icon size={17} className="transition-transform duration-200 group-hover:scale-110" /></span><span className="min-w-0">{label === DEFAULT_NAVIGATION.find((item) => item.to === to)?.label ? tr(label) : label}</span>
           </NavLink>
           );
         })}
+        </div>
         {ownerAdmin && <NavLink to="/admin" className={({ isActive }) => cx('sidebar-link group mt-2 flex min-h-10 items-center gap-2.5 rounded-xl border border-amber-300/50 bg-gradient-to-r from-amber-100/70 to-emerald-100/70 px-2 py-1.5 text-[13px] font-medium text-slate-800 shadow-sm transition duration-200 hover:-translate-y-0.5 dark:border-amber-300/20 dark:from-amber-400/10 dark:to-emerald-400/10 dark:text-slate-100', isActive && 'ring-2 ring-amber-400/50')}><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400/10"><Crown size={17} className="text-amber-600 dark:text-amber-300" /></span><span>{tr("Owner system console")}</span></NavLink>}
       </nav>
       <AccountBox />
